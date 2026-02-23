@@ -1,0 +1,136 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --background: 240 10% 2%;
+        /* Deeper Ink Black */
+        --foreground: 0 0% 98%;
+
+        --card: 240 10% 4%;
+        --card-foreground: 0 0% 98%;
+
+        --popover: 240 10% 4%;
+        --popover-foreground: 0 0% 98%;
+
+        --primary: 24 100% 55%;
+        /* Vibrant Liquid Saffron */
+        --primary-foreground: 240 10% 2%;
+
+        --secondary: 210 100% 55%;
+        /* Cobalt Blue accent */
+        --secondary-foreground: 240 5% 96%;
+
+        --muted: 240 5% 10%;
+        --muted-foreground: 240 5% 55%;
+
+        --accent: 322 90% 55%;
+        --accent-foreground: 0 0% 98%;
+
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 98%;
+
+        --border: 240 5% 12%;
+        --input: 240 5% 12%;
+        --ring: 240 5% 80%;
+
+        --radius: 1.5rem;
+        /* More modern higher radius */
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+
+    body {
+        background-color: hsl(var(--background));
+        color: hsl(var(--foreground));
+        background-image: radial-gradient(ellipse at top right, var(--tw-gradient-stops));
+        @apply from-purple-900/20 via-background to-background min-h-screen selection:bg-primary/30;
+        font-feature-settings: "rlig" 1, "calt" 1;
+    }
+}
+
+/* Glassmorphism 2.0 - "Liquid Glass" */
+.glass {
+    @apply bg-[#050507]/60 backdrop-blur-3xl border border-white/5 border-t-white/10 shadow-[0_10px_50px_-20px] shadow-black/80 transition-all duration-500;
+}
+
+.glass-card {
+    @apply bg-zinc-950/40 backdrop-blur-2xl border border-white/5 border-t-white/10 shadow-2xl rounded-[var(--radius)] hover:border-white/20 hover:bg-zinc-950/60 transition-all duration-500;
+}
+
+.glass-panel {
+    @apply bg-black/40 backdrop-blur-[40px] border-l border-white/5 shadow-2xl ring-1 ring-white/5;
+}
+
+.border-premium {
+    @apply border border-white/[0.05] border-t-white/[0.08];
+}
+
+.text-gradient {
+    @apply bg-gradient-to-br from-white via-zinc-200 to-zinc-500 bg-clip-text text-transparent;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
+}
+
+/* Animations */
+@keyframes blob {
+    0% {
+        transform: translate(0px, 0px) scale(1);
+    }
+
+    33% {
+        transform: translate(30px, -50px) scale(1.1);
+    }
+
+    66% {
+        transform: translate(-20px, 20px) scale(0.9);
+    }
+
+    100% {
+        transform: translate(0px, 0px) scale(1);
+    }
+}
+
+.animate-blob {
+    animation: blob 10s infinite alternate;
+}
+
+@keyframes pulse-slow {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.8;
+    }
+}
+
+.animate-pulse-slow {
+    animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animation-delay-2000 {
+    animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+    animation-delay: 4s;
+}
