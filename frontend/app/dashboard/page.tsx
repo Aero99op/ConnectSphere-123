@@ -1,7 +1,5 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import { Suspense } from "react";
 import { DepartmentDashboard } from "@/components/dashboard/department-dashboard";
 import { Loader2 } from "lucide-react";

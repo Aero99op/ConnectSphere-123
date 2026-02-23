@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import { MapPinOff, Home } from "lucide-react";
 import { Suspense } from "react";

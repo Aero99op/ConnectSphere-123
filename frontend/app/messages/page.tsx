@@ -1,5 +1,4 @@
 // Forced re-compile to resolve stale build chunks
-export const dynamic = "force-dynamic";
 import { MessagesLayout } from '@/components/chat/messages-layout';
 import { Metadata } from "next";
 import { Suspense } from "react";
