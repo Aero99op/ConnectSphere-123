@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { usePeer } from "@/hooks/use-peer";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MessageCircle, X, Loader2, Plus } from "lucide-react";
 import { ChatWindow } from "./chat-window";
@@ -17,6 +18,7 @@ export function ChatList() {
     const [userId, setUserId] = useState<string | null>(null);
     const [showCreateGroup, setShowCreateGroup] = useState(false);
     const [showNewChat, setShowNewChat] = useState(false);
+    const { incomingSignal, clearSignal } = usePeer();
 
     useEffect(() => {
         const getUser = async () => {
@@ -25,16 +27,15 @@ export function ChatList() {
             if (user) fetchConversations(user.id);
         };
         getUser();
+    }, []); // Initial load only
 
-        // Subscribe to new conversations
-        const channel = supabase.channel('conversations')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
-                if (userId) fetchConversations(userId);
-            })
-            .subscribe();
-
-        return () => { supabase.removeChannel(channel); };
-    }, [userId]); // Re-fetch when userId is set
+    // 📡 Handle Incoming Peer Signals
+    useEffect(() => {
+        if (incomingSignal?.type === 'REFRESH_LIST' || incomingSignal?.type === 'NEW_MSG') {
+            if (userId) fetchConversations(userId);
+            clearSignal();
+        }
+    }, [incomingSignal, userId]);
 
     const fetchConversations = async (uid: string) => {
         setLoading(true);

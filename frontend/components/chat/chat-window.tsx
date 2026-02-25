@@ -2,12 +2,13 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { usePeer } from "@/hooks/use-peer";
 import { Send, X, Loader2, Video, Paperclip, FileIcon, ImageIcon, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { FileUpload } from "@/components/ui/file-upload";
-import { downloadAndMergeChunks } from "@/lib/utils/chunk-downloader";
+import { downloadAndMergeChunks } from "@/lib/utils/chunk-uploader";
 
 interface ChatWindowProps {
     conversationId: string;
@@ -25,38 +26,23 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
     const [loading, setLoading] = useState(true);
     const [isUploadingMedia, setIsUploadingMedia] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const { incomingSignal, sendSignal, clearSignal } = usePeer();
 
     useEffect(() => {
         fetchMessages();
+    }, [conversationId]); // Initial load only
 
-        // Realtime Subscription
-        const channel = supabase
-            .channel(`chat:${conversationId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'messages',
-                    filter: `conversation_id=eq.${conversationId}`
-                },
-                async (payload) => {
-                    // Fetch sender details for the new message if it's a group chat
-                    const newMsg = payload.new;
-                    if (isGroup) {
-                        const { data } = await supabase.from('profiles').select('username, full_name, avatar_url').eq('id', newMsg.sender_id).single();
-                        if (data) newMsg.sender = data;
-                    }
-                    setMessages((prev) => [...prev, newMsg]);
-                    scrollToBottom();
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [conversationId]);
+    // 📡 Handle Incoming Peer Signals
+    useEffect(() => {
+        if (incomingSignal?.type === 'NEW_MSG') {
+            const { message, conversationId: signalConvId } = incomingSignal.payload;
+            if (signalConvId === conversationId) {
+                setMessages((prev) => [...prev, message]);
+                scrollToBottom();
+            }
+            clearSignal();
+        }
+    }, [incomingSignal, conversationId]);
 
     useEffect(() => {
         scrollToBottom();
@@ -95,7 +81,7 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
         setNewMessage(""); // Optimistic clear
         setIsUploadingMedia(false);
 
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from("messages")
             .insert({
                 conversation_id: conversationId,
@@ -104,11 +90,35 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                 file_urls: fileData?.urls || [],
                 thumbnail_url: fileData?.thumb || null,
                 file_name: fileData?.name || null
-            });
+            })
+            .select(`
+                *,
+                sender:profiles!sender_id(username, full_name, avatar_url),
+                post:posts(id, file_urls, thumbnail_url, media_type, caption),
+                story:stories(id, media_url, media_type)
+            `)
+            .single();
 
         if (error) {
             console.error("Failed to send", error);
             toast.error("Message send failed");
+        } else if (data) {
+            // Optimistic update for sender
+            setMessages((prev) => [...prev, data]);
+            scrollToBottom();
+
+            // 📡 Send Signal to Peer (Receiver)
+            if (!isGroup) {
+                sendSignal(recipientId, 'NEW_MSG', { message: data, conversationId });
+            } else {
+                // For groups, we could broadcast to all participants via PeerJS
+                // but for V1 Gareeb-Pro, we'll signal the recipient list from a participants table if needed.
+                // For now, let's at least signal the recipient if it's a DM.
+                sendSignal(recipientId, 'NEW_MSG', { message: data, conversationId });
+            }
+
+            // Also notify sidebar to refresh
+            sendSignal(recipientId, 'REFRESH_LIST', {});
         }
     };
 

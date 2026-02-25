@@ -90,3 +90,42 @@ export async function uploadFileInChunks(
 
     return uploadedUrls;
 }
+
+/**
+ * 📥 "Tod Ke Jodo" Receiver
+ * Downloads all chunks in parallel and merges them into a single blob.
+ */
+export async function downloadAndMergeChunks(
+    urls: string[],
+    mimeType: string = "video/mp4",
+    onProgress?: (progress: number) => void
+): Promise<string> {
+    if (!urls || urls.length === 0) throw new Error("No URLs to download");
+
+    // If only one URL, just fetch it directly (optimization)
+    if (urls.length === 1) {
+        const response = await fetch(urls[0]);
+        const blob = await response.blob();
+        return URL.createObjectURL(new Blob([blob], { type: mimeType }));
+    }
+
+    const totalChunks = urls.length;
+    const chunkBlobs: Blob[] = new Array(totalChunks);
+    let chunksDownloaded = 0;
+
+    const downloadChunk = async (url: string, index: number) => {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Failed to download chunk ${index}`);
+        const blob = await response.blob();
+        chunkBlobs[index] = blob;
+        chunksDownloaded++;
+        if (onProgress) onProgress(Math.round((chunksDownloaded / totalChunks) * 100));
+    };
+
+    // Download chunks in parallel (browser handles max concurrent connections)
+    await Promise.all(urls.map((url, i) => downloadChunk(url, i)));
+
+    // Merge all blobs into one
+    const finalBlob = new Blob(chunkBlobs, { type: mimeType });
+    return URL.createObjectURL(finalBlob);
+}

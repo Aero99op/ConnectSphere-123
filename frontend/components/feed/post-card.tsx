@@ -5,7 +5,7 @@ import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Play, Loader2 } f
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
-import { downloadAndMergeChunks } from "@/lib/utils/chunk-downloader";
+import { downloadAndMergeChunks } from "@/lib/utils/chunk-uploader";
 import { CommentSheet } from "@/components/feed/comment-sheet";
 import { ShareSheet } from "@/components/feed/share-sheet";
 import { toast } from "sonner";
@@ -17,7 +17,7 @@ interface PostProps {
         username: string;
         avatar_url: string;
         caption: string;
-        file_urls: string[];
+        media_urls: string[];
         thumbnail_url: string;
         media_type: 'image' | 'video';
         likes_count: number;
@@ -70,7 +70,7 @@ export function PostCard({ post }: PostProps) {
         try {
             // "Tod Ke Jodo" download magic ✨
             const blobUrl = await downloadAndMergeChunks(
-                post.file_urls,
+                post.media_urls,
                 'video/mp4', // Default type, can be dynamic later if needed
                 (progress: number) => {
                     // Optional: Update a progress bar state here if we add one to the UI
@@ -162,7 +162,7 @@ export function PostCard({ post }: PostProps) {
                 <div className="relative w-full aspect-square md:aspect-[4/5] bg-black/40 overflow-hidden border-b border-white/5">
                     {post.media_type === 'image' ? (
                         <img
-                            src={post.file_urls[0]}
+                            src={post.media_urls[0]}
                             alt={post.caption}
                             className="w-full h-full object-cover select-none"
                             loading="lazy"

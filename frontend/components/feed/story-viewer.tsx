@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Heart, MessageCircle, Send, MoreHorizontal, ChevronLeft, ChevronRight, Eye } from "lucide-react";
+import { X, Heart, MessageCircle, Send, MoreHorizontal, ChevronLeft, ChevronRight, Eye, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { ShareSheet } from "./share-sheet";
+import { downloadAndMergeChunks } from "@/lib/utils/chunk-uploader";
 
 interface StoryViewerProps {
     initialStoryIndex: number;
@@ -22,6 +23,8 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
     const [comment, setComment] = useState("");
     const [showShareSheet, setShowShareSheet] = useState(false);
     const [userId, setUserId] = useState<string | null>(null);
+    const [mediaBlobUrl, setMediaBlobUrl] = useState<string | null>(null);
+    const [isLoadingMedia, setIsLoadingMedia] = useState(false);
 
     // Get Auth User once
     useEffect(() => {
@@ -40,7 +43,8 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
         avatar: currentStory.avatar_url
     } : { username: "User", avatar: "" };
 
-    const mediaUrl = currentStory.file_urls?.[0] || currentStory.media_url; // Handle both formats
+    const mediaUrls = currentStory.media_urls || currentStory.file_urls || (currentStory.media_url ? [currentStory.media_url] : []);
+    const mediaType = currentStory.media_type || 'image';
 
     useEffect(() => {
         // Reset state on slide change
@@ -48,6 +52,7 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
         setLiked(false);
         setPaused(false);
         setComment("");
+        setMediaBlobUrl(null);
 
         // Register View
         async function registerView() {
@@ -60,6 +65,34 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
             }
         }
         registerView();
+
+        // Handle chunked media merging
+        async function loadMedia() {
+            if (mediaUrls.length === 0) return;
+
+            // If it's a single image, we can just use the URL directly to be fast.
+            // But if it's multiple chunks, we MUST merge.
+            if (mediaUrls.length === 1 && mediaType === 'image') {
+                setMediaBlobUrl(mediaUrls[0]);
+                return;
+            }
+
+            setIsLoadingMedia(true);
+            setPaused(true); // Pause progress while loading
+            try {
+                const contentType = mediaType === 'video' ? 'video/mp4' : 'image/jpeg';
+                const blobUrl = await downloadAndMergeChunks(mediaUrls, contentType);
+                setMediaBlobUrl(blobUrl);
+            } catch (e) {
+                console.error("Story Media Load Failed", e);
+                toast.error("Media load nahi hua!");
+            } finally {
+                setIsLoadingMedia(false);
+                setPaused(false);
+            }
+        }
+
+        loadMedia();
 
     }, [currentIndex, userId, currentStory?.id]);
 
@@ -207,8 +240,24 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
                     <div className="absolute inset-y-0 right-0 w-1/3 z-10" onClick={nextStory} />
 
                     {/* Image/Video */}
-                    {mediaUrl ? (
-                        <img src={mediaUrl} className="w-full h-full object-contain" alt="Story" />
+                    {isLoadingMedia ? (
+                        <div className="flex flex-col items-center gap-4 text-primary">
+                            <Loader2 className="w-10 h-10 animate-spin" />
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em]">Assembling Chunks...</p>
+                        </div>
+                    ) : mediaBlobUrl ? (
+                        mediaType === 'video' ? (
+                            <video
+                                src={mediaBlobUrl}
+                                className="w-full h-full object-contain"
+                                autoPlay
+                                loop
+                                playsInline
+                                muted={false}
+                            />
+                        ) : (
+                            <img src={mediaBlobUrl} className="w-full h-full object-contain" alt="Story" />
+                        )
                     ) : (
                         <div className="w-full h-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-2xl px-8 text-center leading-relaxed">
                             {currentStory.caption || "No Media"}
@@ -216,7 +265,7 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
                     )}
 
                     {/* Caption Overlay */}
-                    {currentStory.caption && mediaUrl && (
+                    {currentStory.caption && mediaBlobUrl && (
                         <div className="absolute bottom-24 left-0 right-0 p-4 text-center">
                             <p className="text-white text-[15px] leading-snug font-medium drop-shadow-xl bg-black/60 inline-block px-5 py-2.5 rounded-2xl backdrop-blur-md border border-white/10">
                                 {currentStory.caption}
