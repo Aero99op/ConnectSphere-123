@@ -19,7 +19,7 @@ function GlobalHomeButtonContent() {
         const checkRole = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+                const { data } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
                 if (data) setRole(data.role as 'citizen' | 'official');
             }
         };

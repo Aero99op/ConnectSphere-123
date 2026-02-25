@@ -144,7 +144,7 @@ function HomeFeedContent() {
 
             if (user) {
                 setUserId(user.id);
-                const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+                const { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
                 setUserProfile(data);
                 const userRole = data?.role || 'citizen';
                 setRole(userRole);

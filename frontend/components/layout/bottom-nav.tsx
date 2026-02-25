@@ -16,7 +16,7 @@ function BottomNavContent() {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 // Fetch role AND assigned_area to be robust
-                const { data } = await supabase.from('profiles').select('role, assigned_area').eq('id', user.id).single();
+                const { data } = await supabase.from('profiles').select('role, assigned_area').eq('id', user.id).maybeSingle();
 
                 if (data) {
                     // Logic: Strict check for official role

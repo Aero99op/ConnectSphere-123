@@ -63,7 +63,7 @@ create table if not exists public.posts (
   caption text,
   file_urls text[] not null default '{}',
   thumbnail_url text,
-  media_type text check (media_type in ('image', 'video')),
+  media_type text check (media_type in ('image', 'video', 'text')),
   likes_count int default 0,
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
@@ -186,10 +186,16 @@ create or replace function public.handle_new_user()
 returns trigger as $$
 begin
   insert into public.profiles (id, username, full_name, role)
-  values (new.id, new.email, new.raw_user_meta_data->>'full_name', 'citizen');
+  values (new.id, split_part(new.email, '@', 1), new.raw_user_meta_data->>'full_name', 'citizen');
   return new;
 end;
 $$ language plpgsql security definer;
+
+-- Trigger to run every time a user signs up
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
 
 -- 13. REALTIME REPLICATION
 begin;
