@@ -20,13 +20,16 @@ function CreatePostPageContent() {
 
     useEffect(() => {
         // Check Auth
-        supabase.auth.getUser().then(({ data }) => {
-            if (data.user) {
-                setUserId(data.user.id);
+        const checkAuth = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                setUserId(session.user.id);
             } else {
+                // Let middleware handle initial protection, but if we get here with no session, then redirect
                 router.push("/login");
             }
-        });
+        };
+        checkAuth();
     }, [router]);
 
     const handleUploadComplete = (urls: string[], thumb?: string) => {
@@ -56,7 +59,7 @@ function CreatePostPageContent() {
         const { error } = await supabase.from("posts").insert({
             user_id: userId,
             caption: caption,
-            file_urls: fileUrls, // Save array to Supabase Text[] type column
+            media_urls: fileUrls, // Standardized column name ✨
             thumbnail_url: thumbnailUrl,
             media_type: mediaType,
             likes_count: 0
