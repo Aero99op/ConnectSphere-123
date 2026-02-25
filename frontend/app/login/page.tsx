@@ -23,6 +23,17 @@ function LoginContent() {
     const role = searchParams.get('role') || "citizen";
     const isOfficial = role === "official";
 
+    // Check if already logged in -> Redirect
+    useEffect(() => {
+        const checkUser = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                router.push(isOfficial ? "/?mode=department" : "/?mode=feed");
+            }
+        };
+        checkUser();
+    }, [isOfficial, router]);
+
     // Pre-fill credentials based on role
     useEffect(() => {
         if (isOfficial) {
@@ -95,10 +106,18 @@ function LoginContent() {
                 });
 
                 if (signUpError) {
-                    console.error("Auto-create failed:", signUpError.message);
-                    setMessage("Error: Could not create test account - " + signUpError.message);
-                    setLoading(false);
-                    return;
+                    console.log("Auto-create signup failed, might exist. Retrying login...", signUpError.message);
+
+                    // IF user already registered, just try signing in one last time 
+                    // This handles potential race conditions or existing accounts
+                    const { error: retryError } = await supabase.auth.signInWithPassword({ email, password });
+
+                    if (retryError) {
+                        console.error("Final login retry failed:", retryError.message);
+                        setMessage("Error: Test account setup failed - " + retryError.message);
+                        setLoading(false);
+                        return;
+                    }
                 }
 
                 // Now sign in with the newly created account
