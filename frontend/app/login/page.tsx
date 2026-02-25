@@ -114,7 +114,7 @@ function LoginContent() {
 
                     if (retryError) {
                         console.error("Final login retry failed:", retryError.message);
-                        setMessage("Error: Test account setup failed - " + retryError.message);
+                        setMessage("⚠️ Test password mismatch! Bhai, ek baar 'Send OTP' button use karke real OTP se login kar lo (Real email pe OTP aayega), uske baad ye shortcut chalne lagega.");
                         setLoading(false);
                         return;
                     }
