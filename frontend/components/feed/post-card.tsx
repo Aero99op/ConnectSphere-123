@@ -109,6 +109,17 @@ export function PostCard({ post }: PostProps) {
 
         if (!liked) {
             await supabase.rpc('increment_karma', { user_id_param: post.user_id });
+
+            // Trigger Notification
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user && post.user_id !== user.id) {
+                await supabase.from('notifications').insert({
+                    recipient_id: post.user_id,
+                    actor_id: user.id,
+                    type: 'like',
+                    entity_id: post.id
+                });
+            }
         }
     };
 

@@ -63,6 +63,22 @@ export function CommentSheet({ postId, open, onOpenChange }: CommentSheetProps) 
         if (error) {
             alert("Comment fail ho gaya!");
         } else {
+            // Trigger Notification
+            const { data: postData } = await supabase
+                .from('posts')
+                .select('user_id')
+                .eq('id', postId)
+                .single();
+
+            if (postData && postData.user_id !== user.id) {
+                await supabase.from('notifications').insert({
+                    recipient_id: postData.user_id,
+                    actor_id: user.id,
+                    type: 'comment',
+                    entity_id: postId
+                });
+            }
+
             setNewComment("");
             fetchComments(); // Refresh
         }

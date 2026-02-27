@@ -6,6 +6,7 @@ import { Toaster } from "sonner"
 import { SplashLoader } from '@/components/ui/splash-loader'
 import { GlobalHomeButton } from '@/components/layout/global-home-button'
 import { CallManager } from '@/components/chat/call-manager'
+import { NotificationListener } from '@/components/layout/notification-listener'
 
 const interfaceFont = Inter({ subsets: ['latin'], variable: '--font-inter' })
 const displayFont = Outfit({ subsets: ['latin'], variable: '--font-outfit' })
@@ -57,6 +58,9 @@ export default function RootLayout({
 
                 {/* 🚀 Premium Splash Screen */}
                 <SplashLoader />
+
+                {/* Real-time Interaction Alerts 🔔 */}
+                <NotificationListener />
 
                 {/* Global Home Button for Citizen Mode */}
                 <GlobalHomeButton />

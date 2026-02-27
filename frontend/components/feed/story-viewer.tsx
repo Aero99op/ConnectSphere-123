@@ -136,24 +136,16 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
         setLiked(newLikedState);
 
         if (newLikedState) {
-            const { error } = await supabase.from('story_likes').insert({
-                story_id: currentStory.id,
-                user_id: userId
-            });
-            if (error && error.code !== '23505') { // Ignore unique violation
-                console.error(error);
-            }
-            toast.success("Loved it! ❤️");
-
-            // Send Notification to Story Owner
+            // Trigger Notification
             if (currentStory.user_id && currentStory.user_id !== userId) {
                 await supabase.from('notifications').insert({
-                    user_id: currentStory.user_id,
-                    source_user_id: userId,
+                    recipient_id: currentStory.user_id,
+                    actor_id: userId,
                     type: 'like',
-                    message: `liked your story.`
+                    entity_id: currentStory.id
                 });
             }
+            toast.success("Loved it! ❤️");
         } else {
             // Unlike logic
             await supabase.from('story_likes').delete()
@@ -168,11 +160,12 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
 
         // In our current schema we just send a DM basically or a notification
         // For now, we'll log it as a notification "comment" on the story
+        // Trigger Notification
         const { error } = await supabase.from('notifications').insert({
-            user_id: currentStory.user_id,
-            source_user_id: userId,
+            recipient_id: currentStory.user_id,
+            actor_id: userId,
             type: 'comment',
-            message: `replied to your story: "${comment}"`
+            entity_id: currentStory.id
         });
 
         if (error) {
