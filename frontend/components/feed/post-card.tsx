@@ -8,7 +8,9 @@ import { cn } from "@/lib/utils";
 import { downloadAndMergeChunks } from "@/lib/utils/chunk-uploader";
 import { CommentSheet } from "@/components/feed/comment-sheet";
 import { ShareSheet } from "@/components/feed/share-sheet";
+import { PostOptionsSheet } from "@/components/feed/post-options-sheet";
 import { toast } from "sonner";
+import { useEffect } from "react";
 
 interface PostProps {
     post: {
@@ -36,18 +38,21 @@ export function PostCard({ post }: PostProps) {
     const [showComments, setShowComments] = useState(false);
     const [showShareSheet, setShowShareSheet] = useState(false);
     const [isBookmarked, setIsBookmarked] = useState(false);
+    const [isDeleted, setIsDeleted] = useState(false);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-    // Check if bookmarked on mount
-    useState(() => {
-        const checkBookmark = async () => {
+    // Initial checks for bookmark and ownership
+    useEffect(() => {
+        const init = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
+                setCurrentUserId(user.id);
                 const { data } = await supabase.from('bookmarks').select('id').eq('post_id', post.id).eq('user_id', user.id).single();
                 if (data) setIsBookmarked(true);
             }
         };
-        checkBookmark();
-    });
+        init();
+    }, [post.id]);
 
     const handlePlay = async () => {
         if (videoBlobUrl) {
@@ -130,6 +135,8 @@ export function PostCard({ post }: PostProps) {
         }
     };
 
+    if (isDeleted) return null;
+
     return (
         <div className="group relative w-full mb-1">
             {/* Liquid Glow Underlay */}
@@ -153,9 +160,11 @@ export function PostCard({ post }: PostProps) {
                             </p>
                         </div>
                     </div>
-                    <button className="text-zinc-500 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full">
-                        <MoreHorizontal className="w-5 h-5" />
-                    </button>
+                    <PostOptionsSheet
+                        post={post}
+                        isOwner={currentUserId === post.user_id}
+                        onDelete={() => setIsDeleted(true)}
+                    />
                 </div>
 
                 {/* 2. Media Content */}
