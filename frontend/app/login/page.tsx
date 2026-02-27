@@ -4,19 +4,19 @@ export const dynamic = "force-dynamic";
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, Mail, Lock, User, Sparkles } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Suspense, useEffect } from 'react';
 import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
 
 function LoginContent() {
     const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [fullName, setFullName] = useState("");
     const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState("");
-    const [otp, setOtp] = useState("");
-    const [step, setStep] = useState(1);
-    const [tapCount, setTapCount] = useState(0);
+    const [mode, setMode] = useState<"login" | "signup">("login");
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -34,229 +34,205 @@ function LoginContent() {
         checkUser();
     }, [isOfficial, router]);
 
-    // Pre-fill credentials based on role
+    // Pre-fill credentials based on role (Jugaad for testing)
     useEffect(() => {
         if (isOfficial) {
             setEmail("spandandepartmentbbsr@gov.in");
-            setOtp("4321");
+            setPassword("1234");
         } else {
             setEmail("spandanpatra1234@gmail.com");
-            setOtp("1234");
+            setPassword("1234");
         }
     }, [isOfficial]);
 
-    const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setMessage("");
-
-        // JUGAD: Bypass OTP send for Test Accounts
-        if (
-            (email === "spandanpatra1234@gmail.com" && !isOfficial) ||
-            (email === "spandandepartmentbbsr@gov.in" && isOfficial)
-        ) {
-            setStep(2);
-            setLoading(false);
-            return;
-        }
-
-        const { error } = await supabase.auth.signInWithOtp({
-            email,
-            options: {
-                data: { role: role },
-                emailRedirectTo: `${window.location.origin}/auth/callback`,
-            }
-        });
-
-        if (error) {
-            setMessage("Error: " + error.message);
-        } else {
-            setStep(2);
-            setMessage("Magic Link/OTP sent to your email!");
-        }
-        setLoading(false);
-    };
-
-
-    const verifyOtp = async (e: React.FormEvent) => {
+    const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
 
-        // JUGAD: Magic Bypass for Test Accounts
-        // Creates a REAL Supabase session so auth works across all pages
-        if (
-            (email === "spandanpatra1234@gmail.com" && otp === "1234") ||
-            (email === "spandandepartmentbbsr@gov.in" && otp === "4321")
-        ) {
-            const password = "guest123456";
-            let { error: passError } = await supabase.auth.signInWithPassword({ email, password });
+        try {
+            if (mode === "login") {
+                const { error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password: password === "1234" ? "guest123456" : password, // Internal jugaad for test pass
+                });
 
-            if (passError) {
-                // Account doesn't exist yet — auto-create it (jugaad for test/demo)
-                console.log("Test account not found, auto-creating...", passError.message);
-                const { error: signUpError } = await supabase.auth.signUp({
+                if (error) {
+                    if (error.message.includes("Invalid login credentials") && password === "1234") {
+                        // If test bypass failed, maybe account doesn't exist, try auto-signup
+                        handleAutoSignup();
+                        return;
+                    }
+                    throw error;
+                }
+
+                toast.success("Welcome back! 🚀");
+            } else {
+                const { error } = await supabase.auth.signUp({
                     email,
                     password,
                     options: {
                         data: {
-                            role: isOfficial ? "official" : "citizen",
-                            full_name: isOfficial ? "Department BBSR" : "Spandan Patra",
-                        }
-                    }
+                            role: role,
+                            full_name: fullName,
+                        },
+                    },
                 });
 
-                if (signUpError) {
-                    console.log("Auto-create signup failed, might exist. Retrying login...", signUpError.message);
-
-                    // IF user already registered, just try signing in one last time 
-                    // This handles potential race conditions or existing accounts
-                    const { error: retryError } = await supabase.auth.signInWithPassword({ email, password });
-
-                    if (retryError) {
-                        console.error("Final login retry failed:", retryError.message);
-                        setMessage("⚠️ Test password mismatch! Bhai, ek baar 'Send OTP' button use karke real OTP se login kar lo (Real email pe OTP aayega), uske baad ye shortcut chalne lagega.");
-                        setLoading(false);
-                        return;
-                    }
-                }
-
-                // Now sign in with the newly created account
-                const result = await supabase.auth.signInWithPassword({ email, password });
-                if (result.error) {
-                    // signUp may have auto-signed us in already, check session
-                    const { data: { session } } = await supabase.auth.getSession();
-                    if (!session) {
-                        console.error("Login after signup failed:", result.error.message);
-                        setMessage("Error: " + result.error.message);
-                        setLoading(false);
-                        return;
-                    }
-                }
+                if (error) throw error;
+                toast.success("Account created! 🌟 Check your email if verification is on, otherwise just login.");
+                setMode("login");
             }
 
-            toast.success("Welcome aboard! 🚀");
             router.push(isOfficial ? "/?mode=department" : "/?mode=feed");
+        } catch (error: any) {
+            toast.error(error.message || "Something went wrong!");
+        } finally {
             setLoading(false);
-            return;
         }
+    };
 
-        const { error } = await supabase.auth.verifyOtp({
+    const handleAutoSignup = async () => {
+        const { error: signUpError } = await supabase.auth.signUp({
             email,
-            token: otp,
-            type: 'email'
+            password: "guest123456",
+            options: {
+                data: {
+                    role: isOfficial ? "official" : "citizen",
+                    full_name: isOfficial ? "Department BBSR" : "Spandan Patra",
+                }
+            }
         });
 
-        if (error) {
-            setMessage("Invalid OTP: " + error.message);
+        if (signUpError) {
+            toast.error("Auto-signup failed: " + signUpError.message);
         } else {
-            if (isOfficial) {
-                router.push("/dashboard");
-            } else {
-                router.push("/");
-            }
+            toast.success("Test Account Auto-created! 🚀");
+            router.push(isOfficial ? "/?mode=department" : "/?mode=feed");
         }
         setLoading(false);
     };
 
     return (
-        <div className="w-full max-w-md bg-zinc-900/80 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl z-10 relative">
-
-            <Link href="/role-selection" className="absolute top-4 left-4 text-zinc-400 hover:text-white">
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-md bg-zinc-900/80 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl z-10 relative"
+        >
+            <Link href="/role-selection" className="absolute top-4 left-4 text-zinc-400 hover:text-white transition-colors">
                 <ArrowLeft className="w-6 h-6" />
             </Link>
 
             <div className="text-center mb-8">
-                <div
-                    className="relative z-50 focus:outline-none transition-transform active:scale-95 mx-auto block"
+                <motion.div
+                    layout
+                    className="flex justify-center mb-2"
                 >
-                    <span className={`block text-3xl font-bold mb-2 bg-clip-text text-transparent select-none ${isOfficial ? 'bg-gradient-to-r from-blue-400 to-cyan-300' : 'bg-gradient-to-r from-orange-400 to-pink-500'}`}>
-                        {isOfficial ? "Department Login" : "ConnectSphere"}
+                    <span className={`text-4xl font-black bg-clip-text text-transparent select-none tracking-tighter ${isOfficial ? 'bg-gradient-to-r from-blue-400 to-cyan-300' : 'bg-gradient-to-r from-orange-400 to-pink-500'}`}>
+                        {isOfficial ? "PRO" : "CS"}
                     </span>
-                </div>
-                <p className="text-zinc-400">
-                    {isOfficial ? "Authorized Personnel Only" : "Login to your account"}
+                </motion.div>
+                <h2 className="text-2xl font-bold text-white">
+                    {mode === "login" ? "Welcome Back" : "Join ConnectSphere"}
+                </h2>
+                <p className="text-zinc-500 text-sm mt-1">
+                    {mode === "login" ? "Login to your account" : "Create a new account for free"}
                 </p>
-                {step === 2 && <p className="text-sm text-green-400 mt-2">Enter the OTP sent to {email}</p>}
             </div>
 
-            {step === 1 ? (
-                <form onSubmit={handleLogin} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">
-                            Email ID
-                        </label>
-                        <input
-                            type="email"
-                            required
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="name@example.com"
-                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all"
-                        />
-                    </div>
+            <form onSubmit={handleAuth} className="space-y-4">
+                <AnimatePresence mode="wait">
+                    {mode === "signup" && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="space-y-4"
+                        >
+                            <div className="relative">
+                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
+                                <input
+                                    type="text"
+                                    required
+                                    value={fullName}
+                                    onChange={(e) => setFullName(e.target.value)}
+                                    placeholder="Full Name"
+                                    className="w-full bg-black/40 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all placeholder:text-zinc-600"
+                                />
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className={`w-full font-bold py-3 px-4 rounded-xl shadow-lg transform transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-white ${isOfficial
-                            ? 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700'
-                            : 'bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-600 hover:to-pink-700'
-                            }`}
-                    >
-                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Send OTP 🚀"}
-                    </button>
-                </form>
-            ) : (
-                <form onSubmit={verifyOtp} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">
-                            Enter OTP
-                        </label>
-                        <input
-                            type="text"
-                            required
-                            value={otp}
-                            onChange={(e) => setOtp(e.target.value)}
-                            placeholder="123456"
-                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-center text-2xl tracking-widest focus:outline-none focus:ring-2 focus:ring-primary transition-all"
-                        />
-                    </div>
-
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className={`w-full font-bold py-3 px-4 rounded-xl shadow-lg transform transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-white ${isOfficial
-                            ? 'bg-gradient-to-r from-blue-600 to-cyan-600'
-                            : 'bg-gradient-to-r from-orange-500 to-pink-600'
-                            }`}
-                    >
-                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Verify & Login ✅"}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setStep(1)}
-                        className="w-full text-sm text-zinc-500 hover:text-white"
-                    >
-                        Change Email
-                    </button>
-                </form>
-            )}
-
-            {message && (
-                <div className="mt-6 p-3 bg-white/5 border border-white/10 rounded-lg text-zinc-300 text-center text-sm animate-fade-in">
-                    {message}
+                <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
+                    <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Email Address"
+                        className="w-full bg-black/40 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all placeholder:text-zinc-600"
+                    />
                 </div>
-            )}
-        </div>
+
+                <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
+                    <input
+                        type="password"
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Password"
+                        className="w-full bg-black/40 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all placeholder:text-zinc-600"
+                    />
+                </div>
+
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className={`w-full font-bold py-3 px-4 rounded-xl shadow-lg transform transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-white ${isOfficial
+                        ? 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700'
+                        : 'bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-600 hover:to-pink-700'
+                        }`}
+                >
+                    {loading ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                        <>
+                            {mode === "login" ? "Sign In" : "Create Account"}
+                            <Sparkles className="w-4 h-4" />
+                        </>
+                    )}
+                </button>
+            </form>
+
+            <div className="mt-8 pt-6 border-t border-white/5 text-center">
+                <button
+                    onClick={() => setMode(mode === "login" ? "signup" : "login")}
+                    className="text-zinc-400 hover:text-white text-sm transition-colors"
+                >
+                    {mode === "login" ? (
+                        <>New here? <span className="text-primary font-semibold">Create an account</span></>
+                    ) : (
+                        <>Already have an account? <span className="text-primary font-semibold">Login instead</span></>
+                    )}
+                </button>
+            </div>
+
+            {/* Jugaad Notice */}
+            <p className="mt-6 text-[10px] text-zinc-600 text-center uppercase tracking-widest">
+                Unlimited Auth • Free Forever • ConnectSphere
+            </p>
+        </motion.div>
     );
 }
 
 export default function LoginPage() {
     return (
         <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden">
-            {/* Background Blobs */}
-            <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-primary/10 rounded-full blur-[100px] animate-pulse" />
-            <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[100px] animate-pulse delay-1000" />
+            {/* Background Animations */}
+            <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-primary/20 rounded-full blur-[120px] animate-pulse" />
+            <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[120px] animate-pulse delay-700" />
 
             <Suspense fallback={<div className="text-white">Loading...</div>}>
                 <LoginContent />
