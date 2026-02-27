@@ -34,14 +34,14 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
     }, []);
 
     // Safety check
-    if (!stories || stories.length === 0) return null;
+    if (!stories || stories.length === 0 || !stories[currentIndex]) return null;
     const currentStory = stories[currentIndex];
 
-    // Use currentStory data
-    const user = currentStory.username ? {
-        username: currentStory.username,
-        avatar: currentStory.avatar_url
-    } : { username: "User", avatar: "" };
+    // Use currentStory data with deep safety ✨
+    const user = {
+        username: currentStory?.username || "Anonymous",
+        avatar: currentStory?.avatar_url || ""
+    };
 
     const mediaUrls = currentStory.media_urls || currentStory.file_urls || (currentStory.media_url ? [currentStory.media_url] : []);
     const mediaType = currentStory.media_type || 'image';

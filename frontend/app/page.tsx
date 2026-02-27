@@ -352,8 +352,8 @@ function HomeFeedContent() {
             {/* Story Viewer Overlay */}
             {viewingStoryIndex !== null && stories[viewingStoryIndex] && !stories[viewingStoryIndex].isAddButton && (
                 <StoryViewer
-                    initialStoryIndex={viewingStoryIndex}
-                    stories={stories.filter(s => !s.isAddButton)} // Pass only real stories to viewer
+                    initialStoryIndex={viewingStoryIndex - 1} // Subtract 1 because "Add Story" is filtered out
+                    stories={stories.filter(s => !s.isAddButton)}
                     onClose={() => setViewingStoryIndex(null)}
                 />
             )}
