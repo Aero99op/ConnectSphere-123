@@ -123,7 +123,7 @@ create policy "Public posts are viewable by everyone." on public.posts for selec
 create policy "Public comments are viewable by everyone." on public.comments for select using (true);
 create policy "Public stories are viewable by everyone." on public.stories for select using (expires_at > now());
 create policy "Public follows are viewable by everyone." on public.follows for select using (true);
-create policy "Public reports are viewable by everyone." on public.reports for select using (true);
+create policy "Public reports are viewable by everyone." on public.reports for select using (id is not null);
 create policy "Public report updates are viewable by everyone." on public.report_updates for select using (true);
 
 -- User Write (Citizen)
@@ -159,7 +159,7 @@ begin
           coalesce(new.raw_user_meta_data->>'role', 'citizen')); -- Default to Citizen
   return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
@@ -174,4 +174,4 @@ begin
   set karma_points = karma_points + 1
   where id = user_id_param;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;

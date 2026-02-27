@@ -126,7 +126,7 @@ begin
 
   return new_conv_id;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 -- 7. Realtime Replication
 alter publication supabase_realtime add table public.messages;
