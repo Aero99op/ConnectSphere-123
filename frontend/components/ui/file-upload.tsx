@@ -24,6 +24,7 @@ export function FileUpload({ onUploadComplete, maxSizeMB = 500 }: FileUploadProp
     const [uploading, setUploading] = useState(false);
     const [progress, setProgress] = useState(0);
     const [status, setStatus] = useState<string>("");
+    const [isCompleted, setIsCompleted] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleDrag = useCallback((e: React.DragEvent) => {
@@ -93,7 +94,7 @@ export function FileUpload({ onUploadComplete, maxSizeMB = 500 }: FileUploadProp
     };
 
     const startUpload = async () => {
-        if (!file) return;
+        if (!file || uploading || isCompleted) return;
         setUploading(true);
         setProgress(0);
         let urls: string[] = [];
@@ -125,6 +126,7 @@ export function FileUpload({ onUploadComplete, maxSizeMB = 500 }: FileUploadProp
             await auditUpload(urls, file.name, file.size);
 
             setStatus("Upload Complete! Zero Server Cost 💸🚀");
+            setIsCompleted(true);
             onUploadComplete(urls, thumbnailUrl);
             toast.success("File uploaded successfully! 🎉");
 
@@ -140,59 +142,71 @@ export function FileUpload({ onUploadComplete, maxSizeMB = 500 }: FileUploadProp
 
     return (
         <div className="w-full max-w-md mx-auto p-4 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-xl">
-            <div
-                className={classNames(
-                    "relative border-2 border-dashed rounded-lg p-8 transition-all text-center cursor-pointer",
-                    isDragging ? "border-primary bg-primary/10" : "border-gray-500 hover:border-gray-400",
-                    uploading || file ? "border-gray-500 bg-black/20" : ""
-                )}
-                onDragEnter={handleDrag}
-                onDragLeave={handleDrag}
-                onDragOver={handleDrag}
-                onDrop={handleDrop}
-                onClick={() => !file && !uploading && fileInputRef.current?.click()}
-            >
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="hidden"
-                    onChange={handleChange}
-                    accept="image/*,video/*"
-                />
+            {!isCompleted && (
+                <div
+                    className={classNames(
+                        "relative border-2 border-dashed rounded-lg p-8 transition-all text-center cursor-pointer",
+                        isDragging ? "border-primary bg-primary/10" : "border-gray-500 hover:border-gray-400",
+                        uploading || file ? "border-gray-500 bg-black/20" : ""
+                    )}
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                    onClick={() => !file && !uploading && fileInputRef.current?.click()}
+                >
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        onChange={handleChange}
+                        accept="image/*,video/*"
+                    />
 
-                {!file ? (
-                    <div className="flex flex-col items-center gap-2 text-gray-400">
-                        <Upload className="w-10 h-10 mb-2 group-hover:text-amber-500 transition-colors" />
-                        <p className="text-sm text-zinc-300 font-bold uppercase tracking-wider">Drag & drop / Click</p>
-                        <p className="text-xs text-zinc-500">Max {maxSizeMB}MB ki aukaat hai (Infinite trick via Catbox!)</p>
-                    </div>
-                ) : (
-                    <div className="flex flex-col items-center gap-4 relative z-10 w-full">
-                        {file.type.startsWith("video/") ? (
-                            <FileVideo className="w-12 h-12 text-amber-500 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]" />
-                        ) : (
-                            <FileImage className="w-12 h-12 text-blue-500 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
-                        )}
-                        <div className="text-sm w-full text-center px-4">
-                            <p className="font-bold text-white truncate w-full">{file.name}</p>
-                            <p className="text-zinc-500 font-mono text-xs mt-1">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
+                    {!file ? (
+                        <div className="flex flex-col items-center gap-2 text-gray-400">
+                            <Upload className="w-10 h-10 mb-2 group-hover:text-amber-500 transition-colors" />
+                            <p className="text-sm text-zinc-300 font-bold uppercase tracking-wider">Drag & drop / Click</p>
+                            <p className="text-xs text-zinc-500">Max {maxSizeMB}MB ki aukaat hai (Infinite trick via Catbox!)</p>
                         </div>
+                    ) : (
+                        <div className="flex flex-col items-center gap-4 relative z-10 w-full">
+                            {file.type.startsWith("video/") ? (
+                                <FileVideo className="w-12 h-12 text-amber-500 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]" />
+                            ) : (
+                                <FileImage className="w-12 h-12 text-blue-500 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
+                            )}
+                            <div className="text-sm w-full text-center px-4">
+                                <p className="font-bold text-white truncate w-full">{file.name}</p>
+                                <p className="text-zinc-500 font-mono text-xs mt-1">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
+                            </div>
 
-                        {!uploading && (
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setFile(null);
-                                    setStatus("");
-                                }}
-                                className="absolute -top-6 -right-6 p-2 bg-black/50 hover:bg-red-500/20 text-zinc-400 hover:text-red-500 rounded-full transition-colors border border-white/10"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
-                        )}
+                            {!uploading && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setFile(null);
+                                        setStatus("");
+                                    }}
+                                    className="absolute -top-6 -right-6 p-2 bg-black/50 hover:bg-red-500/20 text-zinc-400 hover:text-red-500 rounded-full transition-colors border border-white/10"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {isCompleted && (
+                <div className="p-8 border-2 border-dashed border-green-500/30 bg-green-500/10 rounded-lg text-center animate-in zoom-in-95 duration-300">
+                    <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-[0_0_20px_rgba(34,197,94,0.4)]">
+                        <Loader2 className="w-6 h-6 text-black" />
                     </div>
-                )}
-            </div>
+                    <p className="text-green-500 font-black uppercase tracking-widest text-sm">Upload Successful!</p>
+                    <p className="text-zinc-500 text-xs mt-1">Bhai, file server pe pahunch gayi 🚀</p>
+                </div>
+            )}
 
             {status && (
                 <div className="mt-6 text-center">
@@ -208,7 +222,7 @@ export function FileUpload({ onUploadComplete, maxSizeMB = 500 }: FileUploadProp
                 </div>
             )}
 
-            {file && !uploading && (
+            {file && !uploading && !isCompleted && (
                 <button
                     onClick={startUpload}
                     className="mt-6 w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 text-black font-black uppercase tracking-widest rounded-xl hover:opacity-90 active:scale-[0.98] transition-all shadow-lg"

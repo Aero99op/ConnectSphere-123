@@ -131,7 +131,17 @@ function CreatePostPageContent() {
                     </div>
 
                     <div className="bg-black/30 rounded-2xl p-2 border border-white/5">
-                        <FileUpload onUploadComplete={handleUploadComplete} maxSizeMB={200} />
+                        {fileUrls.length === 0 ? (
+                            <FileUpload onUploadComplete={handleUploadComplete} maxSizeMB={200} />
+                        ) : (
+                            <div className="p-10 text-center animate-in fade-in zoom-in-95">
+                                <p className="text-zinc-500 font-mono text-xs uppercase tracking-[0.2em]">Ready to Launch 🚀</p>
+                                <p className="text-white font-black text-lg mt-2 italic flex items-center justify-center gap-2">
+                                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                                    Media Linked
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
 

@@ -215,26 +215,30 @@ function HomeFeedContent() {
     }, [searchParams, role]);
 
 
+    const [storyFileUrls, setStoryFileUrls] = useState<string[]>([]);
+    const [storyThumbnailUrl, setStoryThumbnailUrl] = useState<string | undefined>();
+
     const handleStoryUploadComplete = async (urls: string[], thumbnailUrl?: string) => {
         if (!userId || urls.length === 0) return;
-
-        setIsAddingStory(false); // Close Modal
+        setStoryFileUrls(urls);
+        if (thumbnailUrl) setStoryThumbnailUrl(thumbnailUrl);
 
         const mediaType = thumbnailUrl ? 'video' : 'image';
 
         const { error } = await supabase.from("stories").insert({
             user_id: userId,
-            media_urls: urls, // Store the array of chunk URLs
-            thumbnail_url: thumbnailUrl, // Might need to add this column to stories table if 
+            media_urls: urls,
+            thumbnail_url: thumbnailUrl,
             media_type: mediaType,
-            // expires_at is default +24h in DB schema
         });
 
         if (error) {
             console.error(error);
             alert("Failed to upload story!");
         } else {
-            fetchStories(userId); // Refresh stories
+            fetchStories(userId);
+            setIsAddingStory(false); // Close Modal
+            setStoryFileUrls([]); // Reset for next time
         }
     };
 
@@ -370,10 +374,22 @@ function HomeFeedContent() {
                             <p className="text-zinc-500 text-xs mt-1">Share what's happening now</p>
                         </div>
 
-                        <FileUpload
-                            onUploadComplete={handleStoryUploadComplete}
-                            maxSizeMB={50}
-                        />
+                        <div className="bg-black/30 rounded-2xl p-2 border border-white/5">
+                            {storyFileUrls.length === 0 ? (
+                                <FileUpload
+                                    onUploadComplete={handleStoryUploadComplete}
+                                    maxSizeMB={50}
+                                />
+                            ) : (
+                                <div className="p-10 text-center animate-in fade-in zoom-in-95">
+                                    <p className="text-zinc-500 font-mono text-xs uppercase tracking-[0.2em]">Story Locked 🔒</p>
+                                    <p className="text-white font-black text-lg mt-2 italic flex items-center justify-center gap-2">
+                                        <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                                        Processing...
+                                    </p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
