@@ -1,7 +1,7 @@
 import { uploadToCatbox } from "@/lib/storage";
 
-const CHUNK_SIZE = 20 * 1024 * 1024; // 20MB for 100% compatibility with proxies/buffers
-const MAX_CONCURRENT_UPLOADS = 5; // Can increase safely with smaller chunks
+const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB for better parallelization and lower memory usage
+const MAX_CONCURRENT_UPLOADS = 6; // Increased for faster multi-chunk uploads
 const MAX_RETRIES = 3;
 
 interface ChunkInfo {

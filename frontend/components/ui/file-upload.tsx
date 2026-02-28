@@ -93,6 +93,58 @@ export function FileUpload({ onUploadComplete, maxSizeMB = 500 }: FileUploadProp
         });
     };
 
+    const compressImage = async (imageFile: File): Promise<Blob> => {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.src = URL.createObjectURL(imageFile);
+            img.onload = () => {
+                URL.revokeObjectURL(img.src);
+                const canvas = document.createElement("canvas");
+                let width = img.width;
+                let height = img.height;
+
+                // Max dimension 1200px
+                const MAX_DIM = 1200;
+                if (width > height) {
+                    if (width > MAX_DIM) {
+                        height *= MAX_DIM / width;
+                        width = MAX_DIM;
+                    }
+                } else {
+                    if (height > MAX_DIM) {
+                        width *= MAX_DIM / height;
+                        height = MAX_DIM;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext("2d");
+                if (!ctx) {
+                    resolve(imageFile); // Fallback to original
+                    return;
+                }
+
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob(
+                    (blob) => {
+                        if (blob) {
+                            resolve(blob);
+                        } else {
+                            resolve(imageFile);
+                        }
+                    },
+                    "image/jpeg",
+                    0.7
+                );
+            };
+            img.onerror = () => {
+                URL.revokeObjectURL(img.src);
+                resolve(imageFile); // Fallback
+            };
+        });
+    };
+
     const startUpload = async () => {
         if (!file || uploading || isCompleted) return;
         setUploading(true);
@@ -101,6 +153,8 @@ export function FileUpload({ onUploadComplete, maxSizeMB = 500 }: FileUploadProp
         let thumbnailUrl = "";
 
         try {
+            let fileToUpload: File | Blob = file;
+
             // 1. Generate Thumbnail if Video (Client-side hack)
             if (file.type.startsWith("video/")) {
                 setStatus("Generating Thumbnail hack...");
@@ -110,12 +164,22 @@ export function FileUpload({ onUploadComplete, maxSizeMB = 500 }: FileUploadProp
                     const fileObj = new File([thumbBlob], "thumb.jpg", { type: "image/jpeg" });
                     thumbnailUrl = await uploadToCatbox(fileObj, { useProxy: true });
                 }
+            } else if (file.type.startsWith("image/")) {
+                // 1b. Compress Image if it's an image
+                setStatus("Compressing Image for speed... ⚡");
+                fileToUpload = await compressImage(file);
+                console.log(`Original: ${file.size}, Compressed: ${fileToUpload.size}`);
             }
 
             // 2. Upload Main File using our Chunk Uploader
             setStatus("Bade File ka Todna aur Uploading on Catbox...");
 
-            urls = await uploadFileInChunks(file, (percent) => {
+            // If it's a blob from compression, make it a file for the uploader
+            const finalFile = fileToUpload instanceof File
+                ? fileToUpload
+                : new File([fileToUpload], file.name, { type: "image/jpeg" });
+
+            urls = await uploadFileInChunks(finalFile, (percent) => {
                 setProgress(percent);
                 if (percent > 10 && percent < 30) setStatus("Bhai, file badi hai, thoda sabr kar... (1/3 done)");
                 if (percent > 40 && percent < 60) setStatus("Aadhe raste pahunch gaye! (2/3 done)");
@@ -123,7 +187,7 @@ export function FileUpload({ onUploadComplete, maxSizeMB = 500 }: FileUploadProp
             });
 
             // 3. Security Audit Log (MOSSAD-Level Governance)
-            await auditUpload(urls, file.name, file.size);
+            await auditUpload(urls, file.name, finalFile.size);
 
             setStatus("Upload Complete! Zero Server Cost 💸🚀");
             setIsCompleted(true);
