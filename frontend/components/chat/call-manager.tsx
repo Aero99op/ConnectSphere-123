@@ -63,37 +63,41 @@ export function CallManager() {
 
     return (
         <>
-            {/* Floating Incoming Call Notification */}
+            {/* Floating Incoming Call Notification - Instagram/WhatsApp Dual Vibes */}
             {incomingCall && (
-                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-sm animate-in slide-in-from-top-4 fade-in duration-300">
-                    <div className="bg-black/80 backdrop-blur-xl border border-white/10 p-3 rounded-3xl shadow-2xl flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3 overflow-hidden">
-                            <Avatar className="w-12 h-12 border border-white/20 shrink-0">
-                                <AvatarImage src={incomingCall.callerAvatar} />
-                                <AvatarFallback className="bg-zinc-800 text-white">{incomingCall.callerName?.[0]}</AvatarFallback>
-                            </Avatar>
-                            <div className="flex flex-col min-w-0">
-                                <span className="font-semibold text-white truncate text-sm">
+                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[95%] max-w-md animate-in slide-in-from-top-4 fade-in duration-500 ease-out">
+                    <div className="bg-[#1c272e]/95 backdrop-blur-3xl border border-white/5 p-4 rounded-[2rem] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.7)] ring-1 ring-[#00a884]/20 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 overflow-hidden ml-1">
+                            {/* Inner Ring Glow */}
+                            <div className="relative">
+                                <div className="absolute inset-0 bg-[#00a884] rounded-full blur-md opacity-30 animate-pulse" />
+                                <Avatar className="w-14 h-14 border-2 border-[#1c272e] ring-2 ring-[#00a884]/60 shrink-0 relative z-10">
+                                    <AvatarImage src={incomingCall.callerAvatar} />
+                                    <AvatarFallback className="bg-[#0b141a] text-white font-medium text-lg">{incomingCall.callerName?.[0]}</AvatarFallback>
+                                </Avatar>
+                            </div>
+                            <div className="flex flex-col min-w-0 py-1">
+                                <span className="font-semibold text-white/95 text-[17px] tracking-tight truncate leading-tight">
                                     {incomingCall.callerName}
                                 </span>
-                                <span className="text-xs text-zinc-400 truncate flex items-center gap-1">
-                                    {incomingCall.callType === 'audio' ? <Phone className="w-3 h-3" /> : <Video className="w-3 h-3" />}
-                                    Incoming {incomingCall.callType === 'audio' ? 'Voice' : 'Video'} Call...
+                                <span className="text-[13px] text-[#00a884] font-medium truncate flex items-center gap-1.5 mt-0.5">
+                                    {incomingCall.callType === 'audio' ? <Phone className="w-3.5 h-3.5 animate-pulse" /> : <Video className="w-3.5 h-3.5 animate-pulse" />}
+                                    {incomingCall.callType === 'audio' ? 'Voice call...' : 'Video call...'}
                                 </span>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0 pr-1">
+                        <div className="flex items-center gap-3 shrink-0 mr-1">
                             <button
                                 onClick={handleRejectCall}
-                                className="w-10 h-10 rounded-full bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all"
+                                className="w-11 h-11 rounded-full bg-[#ef4444]/10 text-[#ef4444] hover:bg-[#ef4444] hover:text-white flex items-center justify-center transition-all shadow-sm active:scale-90"
                             >
                                 <PhoneOff className="w-5 h-5" />
                             </button>
                             <button
                                 onClick={handleAcceptCall}
-                                className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white hover:bg-green-600 transition-all animate-bounce"
+                                className="w-11 h-11 rounded-full bg-[#00a884] flex items-center justify-center text-[#111b21] hover:bg-[#00cfa3] transition-all shadow-[0_0_15px_rgba(0,168,132,0.4)] animate-bounce active:scale-90"
                             >
-                                {incomingCall.callType === 'audio' ? <Phone className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+                                {incomingCall.callType === 'audio' ? <Phone className="w-5 h-5 fill-current" /> : <Video className="w-5 h-5 fill-current" />}
                             </button>
                         </div>
                     </div>
