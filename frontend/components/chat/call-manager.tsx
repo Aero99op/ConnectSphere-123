@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { VideoCallWindow } from "./video-call-window";
-import { Phone, PhoneOff } from "lucide-react";
+import { Phone, PhoneOff, Video } from "lucide-react";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -63,31 +63,42 @@ export function CallManager() {
 
     return (
         <>
-            {/* Incoming Call Dialog */}
-            <Dialog open={!!incomingCall} onOpenChange={(open: boolean) => !open && handleRejectCall()}>
-                <DialogContent className="sm:max-w-md bg-zinc-900 border-zinc-800 text-white">
-                    <DialogHeader>
-                        <DialogTitle>Incoming Video Call</DialogTitle>
-                        <DialogDescription>
-                            <div className="flex flex-col items-center gap-4 py-4">
-                                <Avatar className="w-20 h-20 ring-2 ring-cyan-500 animate-pulse">
-                                    <AvatarImage src={incomingCall?.callerAvatar} />
-                                    <AvatarFallback>{incomingCall?.callerName?.[0]}</AvatarFallback>
-                                </Avatar>
-                                <span className="text-xl font-bold">{incomingCall?.callerName} is calling...</span>
+            {/* Floating Incoming Call Notification */}
+            {incomingCall && (
+                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-sm animate-in slide-in-from-top-4 fade-in duration-300">
+                    <div className="bg-black/80 backdrop-blur-xl border border-white/10 p-3 rounded-3xl shadow-2xl flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                            <Avatar className="w-12 h-12 border border-white/20 shrink-0">
+                                <AvatarImage src={incomingCall.callerAvatar} />
+                                <AvatarFallback className="bg-zinc-800 text-white">{incomingCall.callerName?.[0]}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col min-w-0">
+                                <span className="font-semibold text-white truncate text-sm">
+                                    {incomingCall.callerName}
+                                </span>
+                                <span className="text-xs text-zinc-400 truncate flex items-center gap-1">
+                                    {incomingCall.callType === 'audio' ? <Phone className="w-3 h-3" /> : <Video className="w-3 h-3" />}
+                                    Incoming {incomingCall.callType === 'audio' ? 'Voice' : 'Video'} Call...
+                                </span>
                             </div>
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter className="flex justify-center sm:justify-center gap-4">
-                        <Button variant="destructive" size="lg" className="rounded-full w-16 h-16 p-0" onClick={handleRejectCall}>
-                            <PhoneOff className="w-8 h-8" />
-                        </Button>
-                        <Button variant="default" size="lg" className="rounded-full w-16 h-16 p-0 bg-green-500 hover:bg-green-600 animate-bounce" onClick={handleAcceptCall}>
-                            <Phone className="w-8 h-8" />
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 pr-1">
+                            <button
+                                onClick={handleRejectCall}
+                                className="w-10 h-10 rounded-full bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all"
+                            >
+                                <PhoneOff className="w-5 h-5" />
+                            </button>
+                            <button
+                                onClick={handleAcceptCall}
+                                className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white hover:bg-green-600 transition-all animate-bounce"
+                            >
+                                {incomingCall.callType === 'audio' ? <Phone className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Active Call Window */}
             {activeCall && (
@@ -95,6 +106,7 @@ export function CallManager() {
                     roomId={activeCall.roomId}
                     remoteUserId={activeCall.remoteUserId}
                     isCaller={activeCall.isCaller}
+                    callType={activeCall.callType}
                     onEndCall={handleEndCall}
                 />
             )}

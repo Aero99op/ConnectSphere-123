@@ -111,9 +111,9 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         }
     };
 
-    const startVideoCall = async () => {
+    const startCall = async (type: "video" | "audio") => {
         if (isGroup) {
-            toast.info("Mandli me video call jald hi aayega!");
+            toast.info("Mandli me call jald hi aayega!");
             return;
         }
 
@@ -130,12 +130,14 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                 roomId: conversationId,
                 callerId: currentUserId,
                 callerName: "You",
-                callerAvatar: "https://github.com/shadcn.png"
+                callerAvatar: "https://github.com/shadcn.png",
+                callType: type
             }
         });
 
         toast.success("Bula rahe hain...");
     };
+
 
     return (
         <div className="flex flex-col h-full w-full bg-[#0a0a0a] relative">
@@ -162,10 +164,10 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                     </div>
                 </div>
                 <div className="flex items-center gap-0.5">
-                    <button className="p-2.5 hover:bg-white/10 rounded-full text-white/90 transition-colors" title="Voice Call">
+                    <button onClick={() => startCall("audio")} className="p-2.5 hover:bg-white/10 rounded-full text-white/90 transition-colors" title="Voice Call">
                         <Phone className="w-5 h-5" />
                     </button>
-                    <button onClick={startVideoCall} className="p-2.5 hover:bg-white/10 rounded-full text-white/90 transition-colors" title="Video Call">
+                    <button onClick={() => startCall("video")} className="p-2.5 hover:bg-white/10 rounded-full text-white/90 transition-colors" title="Video Call">
                         <Video className="w-5 h-5" />
                     </button>
                     <button className="p-2.5 hover:bg-white/10 rounded-full text-white/90 transition-colors" title="More Info">
@@ -287,10 +289,10 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                     ) : (
                         <div className="flex items-center gap-1.5 pr-1">
                             {/* Placeholder icons for IG feel */}
-                            <button className="p-2 text-white/90 hover:text-white transition-colors">
+                            <button onClick={() => startCall("video")} className="p-2 text-white/90 hover:text-white transition-colors" title="Video Call">
                                 <Video className="w-5 h-5" />
                             </button>
-                            <button className="p-2 text-white/90 hover:text-white transition-colors">
+                            <button onClick={() => startCall("audio")} className="p-2 text-white/90 hover:text-white transition-colors" title="Voice Call">
                                 <Phone className="w-5 h-5" />
                             </button>
                         </div>

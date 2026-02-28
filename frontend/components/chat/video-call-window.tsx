@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Mic, MicOff, Video, VideoOff, PhoneOff, Maximize2, Minimize2 } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, PhoneOff, Phone, Maximize2, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ interface VideoCallWindowProps {
     roomId: string; // The chat conversation ID or unique call ID
     remoteUserId: string;
     isCaller: boolean;
+    callType: 'audio' | 'video';
     onEndCall: () => void;
 }
 
@@ -21,9 +22,9 @@ const ICE_SERVERS = {
     ],
 };
 
-export function VideoCallWindow({ roomId, remoteUserId, isCaller, onEndCall }: VideoCallWindowProps) {
+export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEndCall }: VideoCallWindowProps) {
     const [isMuted, setIsMuted] = useState(false);
-    const [isVideoOff, setIsVideoOff] = useState(false);
+    const [isVideoOff, setIsVideoOff] = useState(callType === 'audio');
     const [isMinimized, setIsMinimized] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "disconnected">("connecting");
     const [remoteUserProfile, setRemoteUserProfile] = useState<any>(null);
@@ -45,9 +46,9 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, onEndCall }: V
         const startCall = async () => {
             try {
                 // 1. Get Local Stream
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                const stream = await navigator.mediaDevices.getUserMedia({ video: callType === 'video', audio: true });
                 localStream.current = stream;
-                if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+                if (localVideoRef.current && callType === 'video') localVideoRef.current.srcObject = stream;
 
                 // 2. Create Peer Connection
                 peerConnection.current = new RTCPeerConnection(ICE_SERVERS);
@@ -162,10 +163,17 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, onEndCall }: V
     };
 
     const toggleVideo = () => {
+        if (callType === 'audio') {
+            toast.info("Yeh voice call hai, video nahi chalu kar sakte.");
+            return;
+        }
+
         if (localStream.current) {
             const videoTrack = localStream.current.getVideoTracks()[0];
-            videoTrack.enabled = !videoTrack.enabled;
-            setIsVideoOff(!videoTrack.enabled);
+            if (videoTrack) {
+                videoTrack.enabled = !videoTrack.enabled;
+                setIsVideoOff(!videoTrack.enabled);
+            }
         }
     };
 
@@ -176,39 +184,76 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, onEndCall }: V
                 ? "bottom-24 right-4 w-40 h-60 rounded-xl"
                 : "inset-0 md:inset-10 md:rounded-2xl"
         )}>
-            {/* Remote Video (Main) */}
-            <div className="relative w-full h-full bg-zinc-900 flex items-center justify-center">
+            {/* Remote Video/Audio Context (Main) */}
+            <div className="relative w-full h-full bg-zinc-900 flex items-center justify-center overflow-hidden">
+                {/* Always attach the media stream for audio, but only show video if callType is video */}
                 <video
                     ref={remoteVideoRef}
                     autoPlay
                     playsInline
-                    className="w-full h-full object-cover"
+                    className={cn("w-full h-full object-cover", callType === 'audio' ? 'opacity-0 absolute' : '')}
                 />
 
-                {connectionStatus === 'connecting' && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900/80 backdrop-blur-sm z-10">
-                        <Avatar className="w-24 h-24 mb-4 ring-4 ring-cyan-500/20 animate-pulse">
-                            <AvatarImage src={remoteUserProfile?.avatar_url} />
-                            <AvatarFallback>{remoteUserProfile?.username?.[0]}</AvatarFallback>
-                        </Avatar>
-                        <p className="text-white font-bold animate-pulse">Connecting...</p>
+                {/* If Audio Call or Connecting, show Avatar UI */}
+                {(callType === 'audio' || connectionStatus === 'connecting') && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900/90 backdrop-blur-md z-10 transition-all duration-500">
+                        {/* Cool Desi Aesthetic Pulsing Rings */}
+                        <div className="relative flex items-center justify-center mb-8">
+                            <div className={cn("absolute w-32 h-32 rounded-full border-2 border-orange-500/20", connectionStatus === 'connected' && "animate-[ping_2s_ease-out_infinite]")} />
+                            <div className={cn("absolute w-40 h-40 rounded-full border border-orange-500/10", connectionStatus === 'connected' && "animate-[ping_2.5s_ease-out_infinite]")} />
+
+                            <Avatar className={cn(
+                                "w-28 h-28 ring-4 shadow-2xl z-20 relative",
+                                connectionStatus === 'connecting' ? "ring-cyan-500/50 animate-pulse" : "ring-orange-500 shadow-orange-500/50"
+                            )}>
+                                <AvatarImage src={remoteUserProfile?.avatar_url} />
+                                <AvatarFallback className="text-4xl bg-zinc-800">{remoteUserProfile?.username?.[0]}</AvatarFallback>
+                            </Avatar>
+                        </div>
+
+                        <h2 className="text-2xl font-bold text-white tracking-tight mb-2">
+                            {remoteUserProfile?.full_name || remoteUserProfile?.username || "Calling..."}
+                        </h2>
+
+                        <div className="flex items-center gap-2">
+                            {connectionStatus === 'connecting' ? (
+                                <>
+                                    <div className="flex gap-1">
+                                        <div className="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                        <div className="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                        <div className="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-bounce" />
+                                    </div>
+                                    <p className="text-cyan-400 font-medium text-sm animate-pulse">Connecting P2P...</p>
+                                </>
+                            ) : (
+                                <>
+                                    {callType === 'audio' && (
+                                        <div className="flex items-center gap-1.5 text-orange-400">
+                                            <Phone className="w-4 h-4 animate-pulse" />
+                                            <p className="font-medium text-sm">Active Voice Call</p>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>
 
-            {/* Local Video (PiP) - Only show if not minimized */}
-            {!isMinimized && (
-                <div className="absolute top-4 right-4 w-32 h-48 bg-black rounded-lg border border-zinc-700 overflow-hidden shadow-lg">
+            {/* Local Video (PiP) - Only show if not minimized AND it's a video call */}
+            {!isMinimized && callType === 'video' && (
+                <div className="absolute top-4 right-4 w-32 h-48 bg-black rounded-xl border border-white/10 overflow-hidden shadow-2xl ring-1 ring-white/5">
                     <video
                         ref={localVideoRef}
                         autoPlay
                         playsInline
                         muted
-                        className={cn("w-full h-full object-cover mirror", isVideoOff && "hidden")}
+                        className={cn("w-full h-full object-cover mirror", isVideoOff && "opacity-0")}
                     />
                     {isVideoOff && (
-                        <div className="w-full h-full flex items-center justify-center bg-zinc-900 text-zinc-500">
-                            <VideoOff className="w-8 h-8" />
+                        <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center bg-zinc-900 text-zinc-500">
+                            <VideoOff className="w-8 h-8 mb-2" />
+                            <span className="text-xs">Camera Off</span>
                         </div>
                     )}
                 </div>
@@ -216,18 +261,20 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, onEndCall }: V
 
             {/* Controls */}
             {!isMinimized && (
-                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4">
-                    <button onClick={toggleMute} className={cn("p-4 rounded-full transition-colors", isMuted ? "bg-white text-black" : "bg-zinc-800/80 text-white hover:bg-zinc-700")}>
+                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 z-30">
+                    <button onClick={toggleMute} className={cn("p-4 rounded-full transition-all shadow-lg active:scale-95", isMuted ? "bg-white text-black" : "bg-zinc-800/80 text-white hover:bg-zinc-700 backdrop-blur-md")}>
                         {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
                     </button>
 
-                    <button onClick={() => handleEndCall()} className="p-4 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors shadow-lg shadow-red-600/20">
+                    <button onClick={() => handleEndCall()} className="p-5 rounded-full bg-red-600 hover:bg-red-500 text-white transition-all shadow-[0_0_20px_rgba(220,38,38,0.4)] active:scale-95">
                         <PhoneOff className="w-8 h-8" />
                     </button>
 
-                    <button onClick={toggleVideo} className={cn("p-4 rounded-full transition-colors", isVideoOff ? "bg-white text-black" : "bg-zinc-800/80 text-white hover:bg-zinc-700")}>
-                        {isVideoOff ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}
-                    </button>
+                    {callType === 'video' && (
+                        <button onClick={toggleVideo} className={cn("p-4 rounded-full transition-all shadow-lg active:scale-95", isVideoOff ? "bg-white text-black" : "bg-zinc-800/80 text-white hover:bg-zinc-700 backdrop-blur-md")}>
+                            {isVideoOff ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}
+                        </button>
+                    )}
                 </div>
             )}
 
