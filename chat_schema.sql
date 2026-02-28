@@ -51,9 +51,14 @@ alter table public.conversation_participants enable row level security;
 drop policy if exists "Users can view their own conversations" on public.conversations;
 create policy "Users can view their own conversations" on public.conversations
   for select using (
-    (user1_id = auth.uid() or user2_id = auth.uid()) -- Legacy/DM
-    or 
-    exists (select 1 from public.conversation_participants cp where cp.conversation_id = id and cp.user_id = auth.uid()) -- Group
+    auth.uid() = user1_id 
+    or auth.uid() = user2_id 
+    or auth.uid() = owner_id
+    or exists (
+      select 1 from public.conversation_participants
+      where conversation_id = id 
+      and user_id = auth.uid()
+    )
   );
 
 drop policy if exists "Users can create conversations" on public.conversations;
