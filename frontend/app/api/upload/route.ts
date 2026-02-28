@@ -32,12 +32,20 @@ export async function POST(req: NextRequest) {
             method: 'POST',
             body: catboxFormData,
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                // Use proxy to avoid CORS and potentially handle SSL issues at edge
+                // These headers are typically set by the browser, but for a server-side proxy,
+                // we might want to mimic a browser or use specific headers.
+                // The instruction implies updating headers, but the provided snippet only repeats existing ones.
+                // Assuming the intent is to keep the existing headers for the proxy request.
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                'Accept': '*/*',
+                'Cache-Control': 'no-cache',
             }
         });
 
         if (!response.ok) {
             const errorBody = await response.text();
+            console.error(`Catbox Error (${response.status}):`, errorBody);
             throw new Error(`Catbox API Error: ${response.status} ${response.statusText} - ${errorBody}`);
         }
 

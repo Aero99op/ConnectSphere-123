@@ -13,9 +13,9 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function uploadChunkWithRetry(chunk: Blob, index: number, retries = 0): Promise<string> {
     try {
-        // Direct upload since it's a chunk (passed to storage.ts which handles switching)
+        // Use proxy to avoid CORS and potentially handle SSL issues at edge
         const fileToUpload = new File([chunk], `chunk_${index}`, { type: chunk.type });
-        const url = await uploadToCatbox(fileToUpload, { useProxy: false });
+        const url = await uploadToCatbox(fileToUpload, { useProxy: true });
         return url;
     } catch (error) {
         if (retries < MAX_RETRIES) {
