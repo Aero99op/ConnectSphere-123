@@ -151,6 +151,14 @@ function AnotherUserProfileContent() {
             if (!error) {
                 setIsFollowing(true);
                 setStats(s => ({ ...s, followers: s.followers + 1 }));
+
+                // Trigger Follow Notification
+                await supabase.from('notifications').insert({
+                    recipient_id: userId,
+                    actor_id: currentUser.id,
+                    type: 'follow',
+                    entity_id: currentUser.id
+                });
             }
         }
         setFollowLoading(false);

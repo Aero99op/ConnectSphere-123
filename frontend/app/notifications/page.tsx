@@ -25,9 +25,9 @@ export default function NotificationsPage() {
                     .from('notifications')
                     .select(`
                         *,
-                        source_profile:profiles!notifications_source_user_id_fkey(username, avatar_url)
+                        actor_profile:profiles!notifications_actor_id_fkey(username, avatar_url)
                     `)
-                    .eq('user_id', user.id)
+                    .eq('recipient_id', user.id)
                     .order('created_at', { ascending: false })
                     .limit(50);
 
@@ -38,7 +38,7 @@ export default function NotificationsPage() {
                     await supabase
                         .from('notifications')
                         .update({ is_read: true })
-                        .eq('user_id', user.id)
+                        .eq('recipient_id', user.id)
                         .eq('is_read', false);
                 }
             }
@@ -53,6 +53,15 @@ export default function NotificationsPage() {
             case 'comment': return <MessageCircle className="w-4 h-4 text-primary" />;
             case 'follow': return <UserPlus className="w-4 h-4 text-blue-500" />;
             default: return <Info className="w-4 h-4 text-zinc-500" />;
+        }
+    };
+
+    const getMessageText = (type: string) => {
+        switch (type) {
+            case 'like': return 'liked your post or story.';
+            case 'comment': return 'commented on your post.';
+            case 'follow': return 'started following you.';
+            default: return 'interacted with you.';
         }
     };
 
@@ -105,9 +114,9 @@ export default function NotificationsPage() {
                             >
                                 <div className="relative shrink-0">
                                     <Avatar className="w-12 h-12 border border-white/10">
-                                        <AvatarImage src={notif.source_profile?.avatar_url} className="object-cover" />
+                                        <AvatarImage src={notif.actor_profile?.avatar_url} className="object-cover" />
                                         <AvatarFallback className="bg-zinc-800 text-xs">
-                                            {notif.source_profile?.username?.[0] || '?'}
+                                            {notif.actor_profile?.username?.[0] || '?'}
                                         </AvatarFallback>
                                     </Avatar>
                                     <div className="absolute -bottom-1 -right-1 bg-black rounded-full p-1 border-2 border-black">
@@ -118,10 +127,10 @@ export default function NotificationsPage() {
                                 <div className="flex-1 space-y-1">
                                     <p className="text-[15px] leading-snug">
                                         <span className="font-bold text-white mr-1">
-                                            {notif.source_profile?.username || 'Somebody'}
+                                            {notif.actor_profile?.username || 'Somebody'}
                                         </span>
                                         <span className="text-zinc-300">
-                                            {notif.message}
+                                            {getMessageText(notif.type)}
                                         </span>
                                     </p>
                                     <p className="text-xs text-zinc-500 font-medium">
