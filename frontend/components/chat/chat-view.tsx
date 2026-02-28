@@ -123,19 +123,22 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         }
 
         const channel = supabase.channel(`user:${recipientId}`);
-        await channel.send({
-            type: "broadcast",
-            event: "incoming-call",
-            payload: {
-                roomId: conversationId,
-                callerId: currentUserId,
-                callerName: "You",
-                callerAvatar: "https://github.com/shadcn.png",
-                callType: type
+        channel.subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                await channel.send({
+                    type: "broadcast",
+                    event: "incoming-call",
+                    payload: {
+                        roomId: conversationId,
+                        callerId: currentUserId,
+                        callerName: "You",
+                        callerAvatar: "https://github.com/shadcn.png",
+                        callType: type
+                    }
+                });
+                toast.success("Bula rahe hain...");
             }
         });
-
-        toast.success("Bula rahe hain...");
     };
 
 
