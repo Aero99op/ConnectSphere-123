@@ -139,33 +139,36 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
 
     return (
         <div className="flex flex-col h-full w-full bg-[#0a0a0a] relative">
-            {/* Header */}
-            <div className="h-16 px-4 bg-black/80 backdrop-blur-xl border-b border-white/10 flex items-center justify-between sticky top-0 z-10 w-full shrink-0">
+            {/* Header - Instagram Style Glassmorphism */}
+            <div className="h-16 px-4 bg-black/80 backdrop-blur-xl border-b border-white/5 flex items-center justify-between sticky top-0 z-20 w-full shrink-0">
                 <div className="flex items-center gap-3">
-                    <button onClick={onBack} className="md:hidden p-2 -ml-2 rounded-full hover:bg-white/10 text-white transition-colors">
+                    <button onClick={onBack} className="p-2 -ml-2 rounded-full hover:bg-white/10 text-white transition-all active:scale-90">
                         <ChevronLeft className="w-6 h-6" />
                     </button>
-                    <Avatar className="h-10 w-10 border border-white/20">
-                        <AvatarImage src={recipientAvatar} />
-                        <AvatarFallback>{recipientName[0]}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col">
-                        <span className="font-semibold text-[15px] leading-tight text-white">{recipientName}</span>
+                    <div className="relative group cursor-pointer">
+                        <Avatar className="h-9 w-9 border border-white/10 ring-2 ring-transparent group-hover:ring-orange-500/30 transition-all">
+                            <AvatarImage src={recipientAvatar} />
+                            <AvatarFallback className="bg-zinc-800 text-zinc-400">{recipientName[0]}</AvatarFallback>
+                        </Avatar>
+                        {!isGroup && <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-black rounded-full" />}
+                    </div>
+                    <div className="flex flex-col justify-center -space-y-0.5">
+                        <span className="font-bold text-[15px] text-white tracking-tight">{recipientName}</span>
                         {isGroup ? (
-                            <span className="text-[11px] text-zinc-400">Mandli</span>
+                            <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Mandli</span>
                         ) : (
-                            <span className="text-[11px] text-green-500 font-medium">Active now</span>
+                            <span className="text-[11px] text-zinc-400 font-medium">Active now</span>
                         )}
                     </div>
                 </div>
-                <div className="flex items-center gap-1">
-                    <button className="p-2.5 hover:bg-white/10 rounded-full text-zinc-300 transition-colors" title="Voice Call">
+                <div className="flex items-center gap-0.5">
+                    <button className="p-2.5 hover:bg-white/10 rounded-full text-white/90 transition-colors" title="Voice Call">
                         <Phone className="w-5 h-5" />
                     </button>
-                    <button onClick={startVideoCall} className="p-2.5 hover:bg-white/10 rounded-full text-zinc-300 transition-colors" title="Video Call">
+                    <button onClick={startVideoCall} className="p-2.5 hover:bg-white/10 rounded-full text-white/90 transition-colors" title="Video Call">
                         <Video className="w-5 h-5" />
                     </button>
-                    <button className="p-2.5 hover:bg-white/10 rounded-full text-zinc-300 transition-colors hidden md:block" title="More Info">
+                    <button className="p-2.5 hover:bg-white/10 rounded-full text-white/90 transition-colors" title="More Info">
                         <MoreVertical className="w-5 h-5" />
                     </button>
                 </div>
@@ -215,9 +218,9 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                                     ) : null}
 
                                     <div className={cn(
-                                        "px-4 py-2.5 rounded-2xl text-[15px] break-words flex flex-col gap-2 relative shadow-sm",
-                                        isMe ? "bg-gradient-to-br from-orange-600 to-orange-500 text-white rounded-br-sm"
-                                            : "bg-zinc-800/90 text-zinc-100 rounded-bl-sm border border-white/5"
+                                        "px-4 py-2.5 rounded-[20px] text-[15px] break-words flex flex-col gap-2 relative shadow-md",
+                                        isMe ? "bg-gradient-to-br from-orange-600 to-orange-500 text-white rounded-tr-sm"
+                                            : "bg-[#262626] text-zinc-100 rounded-tl-sm border border-white/5"
                                     )}>
                                         {/* Shared Post Preview */}
                                         {msg.post && (
@@ -257,34 +260,40 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                 <div ref={messagesEndRef} className="h-4" />
             </div>
 
-            {/* Input Area */}
-            <div className="p-3 md:p-4 bg-black/90 backdrop-blur-xl border-t border-white/10 shrink-0 w-full">
-                <div className="max-w-4xl mx-auto flex gap-2 items-end">
-                    <button className="p-3 text-white/50 hover:text-white transition-colors rounded-full hover:bg-white/10 shrink-0" title="Attach Image">
-                        <ImageIcon className="w-6 h-6" />
+            {/* Input Area - Instagram Style Pill */}
+            <div className="p-3 bg-black/95 backdrop-blur-xl border-t border-white/5 shrink-0 w-full pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                <div className="max-w-4xl mx-auto flex items-center gap-2 bg-[#121212] border border-white/10 rounded-[30px] p-1 pr-2 shadow-inner">
+                    <button className="p-2.5 h-10 w-10 flex items-center justify-center text-white/90 hover:text-white transition-all hover:bg-white/5 rounded-full shrink-0" title="Attach Image">
+                        <ImageIcon className="w-5.5 h-5.5" />
                     </button>
-                    <div className="flex-1 relative">
+                    <div className="flex-1">
                         <textarea
                             value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
                             onKeyDown={handleKeyPress}
-                            placeholder="Kuch sandesh likhein..."
-                            className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-4 py-3 min-h-[48px] max-h-[120px] text-sm text-white focus:outline-none focus:border-white/30 resize-none custom-scrollbar"
+                            placeholder="Message..."
+                            className="w-full bg-transparent border-none py-2.5 px-1 text-[15px] text-white focus:outline-none focus:ring-0 resize-none custom-scrollbar min-h-[42px] max-h-[120px] placeholder:text-zinc-500 leading-[1.2]"
                             rows={1}
-                            style={{ height: newMessage.split('\n').length * 24 + 24 }}
+                            style={{ height: Math.min(120, Math.max(42, newMessage.split('\n').length * 20 + 20)) }}
                         />
                     </div>
                     {newMessage.trim() ? (
                         <button
                             onClick={handleSend}
-                            className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed p-3 rounded-full text-white transition-all transform active:scale-95 shrink-0 shadow-lg"
+                            className="text-orange-500 hover:text-orange-400 font-bold text-[15px] px-3 py-1 transition-all active:scale-95 shrink-0"
                         >
-                            <Send className="w-5 h-5 ml-1" />
+                            Send
                         </button>
                     ) : (
-                        <button className="p-3 text-white/50 hover:text-white transition-colors rounded-full hover:bg-white/10 shrink-0">
-                            <Send className="w-5 h-5" />
-                        </button>
+                        <div className="flex items-center gap-1.5 pr-1">
+                            {/* Placeholder icons for IG feel */}
+                            <button className="p-2 text-white/90 hover:text-white transition-colors">
+                                <Video className="w-5 h-5" />
+                            </button>
+                            <button className="p-2 text-white/90 hover:text-white transition-colors">
+                                <Phone className="w-5 h-5" />
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>

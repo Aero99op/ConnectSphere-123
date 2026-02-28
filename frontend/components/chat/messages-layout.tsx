@@ -47,7 +47,7 @@ export function MessagesLayout() {
     // Mobile View: Show either Sidebar OR ChatView
     if (isMobile) {
         return (
-            <div className="w-full h-[100dvh] flex">
+            <div className="w-full h-[100dvh] fixed inset-0 z-50 bg-black flex overflow-hidden">
                 {activeChat ? (
                     <div className="w-full h-full animate-in slide-in-from-right-10 duration-200 fade-in">
                         <ChatView

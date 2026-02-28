@@ -99,43 +99,41 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
     return (
         <div className="flex flex-col h-full bg-black border-r border-white/10 w-full md:w-[350px] lg:w-[400px] shrink-0">
             {/* Header */}
-            <div className="p-4 flex flex-col gap-4 border-b border-white/10">
+            <div className="p-4 flex flex-col gap-4 border-b border-white/10 sticky top-0 bg-black/95 backdrop-blur-md z-10">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Link href="/" className="md:hidden p-2 rounded-full hover:bg-white/10 text-white">
-                            <ChevronLeft className="w-6 h-6" />
+                        <Link href="/" className="p-2 rounded-full hover:bg-white/10 text-white transition-colors">
+                            <ChevronLeft className="w-5 h-5" />
                         </Link>
-                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                            <MessageCircle className="w-6 h-6 text-orange-500" /> Guptugu
-                        </h2>
+                        <h2 className="text-xl font-bold text-white tracking-tight">Guptugu</h2>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
                         <button
                             onClick={() => setShowCreateGroup(true)}
-                            className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-white transition-colors"
-                            title="Nayi Mandli (New Group)"
+                            className="p-2.5 hover:bg-white/10 rounded-full text-cyan-400 transition-colors"
+                            title="Nayi Mandli"
                         >
-                            <Users className="w-5 h-5 text-cyan-400" />
+                            <Users className="w-5 h-5" />
                         </button>
                         <button
                             onClick={() => setShowNewChat(true)}
-                            className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-white transition-colors"
-                            title="Nayi Guptugu (New Chat)"
+                            className="p-2.5 hover:bg-white/10 rounded-full text-orange-400 transition-colors"
+                            title="Nayi Guptugu"
                         >
-                            <Edit className="w-5 h-5 text-orange-400" />
+                            <Edit className="w-5 h-5" />
                         </button>
                     </div>
                 </div>
 
-                {/* Search Bar */}
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                {/* Search Bar - IG style rounded */}
+                <div className="relative group">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-orange-500 transition-colors" />
                     <input
                         type="text"
-                        placeholder="Search chats..."
+                        placeholder="Doston ko dhoondo..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-zinc-900 border border-white/10 rounded-xl py-2 pl-9 pr-4 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
+                        className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl py-2.5 pl-10 pr-4 text-sm text-white focus:outline-none focus:ring-1 focus:ring-orange-500/30 focus:bg-zinc-800/80 transition-all placeholder:text-zinc-600"
                     />
                 </div>
             </div>
