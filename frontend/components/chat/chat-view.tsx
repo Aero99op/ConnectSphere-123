@@ -141,6 +141,15 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             setTimeout(() => {
                 supabase.removeChannel(channel);
             }, 2000);
+
+            // Trigger local call manager to open the caller's window
+            window.dispatchEvent(new CustomEvent('start-outgoing-call', {
+                detail: {
+                    roomId: conversationId,
+                    remoteUserId: recipientId,
+                    callType: type
+                }
+            }));
         };
 
         if (channel.state === 'joined') {

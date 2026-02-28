@@ -35,59 +35,99 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
     const localStream = useRef<MediaStream | null>(null);
 
     useEffect(() => {
+        let isCleaningUp = false;
+
         // Fetch remote user details for UI
         const fetchUser = async () => {
             const { data } = await supabase.from('profiles').select('*').eq('id', remoteUserId).single();
-            setRemoteUserProfile(data);
+            if (data && !isCleaningUp) setRemoteUserProfile(data);
         };
         fetchUser();
 
-        // Initialize Call
-        const startCall = async () => {
+        // 1. Get Local Stream
+        const initMedia = async () => {
             try {
-                // 1. Get Local Stream
                 const stream = await navigator.mediaDevices.getUserMedia({ video: callType === 'video', audio: true });
+                if (isCleaningUp) {
+                    stream.getTracks().forEach(t => t.stop());
+                    return null;
+                }
                 localStream.current = stream;
-                if (localVideoRef.current && callType === 'video') localVideoRef.current.srcObject = stream;
+                if (localVideoRef.current && callType === 'video') {
+                    localVideoRef.current.srcObject = stream;
+                }
+                return stream;
+            } catch (err) {
+                console.error("Error getting media:", err);
+                toast.error("Could not access camera/microphone");
+                handleEndCall(false);
+                return null;
+            }
+        };
 
-                // 2. Create Peer Connection
-                peerConnection.current = new RTCPeerConnection(ICE_SERVERS);
+        const channel = supabase.channel(`call:${roomId}`);
+        let iceCandidateQueue: RTCIceCandidateInit[] = [];
 
-                // Add Tracks
-                stream.getTracks().forEach((track) => {
-                    peerConnection.current?.addTrack(track, stream);
-                });
+        const startCall = async () => {
+            const stream = await initMedia();
+            if (!stream || isCleaningUp) return;
 
-                // Handle Remote Stream
-                peerConnection.current.ontrack = (event) => {
-                    if (remoteVideoRef.current) {
-                        remoteVideoRef.current.srcObject = event.streams[0];
-                        setConnectionStatus("connected");
-                    }
-                };
+            peerConnection.current = new RTCPeerConnection(ICE_SERVERS);
 
-                // Handle ICE Candidates
-                peerConnection.current.onicecandidate = (event) => {
-                    if (event.candidate && channel.state === 'joined') {
+            stream.getTracks().forEach((track) => {
+                peerConnection.current?.addTrack(track, stream);
+            });
+
+            peerConnection.current.ontrack = (event) => {
+                if (remoteVideoRef.current) {
+                    remoteVideoRef.current.srcObject = event.streams[0];
+                    setConnectionStatus("connected");
+                }
+            };
+
+            peerConnection.current.onicecandidate = (event) => {
+                if (event.candidate) {
+                    if (channel.state === 'joined') {
                         channel.send({
                             type: "broadcast",
                             event: "ice-candidate",
-                            payload: { candidate: event.candidate, from: 'me' },
+                            payload: { candidate: event.candidate, from: isCaller ? 'caller' : 'receiver' },
                         });
+                    } else {
+                        iceCandidateQueue.push(event.candidate);
                     }
-                };
+                }
+            };
 
-                // 3. Signaling Channel
-                const channel = supabase.channel(`call:${roomId}`);
-
-                channel
-                    .on("broadcast", { event: "ice-candidate" }, async (payload) => {
-                        if (peerConnection.current && payload.payload.from !== 'me') {
-                            await peerConnection.current.addIceCandidate(new RTCIceCandidate(payload.payload.candidate));
+            channel
+                .on("broadcast", { event: "receiver-ready" }, async () => {
+                    if (isCaller && peerConnection.current) {
+                        try {
+                            const offer = await peerConnection.current.createOffer();
+                            await peerConnection.current.setLocalDescription(offer);
+                            channel.send({
+                                type: "broadcast",
+                                event: "call-offer",
+                                payload: { offer },
+                            });
+                        } catch (err) {
+                            console.error("Error creating offer:", err);
                         }
-                    })
-                    .on("broadcast", { event: "call-offer" }, async (payload) => {
-                        if (!isCaller && peerConnection.current) {
+                    }
+                })
+                .on("broadcast", { event: "ice-candidate" }, async (payload) => {
+                    const isFromMe = isCaller ? payload.payload.from === 'caller' : payload.payload.from === 'receiver';
+                    if (peerConnection.current && !isFromMe) {
+                        try {
+                            await peerConnection.current.addIceCandidate(new RTCIceCandidate(payload.payload.candidate));
+                        } catch (err) {
+                            console.error("Error adding ice candidate", err);
+                        }
+                    }
+                })
+                .on("broadcast", { event: "call-offer" }, async (payload) => {
+                    if (!isCaller && peerConnection.current) {
+                        try {
                             await peerConnection.current.setRemoteDescription(new RTCSessionDescription(payload.payload.offer));
                             const answer = await peerConnection.current.createAnswer();
                             await peerConnection.current.setLocalDescription(answer);
@@ -97,46 +137,56 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
                                 event: "call-answer",
                                 payload: { answer },
                             });
+                        } catch (err) {
+                            console.error("Error handling offer:", err);
                         }
-                    })
-                    .on("broadcast", { event: "call-answer" }, async (payload) => {
-                        if (isCaller && peerConnection.current) {
+                    }
+                })
+                .on("broadcast", { event: "call-answer" }, async (payload) => {
+                    if (isCaller && peerConnection.current) {
+                        try {
                             await peerConnection.current.setRemoteDescription(new RTCSessionDescription(payload.payload.answer));
+                        } catch (err) {
+                            console.error("Error handling answer:", err);
                         }
-                    })
-                    .on("broadcast", { event: "end-call" }, () => {
-                        handleEndCall(false); // End without sending event back
-                    })
-                    .subscribe(async (status) => {
-                        if (status === 'SUBSCRIBED') {
-                            if (isCaller) {
-                                const offer = await peerConnection.current?.createOffer();
-                                await peerConnection.current?.setLocalDescription(offer);
-                                channel.send({
-                                    type: "broadcast",
-                                    event: "call-offer",
-                                    payload: { offer },
-                                });
-                            }
+                    }
+                })
+                .on("broadcast", { event: "end-call" }, () => {
+                    handleEndCall(false);
+                })
+                .subscribe(async (status) => {
+                    if (status === 'SUBSCRIBED') {
+                        // Send queued ICE candidates
+                        while (iceCandidateQueue.length > 0) {
+                            const candidate = iceCandidateQueue.shift();
+                            await channel.send({
+                                type: "broadcast",
+                                event: "ice-candidate",
+                                payload: { candidate, from: isCaller ? 'caller' : 'receiver' },
+                            });
                         }
-                    });
 
-            } catch (err) {
-                console.error("Error starting call:", err);
-                toast.error("Could not start camera/microphone");
-                onEndCall();
-            }
+                        if (!isCaller) {
+                            // Tell the caller we are ready to receive the offer!
+                            channel.send({
+                                type: "broadcast",
+                                event: "receiver-ready",
+                                payload: {}
+                            });
+                        }
+                    }
+                });
         };
 
         startCall();
 
         return () => {
-            handleEndCall(true); // Cleanup on unmount
+            isCleaningUp = true;
+            handleEndCall(true);
         };
     }, []);
 
     const handleEndCall = (sendEvent = true) => {
-        // Cleanup WebRTC
         if (localStream.current) {
             localStream.current.getTracks().forEach(track => track.stop());
         }
@@ -144,7 +194,6 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
             peerConnection.current.close();
         }
 
-        // Notify other peer
         if (sendEvent) {
             const channel = supabase.channel(`call:${roomId}`);
             if (channel.state === 'joined') {

@@ -41,6 +41,23 @@ export function CallManager() {
         init();
     }, [activeCall]);
 
+    // Listen for Outgoing Calls triggered from ChatView
+    useEffect(() => {
+        const handleOutgoingCall = (e: any) => {
+            if (!activeCall && !incomingCall) {
+                setActiveCall({
+                    roomId: e.detail.roomId,
+                    remoteUserId: e.detail.remoteUserId,
+                    isCaller: true,
+                    callType: e.detail.callType
+                });
+            }
+        };
+
+        window.addEventListener('start-outgoing-call', handleOutgoingCall);
+        return () => window.removeEventListener('start-outgoing-call', handleOutgoingCall);
+    }, [activeCall, incomingCall]);
+
     const handleAcceptCall = () => {
         if (!incomingCall) return;
 
