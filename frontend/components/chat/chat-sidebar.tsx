@@ -90,8 +90,8 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
     };
 
     const filteredConversations = conversations.filter(c =>
-        c.recipient.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.recipient.username?.toLowerCase().includes(searchQuery.toLowerCase())
+        c.recipient?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.recipient?.username?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     if (!userId) return null;

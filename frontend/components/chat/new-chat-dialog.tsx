@@ -93,8 +93,8 @@ export function NewChatDialog({ onClose, onCreateGroup, onChatStart, currentUser
     };
 
     const filteredFriends = friends.filter(u =>
-        u.username.toLowerCase().includes(query.toLowerCase()) ||
-        u.full_name?.toLowerCase().includes(query.toLowerCase())
+        u?.username?.toLowerCase().includes(query.toLowerCase()) ||
+        u?.full_name?.toLowerCase().includes(query.toLowerCase())
     );
 
     return (
