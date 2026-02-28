@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
     try {
         const formData = await req.formData();
-        const file = formData.get('file') as Blob;
+        const file = formData.get('file') as File;
 
         if (!file) {
             return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
@@ -23,23 +23,30 @@ export async function POST(req: NextRequest) {
 
         const catboxFormData = new FormData();
         catboxFormData.append('reqtype', 'fileupload');
-        catboxFormData.append('fileToUpload', file);
+
+        // Ensure the file has a filename, even if it's a blob
+        const filename = (file as any).name || 'upload.bin';
+        catboxFormData.append('fileToUpload', file, filename);
 
         const response = await fetch('https://catbox.moe/user/api.php', {
             method: 'POST',
             body: catboxFormData,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
         });
 
         if (!response.ok) {
-            throw new Error(`Catbox API Error: ${response.statusText}`);
+            const errorBody = await response.text();
+            throw new Error(`Catbox API Error: ${response.status} ${response.statusText} - ${errorBody}`);
         }
 
         const resultUrl = await response.text();
-        return NextResponse.json({ url: resultUrl });
+        return NextResponse.json({ url: resultUrl.trim() });
 
     } catch (error: any) {
         console.error('Upload Proxy Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: `Proxy Upload Failed: ${error.message}` }, { status: 500 });
     }
 }
 
