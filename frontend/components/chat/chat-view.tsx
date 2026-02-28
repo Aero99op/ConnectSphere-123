@@ -38,10 +38,14 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                 },
                 async (payload) => {
                     const newMsg = payload.new;
-                    if (isGroup) {
-                        const { data } = await supabase.from('profiles').select('username, full_name, avatar_url').eq('id', newMsg.sender_id).single();
-                        if (data) newMsg.sender = data;
+
+                    // Always fetch sender details for realtime messages so UI doesn't break
+                    // because the relational join isn't sent in the postgres_changes event
+                    const { data } = await supabase.from('profiles').select('username, full_name, avatar_url').eq('id', newMsg.sender_id).single();
+                    if (data) {
+                        newMsg.sender = data;
                     }
+
                     setMessages((prev) => [...prev, newMsg]);
                     scrollToBottom();
                 }
