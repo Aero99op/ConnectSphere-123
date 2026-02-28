@@ -5,12 +5,19 @@
 -- by switching to a high-performance boolean check for RLS.
 -- ==============================================================================
 
--- 1. Clean up everything first
+-- 1. Clean up everything first (Nuke existing policies)
 DROP POLICY IF EXISTS "Users can view their own conversations" ON public.conversations;
 DROP POLICY IF EXISTS "Users can view participants in their conversations" ON public.conversation_participants;
 DROP POLICY IF EXISTS "Users can view messages in their conversations" ON public.messages;
 DROP POLICY IF EXISTS "Users can send messages to their conversations" ON public.messages;
 DROP POLICY IF EXISTS "Users can create conversations" ON public.conversations;
+
+-- Also Drop the NEW policy names in case of re-run
+DROP POLICY IF EXISTS "conversations_select" ON public.conversations;
+DROP POLICY IF EXISTS "conversations_insert" ON public.conversations;
+DROP POLICY IF EXISTS "participants_select" ON public.conversation_participants;
+DROP POLICY IF EXISTS "messages_select" ON public.messages;
+DROP POLICY IF EXISTS "messages_insert" ON public.messages;
 
 -- Remove old slow functions
 DROP FUNCTION IF EXISTS public.get_my_conversation_ids();
