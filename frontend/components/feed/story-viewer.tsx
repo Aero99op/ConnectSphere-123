@@ -46,7 +46,10 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
     const mediaUrls = currentStory.media_urls || currentStory.file_urls || (currentStory.media_url ? [currentStory.media_url] : []);
     const mediaType = currentStory.media_type || 'image';
 
+    // Registration and Fetching
     useEffect(() => {
+        if (!userId || !currentStory.id) return;
+
         // Reset state on slide change
         setProgress(0);
         setLiked(false);
@@ -54,40 +57,27 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
         setComment("");
         setMediaBlobUrl(null);
 
-        // Register View and Fetch Like State
-        async function fetchStoryInteractions() {
-            if (userId && currentStory.id) {
-                // Ignore errors (like duplicate unique view constraint)
-                await supabase.from('story_views').insert({
-                    story_id: currentStory.id,
-                    viewer_id: userId
-                });
+        async function initStory() {
+            // 1. Record View (Silent)
+            supabase.from('story_views').insert({ story_id: currentStory.id, viewer_id: userId }).then();
 
-                // Check if already liked
-                const { data: likeData } = await supabase.from('story_likes')
-                    .select('id')
-                    .eq('story_id', currentStory.id)
-                    .eq('user_id', userId)
-                    .single();
-
-                if (likeData) setLiked(true);
-            }
+            // 2. Check Like Status
+            const { data: likeData } = await supabase.from('story_likes')
+                .select('id')
+                .eq('story_id', currentStory.id)
+                .eq('user_id', userId)
+                .maybeSingle();
+            if (likeData) setLiked(true);
         }
-        fetchStoryInteractions();
 
-        // Handle chunked media merging
         async function loadMedia() {
             if (mediaUrls.length === 0) return;
-
-            // If it's a single image, we can just use the URL directly to be fast.
-            // But if it's multiple chunks, we MUST merge.
             if (mediaUrls.length === 1 && mediaType === 'image') {
                 setMediaBlobUrl(mediaUrls[0]);
                 return;
             }
-
             setIsLoadingMedia(true);
-            setPaused(true); // Pause progress while loading
+            setPaused(true);
             try {
                 const contentType = mediaType === 'video' ? 'video/mp4' : 'image/jpeg';
                 const blobUrl = await downloadAndMergeChunks(mediaUrls, contentType);
@@ -101,51 +91,47 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
             }
         }
 
+        initStory();
         loadMedia();
-
     }, [currentIndex, userId, currentStory?.id]);
 
     useEffect(() => {
         if (paused) return;
-
         const timer = setInterval(() => {
             setProgress((prev) => {
                 if (prev >= 100) {
                     nextStory();
                     return 0;
                 }
-                return prev + 1; // 100 steps * 50ms = 5000ms duration
+                return prev + 1;
             });
         }, 50);
-
         return () => clearInterval(timer);
     }, [currentIndex, paused]);
 
     const nextStory = () => {
-        if (currentIndex < stories.length - 1) {
-            setCurrentIndex(prev => prev + 1);
-        } else {
-            onClose(); // Close if last story finishes
-        }
+        if (currentIndex < stories.length - 1) setCurrentIndex(prev => prev + 1);
+        else onClose();
     };
 
     const prevStory = () => {
-        if (currentIndex > 0) {
-            setCurrentIndex(prev => prev - 1);
-        }
+        if (currentIndex > 0) setCurrentIndex(prev => prev - 1);
     };
 
     const handleLike = async () => {
-        if (!userId) {
-            toast.error("Login to like!");
-            return;
-        }
+        if (!userId) return toast.error("Login to like!");
 
         const newLikedState = !liked;
         setLiked(newLikedState);
 
         if (newLikedState) {
-            // Trigger Notification
+            const { error } = await supabase.from('story_likes').insert({ story_id: currentStory.id, user_id: userId });
+            if (error) {
+                console.error("Story Like Error:", error);
+                setLiked(false);
+                return toast.error("Like save nahi hua!");
+            }
+
             if (currentStory.user_id && currentStory.user_id !== userId) {
                 await supabase.from('notifications').insert({
                     recipient_id: currentStory.user_id,
@@ -156,35 +142,67 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
             }
             toast.success("Loved it! ❤️");
         } else {
-            // Unlike logic
-            await supabase.from('story_likes').delete()
-                .eq('story_id', currentStory.id)
-                .eq('user_id', userId);
-            toast.success("Unliked");
+            await supabase.from('story_likes').delete().eq('story_id', currentStory.id).eq('user_id', userId);
         }
     };
 
     const handleSendComment = async () => {
         if (!comment.trim() || !userId) return;
+        const originalComment = comment;
+        setComment(""); // Clear early for speed
+        setPaused(false);
 
-        // In our current schema we just send a DM basically or a notification
-        // For now, we'll log it as a notification "comment" on the story
-        // Trigger Notification
-        const { error } = await supabase.from('notifications').insert({
-            recipient_id: currentStory.user_id,
-            actor_id: userId,
-            type: 'comment',
-            entity_id: currentStory.id
-        });
+        try {
+            // 1. Save to Story Comments table
+            const { error: storyErr } = await supabase.from('story_comments').insert({
+                story_id: currentStory.id,
+                user_id: userId,
+                content: originalComment
+            });
+            if (storyErr) throw storyErr;
 
-        if (error) {
-            toast.error("Failed to send reply");
-        } else {
-            toast.success("Reply sent! 🚀");
+            // 2. DM Logic
+            // Find or create conversation
+            let { data: conversation } = await supabase
+                .from('conversations')
+                .select('id')
+                .or(`and(user1_id.eq.${userId},user2_id.eq.${currentStory.user_id}),and(user1_id.eq.${currentStory.user_id},user2_id.eq.${userId})`)
+                .maybeSingle();
+
+            let convId = conversation?.id;
+            if (!convId) {
+                const { data: newConv, error: convErr } = await supabase
+                    .from('conversations')
+                    .insert({ user1_id: userId, user2_id: currentStory.user_id })
+                    .select('id')
+                    .single();
+                if (convErr) throw convErr;
+                convId = newConv.id;
+            }
+
+            // Send actual message
+            const { error: msgErr } = await supabase.from('messages').insert({
+                conversation_id: convId,
+                sender_id: userId,
+                content: `Replied to your story: "${originalComment}"`,
+                story_id: currentStory.id
+            });
+            if (msgErr) throw msgErr;
+
+            // 3. Notification Fallback
+            await supabase.from('notifications').insert({
+                recipient_id: currentStory.user_id,
+                actor_id: userId,
+                type: 'comment',
+                entity_id: currentStory.id
+            });
+
+            toast.success("Reply saved & DM sent! ✉️");
+        } catch (error: any) {
+            console.error("Story Interaction Failure:", error);
+            toast.error(`Error: ${error.message || "Something went wrong"}`);
+            setComment(originalComment); // Restore on failure
         }
-
-        setComment("");
-        setPaused(false); // Resume
     };
 
     return (
@@ -288,11 +306,6 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
                             onBlur={() => setPaused(false)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSendComment()}
                         />
-                        {comment && (
-                            <button onClick={handleSendComment} className="absolute right-2 top-1/2 -translate-y-1/2 text-primary p-2 font-bold text-sm hover:scale-105 transition-transform">
-                                SEND
-                            </button>
-                        )}
                     </div>
 
                     <button onClick={handleLike} className="active:scale-90 transition-transform p-3 rounded-full hover:bg-white/10 backdrop-blur-sm">
@@ -302,8 +315,18 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
                         />
                     </button>
 
-                    <button onClick={() => { setPaused(true); setShowShareSheet(true); }} className="active:scale-90 transition-transform p-3 rounded-full hover:bg-white/10 backdrop-blur-sm">
-                        <Send className="w-6 h-6 text-white drop-shadow-md" strokeWidth={2} />
+                    <button
+                        onClick={() => {
+                            if (comment.trim()) {
+                                handleSendComment();
+                            } else {
+                                setPaused(true);
+                                setShowShareSheet(true);
+                            }
+                        }}
+                        className="active:scale-90 transition-transform p-3 rounded-full hover:bg-white/10 backdrop-blur-sm"
+                    >
+                        <Send className={cn("w-6 h-6 text-white drop-shadow-md transition-colors", comment.trim() && "text-primary animate-pulse")} strokeWidth={2} />
                     </button>
                 </div>
             </div>

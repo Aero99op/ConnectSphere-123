@@ -51,36 +51,43 @@ export function CommentSheet({ postId, open, onOpenChange }: CommentSheetProps) 
     const handleSend = async () => {
         if (!newComment.trim()) return;
 
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return alert("Login toh karlo!");
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return alert("Login toh karlo!");
 
-        const { error } = await supabase.from("comments").insert({
-            post_id: postId,
-            user_id: user.id,
-            content: newComment
-        });
+            const { error } = await supabase.from("comments").insert({
+                post_id: postId,
+                user_id: user.id,
+                content: newComment
+            });
 
-        if (error) {
-            alert("Comment fail ho gaya!");
-        } else {
-            // Trigger Notification
-            const { data: postData } = await supabase
-                .from('posts')
+            if (error) {
+                console.error("Comment Insertion Error:", error);
+                alert(`Comment fail ho gaya: ${error.message}`);
+                return;
+            }
+
+            // Trigger Notification (Fire and forget, don't block UI)
+            supabase.from('posts')
                 .select('user_id')
                 .eq('id', postId)
-                .single();
-
-            if (postData && postData.user_id !== user.id) {
-                await supabase.from('notifications').insert({
-                    recipient_id: postData.user_id,
-                    actor_id: user.id,
-                    type: 'comment',
-                    entity_id: postId
+                .maybeSingle()
+                .then(({ data: postData }) => {
+                    if (postData && postData.user_id !== user.id) {
+                        supabase.from('notifications').insert({
+                            recipient_id: postData.user_id,
+                            actor_id: user.id,
+                            type: 'comment',
+                            entity_id: postId
+                        });
+                    }
                 });
-            }
 
             setNewComment("");
             fetchComments(); // Refresh
+        } catch (err: any) {
+            console.error("Comment Send Exception:", err);
+            alert(`Kuch locha hai: ${err.message}`);
         }
     };
 

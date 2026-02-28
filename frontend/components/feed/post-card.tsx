@@ -44,14 +44,18 @@ export function PostCard({ post }: PostProps) {
     // Initial checks for bookmark and ownership
     useEffect(() => {
         const init = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                setCurrentUserId(user.id);
-                const { data: bookmarkData } = await supabase.from('bookmarks').select('id').eq('post_id', post.id).eq('user_id', user.id).single();
-                if (bookmarkData) setIsBookmarked(true);
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    setCurrentUserId(user.id);
+                    const { data: bookmarkData } = await supabase.from('bookmarks').select('id').eq('post_id', post.id).eq('user_id', user.id).maybeSingle();
+                    if (bookmarkData) setIsBookmarked(true);
 
-                const { data: likeData } = await supabase.from('post_likes').select('id').eq('post_id', post.id).eq('user_id', user.id).single();
-                if (likeData) setLiked(true);
+                    const { data: likeData } = await supabase.from('post_likes').select('id').eq('post_id', post.id).eq('user_id', user.id).maybeSingle();
+                    if (likeData) setLiked(true);
+                }
+            } catch (e) {
+                console.warn("Persistence check failed (Expected if new):", e);
             }
         };
         init();
