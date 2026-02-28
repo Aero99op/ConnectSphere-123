@@ -54,17 +54,26 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
         setComment("");
         setMediaBlobUrl(null);
 
-        // Register View
-        async function registerView() {
+        // Register View and Fetch Like State
+        async function fetchStoryInteractions() {
             if (userId && currentStory.id) {
                 // Ignore errors (like duplicate unique view constraint)
                 await supabase.from('story_views').insert({
                     story_id: currentStory.id,
-                    user_id: userId
+                    viewer_id: userId
                 });
+
+                // Check if already liked
+                const { data: likeData } = await supabase.from('story_likes')
+                    .select('id')
+                    .eq('story_id', currentStory.id)
+                    .eq('user_id', userId)
+                    .single();
+
+                if (likeData) setLiked(true);
             }
         }
-        registerView();
+        fetchStoryInteractions();
 
         // Handle chunked media merging
         async function loadMedia() {

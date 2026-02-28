@@ -104,15 +104,32 @@ export function CommentSheet({ postId, open, onOpenChange }: CommentSheetProps) 
                         <p className="text-center text-gray-500 text-sm">No comments yet. Be the first!</p>
                     ) : (
                         comments.map((comment) => (
-                            <div key={comment.id} className="flex gap-3">
+                            <div key={comment.id} className="flex gap-3 relative group">
                                 <Avatar className="w-8 h-8">
                                     <AvatarImage src={comment.avatar_url} />
                                     <AvatarFallback>{comment.username[0]}</AvatarFallback>
                                 </Avatar>
-                                <div>
+                                <div className="flex-1">
                                     <p className="text-xs font-bold text-gray-300">{comment.username}</p>
                                     <p className="text-sm text-white">{comment.content}</p>
                                 </div>
+                                {/* Optional Delete Button for Owner */}
+                                {comment.user_id && (
+                                    <button
+                                        className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-400 transition-opacity p-1 text-xs font-bold uppercase"
+                                        onClick={async () => {
+                                            const { data: { user } } = await supabase.auth.getUser();
+                                            if (user?.id === comment.user_id) {
+                                                await supabase.from("comments").delete().eq("id", comment.id);
+                                                fetchComments();
+                                            } else {
+                                                alert("You can only delete your own comments!");
+                                            }
+                                        }}
+                                    >
+                                        Delete
+                                    </button>
+                                )}
                             </div>
                         ))
                     )}

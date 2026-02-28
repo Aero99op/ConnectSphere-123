@@ -47,8 +47,11 @@ export function PostCard({ post }: PostProps) {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 setCurrentUserId(user.id);
-                const { data } = await supabase.from('bookmarks').select('id').eq('post_id', post.id).eq('user_id', user.id).single();
-                if (data) setIsBookmarked(true);
+                const { data: bookmarkData } = await supabase.from('bookmarks').select('id').eq('post_id', post.id).eq('user_id', user.id).single();
+                if (bookmarkData) setIsBookmarked(true);
+
+                const { data: likeData } = await supabase.from('post_likes').select('id').eq('post_id', post.id).eq('user_id', user.id).single();
+                if (likeData) setLiked(true);
             }
         };
         init();
@@ -94,32 +97,44 @@ export function PostCard({ post }: PostProps) {
     };
 
     const handleLike = async () => {
-        const newLikes = liked ? likes - 1 : likes + 1;
+        if (!currentUserId) {
+            toast.error("Please login to like!");
+            return;
+        }
+
+        const newLikedState = !liked;
+        const newLikes = newLikedState ? likes + 1 : likes - 1;
+
         setLikes(newLikes);
-        setLiked(!liked);
+        setLiked(newLikedState);
 
         if (navigator.vibrate) navigator.vibrate(50);
 
-        const { error } = await supabase
+        // Update total likes count
+        const { error: countError } = await supabase
             .from('posts')
             .update({ likes_count: newLikes })
             .eq('id', post.id);
 
-        if (error) return;
+        if (countError) return;
 
-        if (!liked) {
+        if (newLikedState) {
+            // Add to persistent post_likes table
+            await supabase.from('post_likes').insert({ post_id: post.id, user_id: currentUserId });
             await supabase.rpc('increment_karma', { user_id_param: post.user_id });
 
             // Trigger Notification
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user && post.user_id !== user.id) {
+            if (post.user_id !== currentUserId) {
                 await supabase.from('notifications').insert({
                     recipient_id: post.user_id,
-                    actor_id: user.id,
+                    actor_id: currentUserId,
                     type: 'like',
                     entity_id: post.id
                 });
             }
+        } else {
+            // Remove from persistent post_likes table
+            await supabase.from('post_likes').delete().eq('post_id', post.id).eq('user_id', currentUserId);
         }
     };
 
