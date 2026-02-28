@@ -72,8 +72,8 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             .select(`
                 *,
                 sender:profiles!sender_id(username, full_name, avatar_url),
-                post:posts(id, file_urls, thumbnail_url, media_type, caption),
-                story:stories(id, media_url, media_type)
+                post:posts(*),
+                story:stories(*)
             `)
             .eq("conversation_id", conversationId)
             .order("created_at", { ascending: true });
