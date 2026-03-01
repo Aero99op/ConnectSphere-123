@@ -255,16 +255,21 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         const mediaFile = selectedMedia;
         cancelMediaSelect();
 
+        const newPayload: any = {
+            conversation_id: conversationId,
+            sender_id: currentUserId,
+            content: msgContent || "", // ensuring it's never exactly null if not needed, although nullable
+            file_urls: mediaUrl ? [mediaUrl] : []
+        };
+
+        if (mediaFile) {
+            newPayload.file_name = mediaFile.name;
+            newPayload.file_size = mediaFile.size;
+        }
+
         const { error } = await supabase
             .from("messages")
-            .insert({
-                conversation_id: conversationId,
-                sender_id: currentUserId,
-                content: msgContent,
-                file_urls: mediaUrl ? [mediaUrl] : [],
-                file_name: mediaFile ? mediaFile.name : null,
-                file_size: mediaFile ? mediaFile.size : null
-            });
+            .insert(newPayload);
 
         if (error) {
             console.error("Failed to send", error);

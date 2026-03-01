@@ -9,20 +9,21 @@ export async function uploadToCatbox(file: Blob | File): Promise<string> {
     formData.append("fileToUpload", file);
 
     try {
-        const response = await fetch("https://catbox.moe/user/api.php", {
+        const response = await fetch("/api/upload/catbox", {
             method: "POST",
             body: formData,
             // Note: No 'Content-Type' header needed, functionality is automatic with FormData
         });
 
         if (!response.ok) {
-            throw new Error(`Catbox Upload Failed: ${response.statusText}`);
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Upload Failed: ${response.statusText}`);
         }
 
-        const url = await response.text();
-        return url;
+        const data = await response.json();
+        return data.url;
     } catch (error) {
-        console.error("Error uploading to Catbox:", error);
+        console.error("Error uploading to proxy:", error);
         throw error;
     }
 }
