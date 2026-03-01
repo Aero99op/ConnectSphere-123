@@ -143,14 +143,21 @@ function HomeFeedContent() {
             let finalMode: 'feed' | 'department' = 'feed';
 
             if (user) {
+                let userRole = 'citizen';
                 setUserId(user.id);
-                const { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
-                setUserProfile(data);
-                const userRole = data?.role || 'citizen';
-                setRole(userRole);
+                try {
+                    const { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+                    setUserProfile(data);
+                    userRole = data?.role || 'citizen';
+                    setRole(userRole);
 
-                // Default logic
-                finalMode = userRole === 'official' ? 'department' : 'feed';
+                    // Default logic
+                    finalMode = userRole === 'official' ? 'department' : 'feed';
+                } catch (e) {
+                    console.error("Failed to load user profile for Feed routing:", e);
+                    setRole('citizen');
+                    finalMode = 'feed';
+                }
 
                 // Check saved preference
                 try {

@@ -44,60 +44,56 @@ function ProfilePageContent() {
             setLoading(false);
             return;
         }
+        try {
+            // Fetch Profile Data
+            const { data: profileData } = await supabase
+                .from("profiles")
+                .select("*")
+                .eq("id", user.id)
+                .maybeSingle();
 
-        // Fetch Profile Data
-        const { data: profileData } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", user.id)
-            .maybeSingle();
+            setProfile(profileData || { full_name: "User Not Found", username: "unknown" });
 
-        setProfile(profileData);
+            // Fetch User Posts
+            const { data: postsData } = await supabase
+                .from("posts")
+                .select("*, profiles(*)")
+                .eq("user_id", user.id)
+                .order("created_at", { ascending: false });
 
-        // Fetch User Posts
-        const { data: postsData } = await supabase
-            .from("posts")
-            .select("*, profiles(*)")
-            .eq("user_id", user.id)
-            .order("created_at", { ascending: false });
+            // Format posts
+            const formattedPosts = postsData?.map((post: any) => ({
+                ...post,
+                username: post.profiles?.username || "Me",
+                avatar_url: post.profiles?.avatar_url
+            })) || [];
+            setPosts(formattedPosts);
 
-        // Format posts
-        const formattedPosts = postsData?.map(post => ({
-            ...post,
-            username: post.profiles?.username || "Me",
-            avatar_url: post.profiles?.avatar_url
-        })) || [];
-        setPosts(formattedPosts);
-
-        // Fetch Saved Posts (Bookmarks)
-        // Note: This requires a join on the bookmarks table and posts table. 
-        // Supabase select syntax: bookmarks(..., posts(*, profiles(*)))
-        const { data: bookmarksData } = await supabase
-            .from("bookmarks")
-            .select(`
+            // Fetch Saved Posts (Bookmarks)
+            const { data: bookmarksData } = await supabase
+                .from("bookmarks")
+                .select(`
                 id,
                 posts (
                     *,
                     profiles (*)
                 )
             `)
-            .eq("user_id", user.id)
-            .order("created_at", { ascending: false });
+                .eq("user_id", user.id)
+                .order("created_at", { ascending: false });
 
-        const formattedSavedPosts = bookmarksData?.map((item: any) => ({
-            ...item.posts,
-            username: item.posts?.profiles?.username || "Unknown",
-            avatar_url: item.posts?.profiles?.avatar_url
-        })) || [];
+            const formattedSavedPosts = bookmarksData?.map((item: any) => ({
+                ...item.posts,
+                username: item.posts?.profiles?.username || "Unknown",
+                avatar_url: item.posts?.profiles?.avatar_url
+            })) || [];
 
-        // Filter out null posts (in case a post was deleted but bookmark remained, though cascade should handle it)
-        setSavedPosts(formattedSavedPosts.filter(p => p.id));
+            setSavedPosts(formattedSavedPosts.filter((p: any) => p.id));
 
-
-        // Fetch User Reports with History
-        const { data: reportsData } = await supabase
-            .from("reports")
-            .select(`
+            // Fetch User Reports with History
+            const { data: reportsData } = await supabase
+                .from("reports")
+                .select(`
                 *,
                 report_updates (
                     id,
@@ -111,12 +107,15 @@ function ProfilePageContent() {
                     profiles:official_id (full_name, avatar_url)
                 )
             `)
-            .eq("user_id", user.id)
-            .order("created_at", { ascending: false });
+                .eq("user_id", user.id)
+                .order("created_at", { ascending: false });
 
-        setReports(reportsData || []);
-
-        setLoading(false);
+            setReports(reportsData || []);
+        } catch (error) {
+            console.error("Failed to load profile", error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleRemoveAllBookmarks = async () => {
