@@ -70,8 +70,9 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
         // 1. Get Local Stream
         const initMedia = async () => {
             try {
+                // First attempt: Ideal constraints with noise cancellation
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: callType === 'video' ? { facingMode: "user" } : false,
+                    video: callType === 'video' ? { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } : false,
                     audio: {
                         echoCancellation: true,
                         noiseSuppression: true,
@@ -87,11 +88,48 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
                     localVideoRef.current.srcObject = stream;
                 }
                 return stream;
-            } catch (err) {
-                console.error("Error getting media:", err);
-                toast.error("Could not access camera/microphone");
-                handleEndCall(false);
-                return null;
+            } catch (err: any) {
+                console.warn("[Media Error - High Constraints]", err.name, err.message);
+
+                // Second attempt: Fallback to basic constraints if advanced ones fail (often happens on Desktop Chrome without a 'user' facing camera)
+                try {
+                    console.log("Retrying with relaxed constraints...");
+                    const fallbackStream = await navigator.mediaDevices.getUserMedia({
+                        video: callType === 'video' ? true : false,
+                        audio: true
+                    });
+
+                    if (isCleaningUp) {
+                        fallbackStream.getTracks().forEach(t => t.stop());
+                        return null;
+                    }
+                    localStream.current = fallbackStream;
+                    if (localVideoRef.current && callType === 'video') {
+                        localVideoRef.current.srcObject = fallbackStream;
+                    }
+                    return fallbackStream;
+
+                } catch (fallbackErr: any) {
+                    console.error("[Media Error - Fallback Failed]", fallbackErr.name, fallbackErr.message);
+
+                    if (fallbackErr.name === 'NotAllowedError' || fallbackErr.name === 'PermissionDeniedError') {
+                        toast.error("Camera/Microphone permission denied. Please allow access in browser settings.");
+                    } else if (fallbackErr.name === 'NotFoundError' || fallbackErr.name === 'DevicesNotFoundError') {
+                        toast.error("No camera or microphone found.");
+                    } else if (fallbackErr.name === 'NotReadableError' || fallbackErr.name === 'TrackStartError') {
+                        toast.error("Camera/Microphone is already in use by another application.");
+                    } else {
+                        // Check for HTTPS mandate in modern browsers
+                        if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+                            toast.error("Browser requires HTTPS for camera access.");
+                        } else {
+                            toast.error(`Media access failed: ${fallbackErr.message || 'Unknown error'}`);
+                        }
+                    }
+
+                    handleEndCall(false);
+                    return null;
+                }
             }
         };
 
