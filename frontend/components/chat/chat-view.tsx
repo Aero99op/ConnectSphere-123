@@ -650,10 +650,10 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                                                 >
                                                     {/* Media Rendering */}
                                                     {!msg.is_deleted && msg.file_urls && msg.file_urls.length > 0 && (
-                                                        <div className="mb-2 w-full max-w-[240px] md:max-w-[320px] rounded-lg overflow-hidden bg-black/20 relative">
+                                                        <div className="mb-2 w-full max-w-[240px] md:max-w-[320px] rounded-lg overflow-hidden bg-black/20">
                                                             {msg.file_name?.toLowerCase().match(/\.(jpeg|jpg|gif|png|webp|bmp)$/i) || msg.file_urls[0].toLowerCase().match(/\.(jpeg|jpg|gif|png|webp|bmp)$/i) ? (
                                                                 <div
-                                                                    className="relative w-full aspect-[4/3] cursor-zoom-in"
+                                                                    className="relative w-[240px] h-[320px] md:w-[320px] md:h-[400px] cursor-zoom-in"
                                                                     onClick={(e) => { e.stopPropagation(); setFullScreenImage(msg.file_urls[0]); }}
                                                                 >
                                                                     <Image
