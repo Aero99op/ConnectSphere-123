@@ -294,9 +294,8 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
         <div className={cn(
             "fixed transition-all duration-300 z-[9999] overflow-hidden bg-[#0b141a] text-white", // WA dark mode base color Inspiration
             isMinimized
-                ? "bottom-24 right-4 w-40 h-60 rounded-2xl shadow-2xl border border-white/10 pointer-events-auto"
-                : "inset-0 md:inset-4 md:rounded-[2rem] shadow-2xl pointer-events-auto",
-            isMinimized && "pointer-events-none bg-transparent" // When minimized, wrapper should not block clicks, but the pip itself needs pointer-events-auto
+                ? "bottom-24 right-4 w-40 h-60 rounded-2xl shadow-2xl border border-white/10"
+                : "inset-0 md:inset-4 md:rounded-[2rem] shadow-2xl"
         )}>
             {/* Background Texture/Gradient */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80 z-0 pointer-events-none" />
