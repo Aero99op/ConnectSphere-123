@@ -36,19 +36,15 @@ export function CreateGroupDialog({ onClose, onGroupCreated }: CreateGroupDialog
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Fetch users I follow
+        // Fetch all users for MVP so we can easily find people
         const { data } = await supabase
-            .from('follows')
-            .select(`
-                following_id,
-                profiles:following_id (id, username, full_name, avatar_url)
-            `)
-            .eq('follower_id', user.id);
+            .from('profiles')
+            .select('id, username, full_name, avatar_url')
+            .neq('id', user.id)
+            .limit(100);
 
         if (data) {
-            // @ts-ignore
-            const formatted = data.map((d: any) => d.profiles).filter(Boolean);
-            setFriends(formatted);
+            setFriends(data);
         }
         setLoading(false);
     };
@@ -85,8 +81,8 @@ export function CreateGroupDialog({ onClose, onGroupCreated }: CreateGroupDialog
     };
 
     const filteredFriends = friends.filter(u =>
-        u.username.toLowerCase().includes(query.toLowerCase()) ||
-        u.full_name?.toLowerCase().includes(query.toLowerCase())
+        u?.username?.toLowerCase().includes(query.toLowerCase()) ||
+        u?.full_name?.toLowerCase().includes(query.toLowerCase())
     );
 
     return (

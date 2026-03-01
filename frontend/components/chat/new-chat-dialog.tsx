@@ -27,20 +27,15 @@ export function NewChatDialog({ onClose, onCreateGroup, onChatStart, currentUser
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Fetch users I follow (Assuming "Friends" = Following for now, or bi-directional if we had a friends table)
-        // For MVP, using 'follows' table where follower_id is me
+        // Fetch all users for MVP so we can easily find people
         const { data } = await supabase
-            .from('follows')
-            .select(`
-                following_id,
-                profiles:following_id (id, username, full_name, avatar_url)
-            `)
-            .eq('follower_id', user.id);
+            .from('profiles')
+            .select('id, username, full_name, avatar_url')
+            .neq('id', user.id)
+            .limit(100);
 
         if (data) {
-            // @ts-ignore
-            const formatted = data.map((d: any) => d.profiles).filter(Boolean);
-            setFriends(formatted);
+            setFriends(data);
         }
         setLoading(false);
     };
@@ -160,11 +155,11 @@ export function NewChatDialog({ onClose, onCreateGroup, onChatStart, currentUser
                                 >
                                     <Avatar className="w-10 h-10">
                                         <AvatarImage src={user.avatar_url} />
-                                        <AvatarFallback>{user.username[0]}</AvatarFallback>
+                                        <AvatarFallback>{user.username?.[0] || user.full_name?.[0] || "?"}</AvatarFallback>
                                     </Avatar>
                                     <div className="flex flex-col">
-                                        <span className="text-sm font-medium text-white">{user.full_name}</span>
-                                        <span className="text-xs text-zinc-400">@{user.username}</span>
+                                        <span className="text-sm font-medium text-white">{user.full_name || "Unknown User"}</span>
+                                        <span className="text-xs text-zinc-400">@{user.username || "unknown"}</span>
                                     </div>
                                 </div>
                             ))
