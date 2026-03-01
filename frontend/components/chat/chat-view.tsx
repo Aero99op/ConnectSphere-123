@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import { Send, ChevronLeft, Loader2, Video, Phone, MoreVertical, Image as ImageIcon } from "lucide-react";
+import { Send, ChevronLeft, Loader2, Video, Phone, MoreVertical, Image as ImageIcon, Users, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { AddGroupMembersDialog } from "./add-group-members-dialog";
 
 interface ChatViewProps {
     conversationId: string;
@@ -21,6 +22,8 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     const [messages, setMessages] = useState<any[]>([]);
     const [newMessage, setNewMessage] = useState("");
     const [loading, setLoading] = useState(true);
+    const [showAddMembers, setShowAddMembers] = useState(false);
+    const [showDropdown, setShowDropdown] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -174,6 +177,19 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         }
     };
 
+    const handleLeaveGroup = async () => {
+        if (!isGroup) return;
+        if (!confirm("Kya tum sach mein Mandli se nikalna chahte ho?")) return;
+
+        const { error } = await supabase.rpc('leave_group', { conv_id: conversationId });
+        if (error) {
+            console.error("Failed to leave group", error);
+            toast.error("Mandli chhod nahi paye. RPC check karo.");
+        } else {
+            toast.success("Mandli se nikal gaye.");
+            onBack();
+        }
+    };
 
     return (
         <div className="flex flex-col h-full w-full bg-[#0a0a0a] relative">
@@ -206,9 +222,51 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                     <button onClick={() => startCall("video")} className="p-2.5 hover:bg-white/10 rounded-full text-white/90 transition-colors" title="Video Call">
                         <Video className="w-5 h-5" />
                     </button>
-                    <button className="p-2.5 hover:bg-white/10 rounded-full text-white/90 transition-colors" title="More Info">
-                        <MoreVertical className="w-5 h-5" />
-                    </button>
+                    {isGroup && (
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowDropdown(prev => !prev)}
+                                className="p-2.5 hover:bg-white/10 rounded-full text-white/90 transition-colors focus:outline-none"
+                                title="More Info"
+                            >
+                                <MoreVertical className="w-5 h-5" />
+                            </button>
+
+                            {/* Custom Dropdown Menu */}
+                            {showDropdown && (
+                                <>
+                                    {/* Backdrop to close dropdown */}
+                                    <div
+                                        className="fixed inset-0 z-40"
+                                        onClick={() => setShowDropdown(false)}
+                                    />
+                                    <div className="absolute right-0 mt-2 w-48 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl py-1 z-50 text-white animate-in fade-in zoom-in-95 origin-top-right">
+                                        <button
+                                            onClick={() => {
+                                                setShowDropdown(false);
+                                                setShowAddMembers(true);
+                                            }}
+                                            className="w-full"
+                                        >
+                                            <div className="flex w-full items-center px-4 py-2 text-sm cursor-pointer hover:bg-white/10 transition-colors">
+                                                <Users className="w-4 h-4 mr-2" />
+                                                <span>Naye Dost Jodo</span>
+                                            </div>
+                                        </button>
+                                        <button className="w-full" onClick={() => {
+                                            setShowDropdown(false);
+                                            handleLeaveGroup();
+                                        }}>
+                                            <div className="flex w-full items-center px-4 py-2 text-sm cursor-pointer text-red-400 hover:bg-red-500/10 transition-colors">
+                                                <LogOut className="w-4 h-4 mr-2" />
+                                                <span>Mandli Chhodo</span>
+                                            </div>
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -356,6 +414,13 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                     )}
                 </div>
             </div>
+            {showAddMembers && (
+                <AddGroupMembersDialog
+                    conversationId={conversationId}
+                    onClose={() => setShowAddMembers(false)}
+                    onMembersAdded={() => setShowAddMembers(false)}
+                />
+            )}
         </div>
     );
 }
