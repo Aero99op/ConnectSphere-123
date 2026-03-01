@@ -47,7 +47,14 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
         // 1. Get Local Stream
         const initMedia = async () => {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: callType === 'video', audio: true });
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: callType === 'video' ? { facingMode: "user" } : false,
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                    }
+                });
                 if (isCleaningUp) {
                     stream.getTracks().forEach(t => t.stop());
                     return null;

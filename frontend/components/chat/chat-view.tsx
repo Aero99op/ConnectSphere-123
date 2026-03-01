@@ -129,6 +129,16 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         const channel = supabase.channel(`user:${recipientId}`);
 
         const sendCall = async () => {
+            // Trigger local call manager instantly to open window
+            window.dispatchEvent(new CustomEvent('start-outgoing-call', {
+                detail: {
+                    roomId: conversationId,
+                    remoteUserId: recipientId,
+                    callType: type
+                }
+            }));
+            toast.success("Bula rahe hain...");
+
             await channel.send({
                 type: "broadcast",
                 event: "incoming-call",
@@ -140,20 +150,11 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                     callType: type
                 }
             });
-            toast.success("Bula rahe hain...");
+
             // Cleanup transient channel after sending to ensure delivery over slow networks
             setTimeout(() => {
                 supabase.removeChannel(channel);
-            }, 5000);
-
-            // Trigger local call manager to open the caller's window
-            window.dispatchEvent(new CustomEvent('start-outgoing-call', {
-                detail: {
-                    roomId: conversationId,
-                    remoteUserId: recipientId,
-                    callType: type
-                }
-            }));
+            }, 3000);
         };
 
         if (channel.state === 'joined') {
