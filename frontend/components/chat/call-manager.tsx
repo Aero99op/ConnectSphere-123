@@ -64,7 +64,8 @@ export function CallManager() {
         setActiveCall({
             roomId: incomingCall.roomId,
             remoteUserId: incomingCall.callerId,
-            isCaller: false
+            isCaller: false,
+            callType: incomingCall.callType
         });
         setIncomingCall(null);
     };

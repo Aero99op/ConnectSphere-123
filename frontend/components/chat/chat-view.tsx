@@ -122,6 +122,10 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             return;
         }
 
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', currentUserId).single();
+        const callerName = profile?.full_name || profile?.username || "Someone";
+        const callerAvatar = profile?.avatar_url || "https://github.com/shadcn.png";
+
         const channel = supabase.channel(`user:${recipientId}`);
 
         const sendCall = async () => {
@@ -131,8 +135,8 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                 payload: {
                     roomId: conversationId,
                     callerId: currentUserId,
-                    callerName: "You",
-                    callerAvatar: "https://github.com/shadcn.png",
+                    callerName,
+                    callerAvatar,
                     callType: type
                 }
             });

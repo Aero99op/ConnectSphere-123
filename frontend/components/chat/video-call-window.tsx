@@ -67,6 +67,7 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
 
         const channel = supabase.channel(`call:${roomId}`);
         let iceCandidateQueue: RTCIceCandidateInit[] = [];
+        let isSubscribed = false;
 
         const startCall = async () => {
             const stream = await initMedia();
@@ -87,7 +88,7 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
 
             peerConnection.current.onicecandidate = (event) => {
                 if (event.candidate) {
-                    if (channel.state === 'joined') {
+                    if (isSubscribed) {
                         channel.send({
                             type: "broadcast",
                             event: "ice-candidate",
@@ -154,8 +155,18 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
                 .on("broadcast", { event: "end-call" }, () => {
                     handleEndCall(false);
                 })
+                .on("broadcast", { event: "caller-ready" }, async () => {
+                    if (!isCaller && isSubscribed) {
+                        channel.send({
+                            type: "broadcast",
+                            event: "receiver-ready",
+                            payload: {}
+                        });
+                    }
+                })
                 .subscribe(async (status) => {
                     if (status === 'SUBSCRIBED') {
+                        isSubscribed = true;
                         // Send queued ICE candidates
                         while (iceCandidateQueue.length > 0) {
                             const candidate = iceCandidateQueue.shift();
@@ -173,6 +184,12 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
                                 event: "receiver-ready",
                                 payload: {}
                             });
+                        } else {
+                            channel.send({
+                                type: "broadcast",
+                                event: "caller-ready",
+                                payload: {}
+                            });
                         }
                     }
                 });
@@ -180,9 +197,21 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
 
         startCall();
 
+        const handleBeforeUnload = () => {
+            handleEndCall(true);
+        };
+        window.addEventListener("beforeunload", handleBeforeUnload);
+
         return () => {
             isCleaningUp = true;
-            handleEndCall(true);
+            window.removeEventListener("beforeunload", handleBeforeUnload);
+            // Don't call handleEndCall(true) here to prevent React Strict mode from ending the call instantly
+            if (localStream.current) {
+                localStream.current.getTracks().forEach(track => track.stop());
+            }
+            if (peerConnection.current) {
+                peerConnection.current.close();
+            }
         };
     }, []);
 
@@ -195,10 +224,11 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
         }
 
         if (sendEvent) {
-            const channel = supabase.channel(`call:${roomId}`);
-            if (channel.state === 'joined') {
-                channel.send({ type: "broadcast", event: "end-call", payload: {} });
-            }
+            const sendEnd = async () => {
+                const sendChannel = supabase.channel(`call:${roomId}`);
+                await sendChannel.send({ type: "broadcast", event: "end-call", payload: {} });
+            };
+            sendEnd();
         }
 
         onEndCall();
