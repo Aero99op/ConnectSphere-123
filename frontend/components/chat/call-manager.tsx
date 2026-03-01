@@ -147,7 +147,6 @@ export function CallManager() {
                 </div>
             )}
 
-            {/* Active Call Window */}
             {activeCall && (
                 <VideoCallWindow
                     roomId={activeCall.roomId}
@@ -155,6 +154,7 @@ export function CallManager() {
                     isCaller={activeCall.isCaller}
                     callType={activeCall.callType}
                     onEndCall={handleEndCall}
+                    initialMinimized={!activeCall.isCaller} // Minimize for receiver on accept
                 />
             )}
         </>

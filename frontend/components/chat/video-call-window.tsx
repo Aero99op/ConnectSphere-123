@@ -13,6 +13,7 @@ interface VideoCallWindowProps {
     isCaller: boolean;
     callType: 'audio' | 'video';
     onEndCall: (duration: number) => void;
+    initialMinimized?: boolean;
 }
 
 const ICE_SERVERS = {
@@ -22,10 +23,10 @@ const ICE_SERVERS = {
     ],
 };
 
-export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEndCall }: VideoCallWindowProps) {
+export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEndCall, initialMinimized = false }: VideoCallWindowProps) {
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(callType === 'audio');
-    const [isMinimized, setIsMinimized] = useState(false);
+    const [isMinimized, setIsMinimized] = useState(initialMinimized);
     const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "disconnected">("connecting");
     const [remoteUserProfile, setRemoteUserProfile] = useState<any>(null);
     const [duration, setDuration] = useState(0);
@@ -291,10 +292,11 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
 
     return (
         <div className={cn(
-            "fixed transition-all duration-300 z-50 overflow-hidden bg-[#0b141a] text-white", // WA dark mode base color Inspiration
+            "fixed transition-all duration-300 z-[9999] overflow-hidden bg-[#0b141a] text-white", // WA dark mode base color Inspiration
             isMinimized
-                ? "bottom-24 right-4 w-40 h-60 rounded-2xl shadow-2xl border border-white/10"
-                : "inset-0 md:inset-4 md:rounded-[2rem] shadow-2xl"
+                ? "bottom-24 right-4 w-40 h-60 rounded-2xl shadow-2xl border border-white/10 pointer-events-auto"
+                : "inset-0 md:inset-4 md:rounded-[2rem] shadow-2xl pointer-events-auto",
+            isMinimized && "pointer-events-none bg-transparent" // When minimized, wrapper should not block clicks, but the pip itself needs pointer-events-auto
         )}>
             {/* Background Texture/Gradient */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80 z-0 pointer-events-none" />
@@ -382,9 +384,11 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
             {/* Minimize/Maximize Toggle */}
             <button
                 onClick={() => setIsMinimized(!isMinimized)}
-                className="absolute top-4 left-4 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 backdrop-blur-sm"
+                className={cn("absolute p-2 rounded-full bg-black/50 text-white hover:bg-black/70 backdrop-blur-sm shadow-xl border border-white/10 z-[100]",
+                    isMinimized ? "top-2 left-2 p-1.5" : "top-4 left-4"
+                )}
             >
-                {isMinimized ? <Maximize2 className="w-5 h-5" /> : <Minimize2 className="w-5 h-5" />}
+                {isMinimized ? <Maximize2 className="w-5 h-5 md:w-4 md:h-4" /> : <Minimize2 className="w-5 h-5" />}
             </button>
         </div>
     );
