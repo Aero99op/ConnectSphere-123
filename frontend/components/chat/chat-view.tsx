@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import { Send, ChevronLeft, Loader2, Video, Phone, MoreVertical, Image as ImageIcon, Users, LogOut } from "lucide-react";
+import { Send, ChevronLeft, Loader2, Video, Phone, MoreVertical, Image as ImageIcon, Users, LogOut, Check, CheckCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,10 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     const [loading, setLoading] = useState(true);
     const [showAddMembers, setShowAddMembers] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
+    const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+    const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+    const [messageContextMenuId, setMessageContextMenuId] = useState<string | null>(null);
+    const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -42,21 +46,56 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                 },
                 async (payload) => {
                     const newMsg = payload.new;
-
-                    // Always fetch sender details for realtime messages so UI doesn't break
-                    // because the relational join isn't sent in the postgres_changes event
                     const { data } = await supabase.from('profiles').select('username, full_name, avatar_url').eq('id', newMsg.sender_id).single();
                     if (data) {
                         newMsg.sender = data;
                     }
-
                     if (isMounted) {
                         setMessages((prev) => [...prev, newMsg]);
                         scrollToBottom();
                     }
                 }
             )
-            .subscribe((status: string, err: any) => {
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'messages',
+                    filter: `conversation_id=eq.${conversationId}`
+                },
+                async (payload) => {
+                    const updatedMsg = payload.new;
+                    if (isMounted) {
+                        setMessages((prev) => prev.map(m => m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m));
+                    }
+                }
+            )
+            .on(
+                'presence',
+                { event: 'sync' },
+                () => {
+                    const newState = channel.presenceState();
+                    const newTypers = new Set<string>();
+                    for (const id in newState) {
+                        // @ts-ignore
+                        const users = newState[id] as any[];
+                        for (const u of users) {
+                            if (u.isTyping && u.userId !== currentUserId) {
+                                newTypers.add(u.userId);
+                            }
+                        }
+                    }
+                    if (isMounted) setTypingUsers(newTypers);
+                }
+            )
+            .subscribe(async (status: string, err: any) => {
+                if (status === 'SUBSCRIBED') {
+                    await channel.track({
+                        userId: currentUserId,
+                        isTyping: false
+                    });
+                }
                 if (err) console.error("ChatView subscribe error:", err);
             });
 
@@ -68,7 +107,46 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
 
     useEffect(() => {
         scrollToBottom();
-    }, [messages]);
+
+        // Setup Intersection Observer for Read Receipts
+        if (!messages.length) return;
+
+        const unreadMessages = messages.filter(m => !m.is_read && m.sender_id !== currentUserId);
+        if (unreadMessages.length === 0) return;
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const msgId = entry.target.getAttribute('data-message-id');
+                    if (msgId) {
+                        markMessageAsRead(msgId);
+                        observer.unobserve(entry.target);
+                    }
+                }
+            });
+        }, { threshold: 0.5 }); // Message should be half visible
+
+        unreadMessages.forEach(msg => {
+            const el = document.getElementById(`msg-${msg.id}`);
+            if (el) observer.observe(el);
+        });
+
+        return () => observer.disconnect();
+    }, [messages, currentUserId]);
+
+    const markMessageAsRead = async (msgId: string) => {
+        // Optimistic UI update
+        setMessages(prev => prev.map(m => m.id === msgId ? { ...m, is_read: true } : m));
+
+        const { error } = await supabase
+            .from('messages')
+            .update({ is_read: true })
+            .eq('id', msgId);
+
+        if (error) {
+            console.error("Failed to mark as read", error);
+        }
+    };
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -97,6 +175,23 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         if (!newMessage.trim()) return;
 
         const msgContent = newMessage.trim();
+
+        if (editingMessageId) {
+            setNewMessage("");
+            const { error } = await supabase
+                .from("messages")
+                .update({ content: msgContent, is_edited: true })
+                .eq("id", editingMessageId);
+
+            setEditingMessageId(null);
+
+            if (error) {
+                console.error("Failed to update", error);
+                toast.error("Sandesh update nahi hua");
+            }
+            return;
+        }
+
         setNewMessage("");
 
         const { error } = await supabase
@@ -113,6 +208,48 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         }
     };
 
+    const handleDeleteMessage = async (msgId: string) => {
+        if (!confirm("Delete this message for everyone?")) return;
+
+        const { error } = await supabase
+            .from("messages")
+            .update({ content: "🚫 This message was deleted", is_deleted: true })
+            .eq("id", msgId);
+
+        if (error) {
+            console.error("Failed to delete", error);
+            toast.error("Sandesh delete nahi hua");
+        }
+        setMessageContextMenuId(null);
+    };
+
+    const handleEditMessageClick = (msg: any) => {
+        setEditingMessageId(msg.id);
+        setNewMessage(msg.content);
+        setMessageContextMenuId(null);
+    };
+
+    const handleTyping = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        setNewMessage(e.target.value);
+
+        const channel = supabase.channel(`chat:${conversationId}`);
+        // Only track if successfully subscribed/joined
+        if (channel.state === 'joined') {
+            channel.track({
+                userId: currentUserId,
+                isTyping: true
+            });
+
+            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+            typingTimeoutRef.current = setTimeout(() => {
+                channel.track({
+                    userId: currentUserId,
+                    isTyping: false
+                });
+            }, 2000);
+        }
+    };
+
     const handleKeyPress = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -121,12 +258,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     };
 
     const startCall = async (type: "video" | "audio") => {
-        if (isGroup) {
-            toast.info("Mandli me call jald hi aayega!");
-            return;
-        }
-
-        if (!recipientId) {
+        if (!recipientId && !isGroup) {
             toast.error("Cannot call unknown user");
             return;
         }
@@ -134,6 +266,56 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', currentUserId).single();
         const callerName = profile?.full_name || profile?.username || "Someone";
         const callerAvatar = profile?.avatar_url || "https://github.com/shadcn.png";
+
+        if (isGroup) {
+            // 1. Dispatch local event directly for Group calls
+            window.dispatchEvent(new CustomEvent('start-outgoing-call', {
+                detail: {
+                    roomId: conversationId,
+                    remoteUserId: null, // Full mesh uses channel presence
+                    callType: type,
+                    isGroup: true
+                }
+            }));
+
+            toast.success("Mandli call shuru ho rahi hai...");
+
+            // 2. We need to notify all participants.
+            // Ideally, we'd have a backend signal or loop through members.
+            // Here we fetch members and send them a P2P incoming-call event
+            const { data: participants } = await supabase
+                .from('conversation_participants')
+                .select('user_id')
+                .eq('conversation_id', conversationId);
+
+            if (participants) {
+                // To avoid blocking, we send notifications asynchronously
+                participants.forEach(p => {
+                    if (p.user_id === currentUserId) return;
+
+                    const pChannel = supabase.channel(`user:${p.user_id}`);
+                    const sendGroupInvite = async () => {
+                        await pChannel.send({
+                            type: "broadcast",
+                            event: "incoming-call",
+                            payload: {
+                                roomId: conversationId,
+                                callerId: currentUserId,
+                                callerName: recipientName, // name of the group
+                                callerAvatar: recipientAvatar,
+                                callType: type,
+                                isGroup: true
+                            }
+                        });
+                        setTimeout(() => supabase.removeChannel(pChannel), 3000);
+                    };
+
+                    if (pChannel.state === 'joined') sendGroupInvite();
+                    else pChannel.subscribe((status) => { if (status === 'SUBSCRIBED') sendGroupInvite(); });
+                });
+            }
+            return;
+        }
 
         const channel = supabase.channel(`user:${recipientId}`);
 
@@ -156,7 +338,8 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                     callerId: currentUserId,
                     callerName,
                     callerAvatar,
-                    callType: type
+                    callType: type,
+                    isGroup: false
                 }
             });
 
@@ -211,7 +394,9 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                         {isGroup ? (
                             <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Mandli</span>
                         ) : (
-                            <span className="text-[11px] text-zinc-400 font-medium">Active now</span>
+                            <span className={cn("text-[11px] font-medium transition-colors", typingUsers.size > 0 ? "text-orange-400" : "text-zinc-400")}>
+                                {typingUsers.size > 0 ? "typing..." : "Active now"}
+                            </span>
                         )}
                     </div>
                 </div>
@@ -295,7 +480,12 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                         const showAvatar = showSender && (!prevMsg || prevMsg.sender_id !== msg.sender_id);
 
                         return (
-                            <div key={msg.id} className={cn("flex flex-col gap-1 w-full", isMe ? "items-end" : "items-start")}>
+                            <div
+                                key={msg.id}
+                                id={`msg-${msg.id}`}
+                                data-message-id={msg.id}
+                                className={cn("flex flex-col gap-1 w-full", isMe ? "items-end" : "items-start")}
+                            >
                                 {showAvatar && (
                                     <span className="text-[11px] text-zinc-500 ml-10 mb-0.5">
                                         {msg.sender?.full_name || msg.sender?.username || "Unknown"}
@@ -353,7 +543,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                                             const mStr = Math.floor(s / 60).toString();
                                             const sStr = (s % 60).toString().padStart(2, '0');
                                             return (
-                                                <div className="flex items-center gap-3 font-medium cursor-default px-1 py-0.5">
+                                                <div className="flex items-center gap-3 font-medium cursor-default px-1 py-0.5" onClick={() => isMe && !msg.is_deleted && setMessageContextMenuId(messageContextMenuId === msg.id ? null : msg.id)}>
                                                     <div className={cn("p-2 rounded-full", isMe ? "bg-white/20" : "bg-black/20")}>
                                                         {type === 'video' ? <Video className="w-5 h-5" /> : <Phone className="w-5 h-5" />}
                                                     </div>
@@ -366,13 +556,81 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                                                 </div>
                                             );
                                         })() : (
-                                            <span className="leading-snug whitespace-pre-wrap flex-wrap break-all">{msg.content}</span>
+                                            <div
+                                                className="flex flex-col cursor-pointer"
+                                                onClick={() => isMe && !msg.is_deleted && setMessageContextMenuId(messageContextMenuId === msg.id ? null : msg.id)}
+                                            >
+                                                <span className={cn("leading-snug whitespace-pre-wrap flex-wrap break-all", msg.is_deleted && "italic opacity-70")}>
+                                                    {msg.content}
+                                                </span>
+                                                {msg.is_edited && !msg.is_deleted && (
+                                                    <span className="text-[10px] opacity-60 self-end mt-1 italic leading-none">edited</span>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Message Context Menu (Edit/Delete) */}
+                                        {messageContextMenuId === msg.id && isMe && !msg.is_deleted && (
+                                            <>
+                                                <div className="fixed inset-0 z-30" onClick={(e) => { e.stopPropagation(); setMessageContextMenuId(null); }} />
+                                                <div className={cn(
+                                                    "absolute z-40 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl py-1 w-32 animate-in fade-in zoom-in-95",
+                                                    isMe ? "right-0 top-full mt-1" : "left-0 top-full mt-1"
+                                                )}>
+                                                    {!msg.content?.startsWith("[CALL_LOG]:") && !msg.post && !msg.story && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleEditMessageClick(msg); }}
+                                                            className="w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
+                                                        >
+                                                            Edit
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleDeleteMessage(msg.id); }}
+                                                        className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </>
+                                        )}
+                                        {/* Read Receipts (Ticks) for outgoing messages */}
+                                        {isMe && !msg.content?.startsWith("[CALL_LOG]:") && (
+                                            <div className="absolute right-0 -bottom-4 flex items-center gap-0.5">
+                                                {msg.is_read ? (
+                                                    <CheckCheck className="w-3.5 h-3.5 text-blue-400" />
+                                                ) : (
+                                                    <Check className="w-3 h-3 text-zinc-400" />
+                                                )}
+                                            </div>
                                         )}
                                     </div>
                                 </div>
                             </div>
                         );
                     })
+                )}
+                {/* Typing Indicator Bubble */}
+                {typingUsers.size > 0 && (
+                    <div className="flex flex-col gap-1 w-full items-start animate-in slide-in-from-bottom-2 fade-in duration-200">
+                        <span className="text-[11px] text-zinc-500 ml-10 mb-0.5">
+                            {isGroup ? `${Array.from(typingUsers).length} typing...` : 'typing...'}
+                        </span>
+                        <div className="flex gap-2 max-w-[85%] md:max-w-[70%] flex-row text-left">
+                            <div className="w-8 shrink-0">
+                                {isGroup && (
+                                    <Avatar className="w-8 h-8 border border-white/10 opacity-70">
+                                        <AvatarFallback>...</AvatarFallback>
+                                    </Avatar>
+                                )}
+                            </div>
+                            <div className="px-4 py-3 rounded-[20px] bg-[#262626] border border-white/5 rounded-tl-sm flex items-center gap-1 shadow-md h-[42px]">
+                                <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                                <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                                <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                            </div>
+                        </div>
+                    </div>
                 )}
                 <div ref={messagesEndRef} className="h-4" />
             </div>
@@ -386,7 +644,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                     <div className="flex-1">
                         <textarea
                             value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
+                            onChange={handleTyping}
                             onKeyDown={handleKeyPress}
                             placeholder="Message..."
                             className="w-full bg-transparent border-none py-2.5 px-1 text-[15px] text-white focus:outline-none focus:ring-0 resize-none custom-scrollbar min-h-[42px] max-h-[120px] placeholder:text-zinc-500 leading-[1.2]"
@@ -395,12 +653,23 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                         />
                     </div>
                     {newMessage.trim() ? (
-                        <button
-                            onClick={handleSend}
-                            className="text-orange-500 hover:text-orange-400 font-bold text-[15px] px-3 py-1 transition-all active:scale-95 shrink-0"
-                        >
-                            Send
-                        </button>
+                        <div className="flex items-center gap-1">
+                            {editingMessageId && (
+                                <button
+                                    onClick={() => { setEditingMessageId(null); setNewMessage(""); }}
+                                    className="p-2 text-zinc-400 hover:text-white transition-colors"
+                                    title="Cancel edit"
+                                >
+                                    <ChevronLeft className="w-5 h-5" />
+                                </button>
+                            )}
+                            <button
+                                onClick={handleSend}
+                                className={cn("font-bold text-[15px] px-3 py-1 transition-all active:scale-95 shrink-0", editingMessageId ? "text-blue-500 hover:text-blue-400" : "text-orange-500 hover:text-orange-400")}
+                            >
+                                {editingMessageId ? "Update" : "Send"}
+                            </button>
+                        </div>
                     ) : (
                         <div className="flex items-center gap-1.5 pr-1">
                             {/* Placeholder icons for IG feel */}

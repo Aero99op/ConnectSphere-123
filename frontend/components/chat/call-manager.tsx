@@ -4,7 +4,8 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { VideoCallWindow } from "./video-call-window";
-import { Phone, PhoneOff, Video } from "lucide-react";
+import { GroupCallWindow } from "./group-call-window";
+import { Phone, PhoneOff, Video, Users } from "lucide-react";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -113,9 +114,10 @@ export function CallManager() {
             if (!activeCall && !incomingCall) {
                 setActiveCall({
                     roomId: e.detail.roomId,
-                    remoteUserId: e.detail.remoteUserId,
+                    remoteUserId: e.detail.remoteUserId, // Can be null for groups
                     isCaller: true,
-                    callType: e.detail.callType
+                    callType: e.detail.callType,
+                    isGroup: e.detail.isGroup
                 });
             }
         };
@@ -131,7 +133,8 @@ export function CallManager() {
             roomId: incomingCall.roomId,
             remoteUserId: incomingCall.callerId,
             isCaller: false,
-            callType: incomingCall.callType
+            callType: incomingCall.callType,
+            isGroup: incomingCall.isGroup
         });
         setIncomingCall(null);
     };
@@ -163,14 +166,18 @@ export function CallManager() {
                             {/* Inner Ring Glow */}
                             <div className="relative">
                                 <div className="absolute inset-0 bg-[#00a884] rounded-full blur-md opacity-30 animate-pulse" />
-                                <Avatar className="w-14 h-14 border-2 border-[#1c272e] ring-2 ring-[#00a884]/60 shrink-0 relative z-10">
-                                    <AvatarImage src={incomingCall.callerAvatar} />
+                                <Avatar className="w-14 h-14 border-2 border-[#1c272e] ring-2 ring-[#00a884]/60 shrink-0 relative z-10 bg-[#111b21]">
+                                    {incomingCall.isGroup ? (
+                                        <Users className="w-6 h-6 m-auto text-white/80 mt-3" />
+                                    ) : (
+                                        <AvatarImage src={incomingCall.callerAvatar} />
+                                    )}
                                     <AvatarFallback className="bg-[#0b141a] text-white font-medium text-lg">{incomingCall.callerName?.[0]}</AvatarFallback>
                                 </Avatar>
                             </div>
                             <div className="flex flex-col min-w-0 py-1">
                                 <span className="font-semibold text-white/95 text-[17px] tracking-tight truncate leading-tight">
-                                    {incomingCall.callerName}
+                                    {incomingCall.isGroup ? `${incomingCall.callerName} (Group)` : incomingCall.callerName}
                                 </span>
                                 <span className="text-[13px] text-[#00a884] font-medium truncate flex items-center gap-1.5 mt-0.5">
                                     {incomingCall.callType === 'audio' ? <Phone className="w-3.5 h-3.5 animate-pulse" /> : <Video className="w-3.5 h-3.5 animate-pulse" />}
@@ -196,14 +203,24 @@ export function CallManager() {
                 </div>
             )}
 
-            {activeCall && (
+            {activeCall && !activeCall.isGroup && (
                 <VideoCallWindow
                     roomId={activeCall.roomId}
                     remoteUserId={activeCall.remoteUserId}
                     isCaller={activeCall.isCaller}
                     callType={activeCall.callType}
                     onEndCall={handleEndCall}
-                    initialMinimized={!activeCall.isCaller} // Minimize for receiver on accept
+                    initialMinimized={!activeCall.isCaller}
+                />
+            )}
+
+            {activeCall && activeCall.isGroup && userId && (
+                <GroupCallWindow
+                    roomId={activeCall.roomId}
+                    currentUserId={userId}
+                    callType={activeCall.callType}
+                    onEndCall={handleEndCall}
+                    initialMinimized={!activeCall.isCaller}
                 />
             )}
         </>
