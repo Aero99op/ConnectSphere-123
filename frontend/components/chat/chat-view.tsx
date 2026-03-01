@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { AddGroupMembersDialog } from "./add-group-members-dialog";
+import Image from "next/image";
 
 interface PresenceUser {
     userId: string;
@@ -38,6 +39,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     const [mediaPreview, setMediaPreview] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [showStickers, setShowStickers] = useState(false);
+    const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -648,14 +650,21 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                                                 >
                                                     {/* Media Rendering */}
                                                     {!msg.is_deleted && msg.file_urls && msg.file_urls.length > 0 && (
-                                                        <div className="mb-2 w-full max-w-[240px] md:max-w-[320px] rounded-lg overflow-hidden bg-black/20">
+                                                        <div className="mb-2 w-full max-w-[240px] md:max-w-[320px] rounded-lg overflow-hidden bg-black/20 relative">
                                                             {msg.file_name?.toLowerCase().match(/\.(jpeg|jpg|gif|png|webp|bmp)$/i) || msg.file_urls[0].toLowerCase().match(/\.(jpeg|jpg|gif|png|webp|bmp)$/i) ? (
-                                                                <img
-                                                                    src={msg.file_urls[0]}
-                                                                    alt={msg.file_name || "MMS Image"}
-                                                                    className="w-full h-auto object-cover max-h-[300px]"
-                                                                    loading="lazy"
-                                                                />
+                                                                <div
+                                                                    className="relative w-full aspect-[4/3] cursor-zoom-in"
+                                                                    onClick={(e) => { e.stopPropagation(); setFullScreenImage(msg.file_urls[0]); }}
+                                                                >
+                                                                    <Image
+                                                                        src={msg.file_urls[0]}
+                                                                        alt={msg.file_name || "MMS Image"}
+                                                                        fill
+                                                                        className="object-cover hover:opacity-95 transition-opacity"
+                                                                        sizes="(max-width: 768px) 240px, 320px"
+                                                                        unoptimized={!msg.file_urls[0].includes('catbox.moe') && !msg.file_urls[0].includes('imgur.com') && !msg.file_urls[0].includes('tenor.com')}
+                                                                    />
+                                                                </div>
                                                             ) : msg.file_name?.toLowerCase().match(/\.(mp4|webm|ogg)$/i) || msg.file_urls[0].toLowerCase().match(/\.(mp4|webm|ogg)$/i) ? (
                                                                 <video
                                                                     src={msg.file_urls[0]}
@@ -923,6 +932,27 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                     onClose={() => setShowAddMembers(false)}
                     onMembersAdded={() => setShowAddMembers(false)}
                 />
+            )}
+
+            {/* Fullscreen Image Zoom Overlay */}
+            {fullScreenImage && (
+                <div
+                    className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+                    onClick={() => setFullScreenImage(null)}
+                >
+                    <button
+                        onClick={() => setFullScreenImage(null)}
+                        className="absolute top-4 right-4 p-2 text-white/70 hover:text-white bg-black/50 hover:bg-black/70 rounded-full transition-all"
+                    >
+                        <X className="w-6 h-6" />
+                    </button>
+                    <img
+                        src={fullScreenImage}
+                        alt="Zoomed Media"
+                        className="max-w-full max-h-full object-contain cursor-zoom-out animate-in zoom-in-95 duration-200"
+                        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking the image itself
+                    />
+                </div>
             )}
         </div>
     );
