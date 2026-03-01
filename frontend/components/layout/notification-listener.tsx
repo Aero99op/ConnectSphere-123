@@ -8,20 +8,21 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 export function NotificationListener() {
     useEffect(() => {
         let channel: any;
+        let isMounted = true;
 
         const setupSubscription = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.user || !isMounted) return;
 
             channel = supabase
-                .channel(`user-notifications-${user.id}`)
+                .channel(`user-notifications-${session.user.id}`)
                 .on(
                     'postgres_changes',
                     {
                         event: 'INSERT',
                         schema: 'public',
                         table: 'notifications',
-                        filter: `recipient_id=eq.${user.id}`
+                        filter: `recipient_id=eq.${session.user.id}`
                     },
                     async (payload) => {
                         const notification = payload.new;
@@ -33,17 +34,20 @@ export function NotificationListener() {
                             .eq('id', notification.actor_id)
                             .single();
 
-                        if (actor) {
+                        if (actor && isMounted) {
                             showNotificationToast(actor, notification);
                         }
                     }
                 )
-                .subscribe();
+                .subscribe((status: string, err: any) => {
+                    if (err) console.error("Notification subscribe error:", err);
+                });
         };
 
         setupSubscription();
 
         return () => {
+            isMounted = false;
             if (channel) supabase.removeChannel(channel);
         };
     }, []);

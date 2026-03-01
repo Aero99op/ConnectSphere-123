@@ -19,13 +19,15 @@ export function CallManager() {
 
     useEffect(() => {
         let channel: any;
+        let isMounted = true;
+
         const init = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-            setUserId(user.id);
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.user || !isMounted) return;
+            setUserId(session.user.id);
 
             // Subscribe to MY personal channel for incoming calls
-            channel = supabase.channel(`user:${user.id}`);
+            channel = supabase.channel(`user:${session.user.id}`);
 
             channel
                 .on("broadcast", { event: "incoming-call" }, (payload: any) => {
@@ -36,22 +38,28 @@ export function CallManager() {
                         // Busy logic here (could send 'busy' event back)
                     }
                 })
-                .subscribe();
+                .subscribe((status: string, err: any) => {
+                    if (err) console.error("CallManager subscribe error:", err);
+                    console.log("CallManager channel status:", status);
+                });
         };
+
+        const authListener = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_IN' && isMounted) {
+                if (channel) supabase.removeChannel(channel);
+                init();
+            } else if (event === 'SIGNED_OUT' && channel) {
+                supabase.removeChannel(channel);
+                channel = null;
+                setUserId(null);
+            }
+        });
 
         init();
 
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                if (channel) supabase.removeChannel(channel);
-                init();
-            }
-        };
-
-        window.addEventListener("visibilitychange", handleVisibilityChange);
-
         return () => {
-            window.removeEventListener("visibilitychange", handleVisibilityChange);
+            isMounted = false;
+            authListener.data.subscription.unsubscribe();
             if (channel) {
                 supabase.removeChannel(channel);
             }

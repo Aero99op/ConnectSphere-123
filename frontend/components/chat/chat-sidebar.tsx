@@ -23,20 +23,34 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
     const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => {
+        let isMounted = true;
         const getUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            setUserId(user?.id || null);
-            if (user) fetchConversations(user.id);
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!isMounted) return;
+            const uid = session?.user?.id || null;
+            setUserId(uid);
+            if (uid) fetchConversations(uid);
         };
         getUser();
+        return () => { isMounted = false; };
+    }, []);
 
-        const channel = supabase.channel('conversations')
+    useEffect(() => {
+        if (!userId) return;
+        let isMounted = true;
+
+        const channel = supabase.channel(`conversations-${userId}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
-                if (userId) fetchConversations(userId);
+                if (isMounted && userId) fetchConversations(userId);
             })
-            .subscribe();
+            .subscribe((status: string, err: any) => {
+                if (err) console.error("Sidebar subscribe error:", err);
+            });
 
-        return () => { supabase.removeChannel(channel); };
+        return () => {
+            isMounted = false;
+            supabase.removeChannel(channel);
+        };
     }, [userId]);
 
     const fetchConversations = async (uid: string) => {

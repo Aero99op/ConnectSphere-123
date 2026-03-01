@@ -24,6 +24,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
+        let isMounted = true;
         fetchMessages();
 
         const channel = supabase
@@ -46,13 +47,18 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                         newMsg.sender = data;
                     }
 
-                    setMessages((prev) => [...prev, newMsg]);
-                    scrollToBottom();
+                    if (isMounted) {
+                        setMessages((prev) => [...prev, newMsg]);
+                        scrollToBottom();
+                    }
                 }
             )
-            .subscribe();
+            .subscribe((status: string, err: any) => {
+                if (err) console.error("ChatView subscribe error:", err);
+            });
 
         return () => {
+            isMounted = false;
             supabase.removeChannel(channel);
         };
     }, [conversationId]);
