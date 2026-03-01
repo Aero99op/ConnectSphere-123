@@ -137,6 +137,8 @@ function HomeFeedContent() {
     };
 
     useEffect(() => {
+        let feedChannel: any;
+
         const init = async () => {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
@@ -195,7 +197,7 @@ function HomeFeedContent() {
                 await Promise.all([fetchPosts(), fetchStories(user?.id || null)]);
 
                 // Realtime Listeners 
-                const channel = supabase
+                feedChannel = supabase
                     .channel('feed-updates')
                     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, () => {
                         console.log("New post added! Updating feed...");
@@ -217,7 +219,9 @@ function HomeFeedContent() {
 
         // Return a cleanup function for the component
         return () => {
-            supabase.removeAllChannels();
+            if (feedChannel) {
+                supabase.removeChannel(feedChannel);
+            }
         };
     }, [searchParams, role]);
 
