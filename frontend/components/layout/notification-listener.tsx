@@ -1,28 +1,49 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export function NotificationListener() {
+    const [userId, setUserId] = useState<string | null>(null);
+
+    // 1. Manage User Auth State
     useEffect(() => {
-        let channel: any;
         let isMounted = true;
-
-        const setupSubscription = async () => {
+        const checkUser = async () => {
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session?.user || !isMounted) return;
+            if (isMounted) setUserId(session?.user?.id || null);
+        };
+        checkUser();
 
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (isMounted) setUserId(session?.user?.id || null);
+        });
+
+        return () => {
+            isMounted = false;
+            subscription.unsubscribe();
+        };
+    }, []);
+
+    // 2. Manage Realtime Channel
+    useEffect(() => {
+        if (!userId) return;
+        let isMounted = true;
+        let channel: any;
+        let heartbeat: NodeJS.Timeout;
+
+        const setupSubscription = () => {
             channel = supabase
-                .channel(`user-notifications-${session.user.id}`)
+                .channel(`user-notifications-${userId}`)
                 .on(
                     'postgres_changes',
                     {
                         event: 'INSERT',
                         schema: 'public',
                         table: 'notifications',
-                        filter: `recipient_id=eq.${session.user.id}`
+                        filter: `recipient_id=eq.${userId}`
                     },
                     async (payload) => {
                         const notification = payload.new;
@@ -40,17 +61,40 @@ export function NotificationListener() {
                     }
                 )
                 .subscribe((status: string, err: any) => {
-                    if (err) console.error("Notification subscribe error:", err);
+                    if (err) console.error("[NotificationListener] Subscribe error:", err);
+                    console.log(`[NotificationListener] Channel status for ${userId}:`, status);
                 });
+
+            // Heartbeat for mobile
+            heartbeat = setInterval(() => {
+                if (channel?.state === 'joined') {
+                    channel.send({ type: "broadcast", event: "heartbeat", payload: { userId } });
+                }
+            }, 30000);
         };
 
         setupSubscription();
 
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && channel?.state === 'closed') {
+                console.log("[NotificationListener] Channel closed on visibility change, re-subscribing...");
+                if (heartbeat) clearInterval(heartbeat);
+                setupSubscription();
+            }
+        };
+
+        window.addEventListener("visibilitychange", handleVisibilityChange);
+
         return () => {
             isMounted = false;
-            if (channel) supabase.removeChannel(channel);
+            window.removeEventListener("visibilitychange", handleVisibilityChange);
+            if (heartbeat) clearInterval(heartbeat);
+            if (channel) {
+                console.log(`[NotificationListener] Cleaning up channel for ${userId}`);
+                supabase.removeChannel(channel);
+            }
         };
-    }, []);
+    }, [userId]);
 
     const showNotificationToast = (actor: any, notification: any) => {
         let actionLabel = "";

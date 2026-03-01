@@ -17,54 +17,95 @@ export function CallManager() {
     const activeCallRef = useRef<any>(null);
     useEffect(() => { activeCallRef.current = activeCall; }, [activeCall]);
 
+    // 1. Manage User Auth State
     useEffect(() => {
-        let channel: any;
         let isMounted = true;
-
-        const init = async () => {
+        const checkUser = async () => {
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session?.user || !isMounted) return;
-            setUserId(session.user.id);
-
-            // Subscribe to MY personal channel for incoming calls
-            channel = supabase.channel(`user:${session.user.id}`);
-
-            channel
-                .on("broadcast", { event: "incoming-call" }, (payload: any) => {
-                    // Only show if not already in a call
-                    if (!activeCallRef.current) {
-                        setIncomingCall(payload.payload);
-                    } else {
-                        // Busy logic here (could send 'busy' event back)
-                    }
-                })
-                .subscribe((status: string, err: any) => {
-                    if (err) console.error("CallManager subscribe error:", err);
-                    console.log("CallManager channel status:", status);
-                });
+            if (isMounted) setUserId(session?.user?.id || null);
         };
+        checkUser();
 
-        const authListener = supabase.auth.onAuthStateChange((event, session) => {
-            if (event === 'SIGNED_IN' && isMounted) {
-                if (channel) supabase.removeChannel(channel);
-                init();
-            } else if (event === 'SIGNED_OUT' && channel) {
-                supabase.removeChannel(channel);
-                channel = null;
-                setUserId(null);
-            }
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (isMounted) setUserId(session?.user?.id || null);
         });
-
-        init();
 
         return () => {
             isMounted = false;
-            authListener.data.subscription.unsubscribe();
+            subscription.unsubscribe();
+        };
+    }, []);
+
+    // 2. Manage Realtime Channel based on userId
+    useEffect(() => {
+        if (!userId) return;
+        let isMounted = true;
+        let channel: any;
+
+        let heartbeat: NodeJS.Timeout;
+
+        const setupChannel = () => {
+            // Subscribe to MY personal channel for incoming calls
+            channel = supabase.channel(`user:${userId}`, {
+                config: {
+                    broadcast: { self: false },
+                    presence: { key: userId }
+                }
+            });
+
+            console.log(`[CallManager] Initializing channel for user:${userId}`);
+
+            channel
+                .on("broadcast", { event: "incoming-call" }, (payload: any) => {
+                    console.log("[CallManager] Received incoming-call broadcast:", payload);
+                    if (!activeCallRef.current && isMounted) {
+                        setIncomingCall(payload.payload);
+                    }
+                })
+                .subscribe((status: string, err: any) => {
+                    if (err) console.error("[CallManager] Subscribe error:", err);
+                    console.log(`[CallManager] Channel status for user:${userId}:`, status);
+
+                    // If closed unexpectedly, we might want to retry, but Supabase usually handles it
+                    if (status === 'CLOSED' && isMounted) {
+                        console.warn("[CallManager] Channel closed unexpectedly, cleanup will handle it or Supabase will reconnect.");
+                    }
+                });
+
+            // Heartbeat to keep mobile socket alive
+            heartbeat = setInterval(() => {
+                if (channel.state === 'joined') {
+                    channel.send({ type: "broadcast", event: "heartbeat", payload: { userId } });
+                }
+            }, 30000);
+        };
+
+        setupChannel();
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                console.log(`[CallManager] App became visible. User ID: ${userId}, Channel State: ${channel?.state}`);
+                // Supabase Realtime usually reconnects automatically, but we can nudge it if it's stuck
+                if (channel && channel.state === 'closed') {
+                    console.log("[CallManager] Channel is closed, re-subscribing...");
+                    if (heartbeat) clearInterval(heartbeat);
+                    setupChannel();
+                }
+            }
+        };
+
+        window.addEventListener("visibilitychange", handleVisibilityChange);
+
+        return () => {
+            isMounted = false;
+            window.removeEventListener("visibilitychange", handleVisibilityChange);
+            if (heartbeat) clearInterval(heartbeat);
             if (channel) {
+                console.log(`[CallManager] Cleaning up channel for user:${userId}`);
                 supabase.removeChannel(channel);
             }
         };
-    }, []);
+    }, [userId]);
 
     // Listen for Outgoing Calls triggered from ChatView
     useEffect(() => {
