@@ -141,10 +141,10 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                 }
             });
             toast.success("Bula rahe hain...");
-            // Cleanup transient channel after sending
+            // Cleanup transient channel after sending to ensure delivery over slow networks
             setTimeout(() => {
                 supabase.removeChannel(channel);
-            }, 2000);
+            }, 5000);
 
             // Trigger local call manager to open the caller's window
             window.dispatchEvent(new CustomEvent('start-outgoing-call', {

@@ -80,8 +80,8 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
             });
 
             peerConnection.current.ontrack = (event) => {
-                if (remoteVideoRef.current) {
-                    remoteVideoRef.current.srcObject = event.streams[0];
+                if (remoteVideoRef.current && !remoteVideoRef.current.srcObject) {
+                    remoteVideoRef.current.srcObject = event.streams[0] || new MediaStream([event.track]);
                     setConnectionStatus("connected");
                 }
             };
@@ -178,12 +178,14 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
                         }
 
                         if (!isCaller) {
-                            // Tell the caller we are ready to receive the offer!
-                            channel.send({
-                                type: "broadcast",
-                                event: "receiver-ready",
-                                payload: {}
-                            });
+                            setTimeout(() => {
+                                // Tell the caller we are ready to receive the offer!
+                                channel.send({
+                                    type: "broadcast",
+                                    event: "receiver-ready",
+                                    payload: {}
+                                });
+                            }, 800); // 800ms buffer for Supabase sockets to stabilize
                         } else {
                             channel.send({
                                 type: "broadcast",
@@ -212,6 +214,7 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
             if (peerConnection.current) {
                 peerConnection.current.close();
             }
+            supabase.removeChannel(channel);
         };
     }, []);
 

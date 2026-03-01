@@ -14,32 +14,39 @@ export function CallManager() {
     const [activeCall, setActiveCall] = useState<any>(null);
     const [userId, setUserId] = useState<string | null>(null);
 
+    const activeCallRef = useRef<any>(null);
+    useEffect(() => { activeCallRef.current = activeCall; }, [activeCall]);
+
     useEffect(() => {
+        let channel: any;
         const init = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
             setUserId(user.id);
 
             // Subscribe to MY personal channel for incoming calls
-            const channel = supabase.channel(`user:${user.id}`);
+            channel = supabase.channel(`user:${user.id}`);
 
             channel
-                .on("broadcast", { event: "incoming-call" }, (payload) => {
+                .on("broadcast", { event: "incoming-call" }, (payload: any) => {
                     // Only show if not already in a call
-                    if (!activeCall) {
+                    if (!activeCallRef.current) {
                         setIncomingCall(payload.payload);
                     } else {
                         // Busy logic here (could send 'busy' event back)
                     }
                 })
                 .subscribe();
-
-            return () => {
-                supabase.removeChannel(channel);
-            };
         };
+
         init();
-    }, [activeCall]);
+
+        return () => {
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
+        };
+    }, []);
 
     // Listen for Outgoing Calls triggered from ChatView
     useEffect(() => {
