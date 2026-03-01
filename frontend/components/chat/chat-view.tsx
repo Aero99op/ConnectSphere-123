@@ -208,7 +208,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         }
     };
 
-    const handleDeleteMessage = async (msgId: string) => {
+    const handleDeleteMessageEveryone = async (msgId: string) => {
         if (!confirm("Delete this message for everyone?")) return;
 
         const { error } = await supabase
@@ -219,6 +219,21 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         if (error) {
             console.error("Failed to delete", error);
             toast.error("Sandesh delete nahi hua");
+        }
+        setMessageContextMenuId(null);
+    };
+
+    const handleDeleteMessageForMe = async (msgId: string) => {
+        // Optimistic update
+        setMessages(prev => prev.map(m => m.id === msgId ? { ...m, deleted_for: [...(m.deleted_for || []), currentUserId] } : m));
+
+        const { error } = await supabase.rpc('delete_message_for_me', { msg_id: msgId });
+
+        if (error) {
+            console.error("Failed to delete for me", error);
+            toast.error("Sandesh delete nahi hua");
+            // Revert on error
+            setMessages(prev => prev.map(m => m.id === msgId ? { ...m, deleted_for: (m.deleted_for || []).filter((id: string) => id !== currentUserId) } : m));
         }
         setMessageContextMenuId(null);
     };
@@ -473,142 +488,152 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                         </p>
                     </div>
                 ) : (
-                    messages.map((msg, index) => {
-                        const isMe = msg.sender_id === currentUserId;
-                        const showSender = isGroup && !isMe;
-                        const prevMsg = index > 0 ? messages[index - 1] : null;
-                        const showAvatar = showSender && (!prevMsg || prevMsg.sender_id !== msg.sender_id);
+                    messages
+                        .filter(msg => !msg.deleted_for?.includes(currentUserId))
+                        .map((msg, index, visibleMsgs) => {
+                            const isMe = msg.sender_id === currentUserId;
+                            const showSender = isGroup && !isMe;
+                            const prevMsg = index > 0 ? visibleMsgs[index - 1] : null;
+                            const showAvatar = showSender && (!prevMsg || prevMsg.sender_id !== msg.sender_id);
 
-                        return (
-                            <div
-                                key={msg.id}
-                                id={`msg-${msg.id}`}
-                                data-message-id={msg.id}
-                                className={cn("flex flex-col gap-1 w-full", isMe ? "items-end" : "items-start")}
-                            >
-                                {showAvatar && (
-                                    <span className="text-[11px] text-zinc-500 ml-10 mb-0.5">
-                                        {msg.sender?.full_name || msg.sender?.username || "Unknown"}
-                                    </span>
-                                )}
-                                <div className={cn("flex gap-2 max-w-[85%] md:max-w-[70%]", isMe ? "flex-row-reverse" : "flex-row text-left")}>
-                                    {showSender ? (
-                                        <div className="w-8 shrink-0">
-                                            {showAvatar && (
-                                                <Avatar className="w-8 h-8 border border-white/10">
-                                                    <AvatarImage src={msg.sender?.avatar_url} />
-                                                    <AvatarFallback>{msg.sender?.username?.[0]}</AvatarFallback>
-                                                </Avatar>
+                            return (
+                                <div
+                                    key={msg.id}
+                                    id={`msg-${msg.id}`}
+                                    data-message-id={msg.id}
+                                    className={cn("flex flex-col gap-1 w-full", isMe ? "items-end" : "items-start")}
+                                >
+                                    {showAvatar && (
+                                        <span className="text-[11px] text-zinc-500 ml-10 mb-0.5">
+                                            {msg.sender?.full_name || msg.sender?.username || "Unknown"}
+                                        </span>
+                                    )}
+                                    <div className={cn("flex gap-2 max-w-[85%] md:max-w-[70%]", isMe ? "flex-row-reverse" : "flex-row text-left")}>
+                                        {showSender ? (
+                                            <div className="w-8 shrink-0">
+                                                {showAvatar && (
+                                                    <Avatar className="w-8 h-8 border border-white/10">
+                                                        <AvatarImage src={msg.sender?.avatar_url} />
+                                                        <AvatarFallback>{msg.sender?.username?.[0]}</AvatarFallback>
+                                                    </Avatar>
+                                                )}
+                                            </div>
+                                        ) : null}
+
+                                        <div className={cn(
+                                            "px-4 py-2.5 rounded-[20px] text-[15px] break-words flex flex-col gap-2 relative shadow-md",
+                                            isMe ? "bg-gradient-to-br from-orange-600 to-orange-500 text-white rounded-tr-sm"
+                                                : "bg-[#262626] text-zinc-100 rounded-tl-sm border border-white/5"
+                                        )}>
+                                            {/* Shared Post Preview */}
+                                            {msg.post && (
+                                                <div className="rounded-xl overflow-hidden border border-white/20 bg-black cursor-pointer hover:opacity-90 transition-opacity w-64 md:w-72">
+                                                    <img
+                                                        src={msg.post.thumbnail_url || msg.post.file_urls?.[0]}
+                                                        alt="Shared Post"
+                                                        className="w-full h-48 object-cover"
+                                                    />
+                                                    <div className="p-3 text-sm bg-black/60 backdrop-blur-sm text-white border-t border-white/10">
+                                                        {msg.post.caption ? <span className="line-clamp-2">{msg.post.caption}</span> : "Shared a Post"}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Shared Story Preview */}
+                                            {msg.story && (
+                                                <div className="rounded-xl overflow-hidden border border-white/20 bg-black w-48 cursor-pointer hover:opacity-90 transition-opacity">
+                                                    <img
+                                                        src={msg.story.media_url}
+                                                        alt="Shared Story"
+                                                        className="w-full h-72 object-cover"
+                                                    />
+                                                    <div className="p-2 text-xs font-semibold text-center bg-gradient-to-t from-black to-transparent text-white absolute bottom-0 w-full">
+                                                        Shared Story
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {msg.content?.startsWith("[CALL_LOG]:") ? (() => {
+                                                const parts = msg.content.split(":");
+                                                const type = parts[1];
+                                                const s = parseInt(parts[2]) || 0;
+                                                const mStr = Math.floor(s / 60).toString();
+                                                const sStr = (s % 60).toString().padStart(2, '0');
+                                                return (
+                                                    <div className="flex items-center gap-3 font-medium cursor-default px-1 py-0.5" onClick={() => !msg.is_deleted && setMessageContextMenuId(messageContextMenuId === msg.id ? null : msg.id)}>
+                                                        <div className={cn("p-2 rounded-full", isMe ? "bg-white/20" : "bg-black/20")}>
+                                                            {type === 'video' ? <Video className="w-5 h-5" /> : <Phone className="w-5 h-5" />}
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span>{type === 'video' ? "Video Call" : "Voice Call"}</span>
+                                                            <span className={cn("text-xs mt-0.5", s > 0 ? (isMe ? "text-orange-100" : "text-zinc-400") : "text-red-300 font-bold")}>
+                                                                {s > 0 ? `${mStr}:${sStr}` : "Missed Call"}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })() : (
+                                                <div
+                                                    className="flex flex-col cursor-pointer"
+                                                    onClick={() => !msg.is_deleted && setMessageContextMenuId(messageContextMenuId === msg.id ? null : msg.id)}
+                                                >
+                                                    <span className={cn("leading-snug whitespace-pre-wrap flex-wrap break-all", msg.is_deleted && "italic opacity-70")}>
+                                                        {msg.content}
+                                                    </span>
+                                                    {msg.is_edited && !msg.is_deleted && (
+                                                        <span className="text-[10px] opacity-60 self-end mt-1 italic leading-none">edited</span>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Message Context Menu (Edit/Delete) */}
+                                            {messageContextMenuId === msg.id && !msg.is_deleted && (
+                                                <>
+                                                    <div className="fixed inset-0 z-30" onClick={(e) => { e.stopPropagation(); setMessageContextMenuId(null); }} />
+                                                    <div className={cn(
+                                                        "absolute z-40 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl py-1 w-32 animate-in fade-in zoom-in-95",
+                                                        isMe ? "right-0 top-full mt-1" : "left-0 top-full mt-1"
+                                                    )}>
+                                                        {isMe && !msg.content?.startsWith("[CALL_LOG]:") && !msg.post && !msg.story && (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleEditMessageClick(msg); }}
+                                                                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
+                                                            >
+                                                                Edit
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleDeleteMessageForMe(msg.id); }}
+                                                            className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                                                        >
+                                                            Delete for Me
+                                                        </button>
+                                                        {isMe && (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleDeleteMessageEveryone(msg.id); }}
+                                                                className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                                                            >
+                                                                Delete for Everyone
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </>
+                                            )}
+                                            {/* Read Receipts (Ticks) for outgoing messages */}
+                                            {isMe && !msg.content?.startsWith("[CALL_LOG]:") && (
+                                                <div className="absolute right-0 -bottom-4 flex items-center gap-0.5">
+                                                    {msg.is_read ? (
+                                                        <CheckCheck className="w-3.5 h-3.5 text-blue-400" />
+                                                    ) : (
+                                                        <Check className="w-3 h-3 text-zinc-400" />
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
-                                    ) : null}
-
-                                    <div className={cn(
-                                        "px-4 py-2.5 rounded-[20px] text-[15px] break-words flex flex-col gap-2 relative shadow-md",
-                                        isMe ? "bg-gradient-to-br from-orange-600 to-orange-500 text-white rounded-tr-sm"
-                                            : "bg-[#262626] text-zinc-100 rounded-tl-sm border border-white/5"
-                                    )}>
-                                        {/* Shared Post Preview */}
-                                        {msg.post && (
-                                            <div className="rounded-xl overflow-hidden border border-white/20 bg-black cursor-pointer hover:opacity-90 transition-opacity w-64 md:w-72">
-                                                <img
-                                                    src={msg.post.thumbnail_url || msg.post.file_urls?.[0]}
-                                                    alt="Shared Post"
-                                                    className="w-full h-48 object-cover"
-                                                />
-                                                <div className="p-3 text-sm bg-black/60 backdrop-blur-sm text-white border-t border-white/10">
-                                                    {msg.post.caption ? <span className="line-clamp-2">{msg.post.caption}</span> : "Shared a Post"}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Shared Story Preview */}
-                                        {msg.story && (
-                                            <div className="rounded-xl overflow-hidden border border-white/20 bg-black w-48 cursor-pointer hover:opacity-90 transition-opacity">
-                                                <img
-                                                    src={msg.story.media_url}
-                                                    alt="Shared Story"
-                                                    className="w-full h-72 object-cover"
-                                                />
-                                                <div className="p-2 text-xs font-semibold text-center bg-gradient-to-t from-black to-transparent text-white absolute bottom-0 w-full">
-                                                    Shared Story
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {msg.content?.startsWith("[CALL_LOG]:") ? (() => {
-                                            const parts = msg.content.split(":");
-                                            const type = parts[1];
-                                            const s = parseInt(parts[2]) || 0;
-                                            const mStr = Math.floor(s / 60).toString();
-                                            const sStr = (s % 60).toString().padStart(2, '0');
-                                            return (
-                                                <div className="flex items-center gap-3 font-medium cursor-default px-1 py-0.5" onClick={() => isMe && !msg.is_deleted && setMessageContextMenuId(messageContextMenuId === msg.id ? null : msg.id)}>
-                                                    <div className={cn("p-2 rounded-full", isMe ? "bg-white/20" : "bg-black/20")}>
-                                                        {type === 'video' ? <Video className="w-5 h-5" /> : <Phone className="w-5 h-5" />}
-                                                    </div>
-                                                    <div className="flex flex-col">
-                                                        <span>{type === 'video' ? "Video Call" : "Voice Call"}</span>
-                                                        <span className={cn("text-xs mt-0.5", s > 0 ? (isMe ? "text-orange-100" : "text-zinc-400") : "text-red-300 font-bold")}>
-                                                            {s > 0 ? `${mStr}:${sStr}` : "Missed Call"}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })() : (
-                                            <div
-                                                className="flex flex-col cursor-pointer"
-                                                onClick={() => isMe && !msg.is_deleted && setMessageContextMenuId(messageContextMenuId === msg.id ? null : msg.id)}
-                                            >
-                                                <span className={cn("leading-snug whitespace-pre-wrap flex-wrap break-all", msg.is_deleted && "italic opacity-70")}>
-                                                    {msg.content}
-                                                </span>
-                                                {msg.is_edited && !msg.is_deleted && (
-                                                    <span className="text-[10px] opacity-60 self-end mt-1 italic leading-none">edited</span>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {/* Message Context Menu (Edit/Delete) */}
-                                        {messageContextMenuId === msg.id && isMe && !msg.is_deleted && (
-                                            <>
-                                                <div className="fixed inset-0 z-30" onClick={(e) => { e.stopPropagation(); setMessageContextMenuId(null); }} />
-                                                <div className={cn(
-                                                    "absolute z-40 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl py-1 w-32 animate-in fade-in zoom-in-95",
-                                                    isMe ? "right-0 top-full mt-1" : "left-0 top-full mt-1"
-                                                )}>
-                                                    {!msg.content?.startsWith("[CALL_LOG]:") && !msg.post && !msg.story && (
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); handleEditMessageClick(msg); }}
-                                                            className="w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
-                                                        >
-                                                            Edit
-                                                        </button>
-                                                    )}
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleDeleteMessage(msg.id); }}
-                                                        className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            </>
-                                        )}
-                                        {/* Read Receipts (Ticks) for outgoing messages */}
-                                        {isMe && !msg.content?.startsWith("[CALL_LOG]:") && (
-                                            <div className="absolute right-0 -bottom-4 flex items-center gap-0.5">
-                                                {msg.is_read ? (
-                                                    <CheckCheck className="w-3.5 h-3.5 text-blue-400" />
-                                                ) : (
-                                                    <Check className="w-3 h-3 text-zinc-400" />
-                                                )}
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
-                            </div>
-                        );
-                    })
+                            );
+                        })
                 )}
                 {/* Typing Indicator Bubble */}
                 {typingUsers.size > 0 && (
