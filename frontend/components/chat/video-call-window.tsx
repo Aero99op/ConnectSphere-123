@@ -12,7 +12,7 @@ interface VideoCallWindowProps {
     remoteUserId: string;
     isCaller: boolean;
     callType: 'audio' | 'video';
-    onEndCall: () => void;
+    onEndCall: (duration: number) => void;
 }
 
 const ICE_SERVERS = {
@@ -28,11 +28,33 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
     const [isMinimized, setIsMinimized] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "disconnected">("connecting");
     const [remoteUserProfile, setRemoteUserProfile] = useState<any>(null);
+    const [duration, setDuration] = useState(0);
+    const durationRef = useRef(0);
 
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
     const peerConnection = useRef<RTCPeerConnection | null>(null);
     const localStream = useRef<MediaStream | null>(null);
+
+    // Format Duration MM:SS
+    const formatDuration = (seconds: number) => {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    };
+
+    useEffect(() => {
+        let timer: NodeJS.Timeout;
+        if (connectionStatus === 'connected') {
+            timer = setInterval(() => {
+                setDuration(prev => {
+                    durationRef.current = prev + 1;
+                    return prev + 1;
+                });
+            }, 1000);
+        }
+        return () => clearInterval(timer);
+    }, [connectionStatus]);
 
     useEffect(() => {
         let isCleaningUp = false;
@@ -241,7 +263,7 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
             sendEnd();
         }
 
-        onEndCall();
+        onEndCall(durationRef.current);
     };
 
     const toggleMute = () => {
@@ -296,7 +318,7 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
                                 {remoteUserProfile?.full_name || remoteUserProfile?.username || "Unknown Number"}
                             </h2>
                             <p className="text-[#00a884] font-medium text-sm"> {/* WA Green tracking */}
-                                {connectionStatus === 'connecting' ? 'Calling...' : 'Ringing'}
+                                {connectionStatus === 'connected' ? formatDuration(duration) : connectionStatus === 'connecting' ? 'Calling...' : 'Ringing'}
                             </p>
                         </div>
 

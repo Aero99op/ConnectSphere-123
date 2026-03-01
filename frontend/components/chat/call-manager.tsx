@@ -41,7 +41,17 @@ export function CallManager() {
 
         init();
 
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                if (channel) supabase.removeChannel(channel);
+                init();
+            }
+        };
+
+        window.addEventListener("visibilitychange", handleVisibilityChange);
+
         return () => {
+            window.removeEventListener("visibilitychange", handleVisibilityChange);
             if (channel) {
                 supabase.removeChannel(channel);
             }
@@ -82,7 +92,15 @@ export function CallManager() {
         // Optional: Send reject event back
     };
 
-    const handleEndCall = () => {
+    const handleEndCall = async (duration: number) => {
+        if (activeCallRef.current && activeCallRef.current.isCaller && activeCallRef.current.roomId) {
+            // Save call log message
+            await supabase.from("messages").insert({
+                conversation_id: activeCallRef.current.roomId,
+                sender_id: userId,
+                content: `[CALL_LOG]:${activeCallRef.current.callType}:${duration}`
+            });
+        }
         setActiveCall(null);
     };
 
@@ -90,8 +108,8 @@ export function CallManager() {
         <>
             {/* Floating Incoming Call Notification - Instagram/WhatsApp Dual Vibes */}
             {incomingCall && (
-                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[95%] max-w-md animate-in slide-in-from-top-4 fade-in duration-500 ease-out">
-                    <div className="bg-[#1c272e]/95 backdrop-blur-3xl border border-white/5 p-4 rounded-[2rem] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.7)] ring-1 ring-[#00a884]/20 flex items-center justify-between gap-4">
+                <div className="fixed left-1/2 -translate-x-1/2 z-[9999] w-[95%] max-w-md animate-in slide-in-from-top-8 fade-in duration-500 ease-out" style={{ top: 'max(1rem, env(safe-area-inset-top))' }}>
+                    <div className="bg-[#1c272e]/98 backdrop-blur-3xl border border-white/10 p-4 rounded-[2rem] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.8)] ring-1 ring-[#00a884]/30 flex items-center justify-between gap-4 transform-gpu">
                         <div className="flex items-center gap-3 overflow-hidden ml-1">
                             {/* Inner Ring Glow */}
                             <div className="relative">

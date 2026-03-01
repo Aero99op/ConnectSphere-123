@@ -282,7 +282,28 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                                             </div>
                                         )}
 
-                                        <span className="leading-snug">{msg.content}</span>
+                                        {msg.content?.startsWith("[CALL_LOG]:") ? (() => {
+                                            const parts = msg.content.split(":");
+                                            const type = parts[1];
+                                            const s = parseInt(parts[2]) || 0;
+                                            const mStr = Math.floor(s / 60).toString();
+                                            const sStr = (s % 60).toString().padStart(2, '0');
+                                            return (
+                                                <div className="flex items-center gap-3 font-medium cursor-default px-1 py-0.5">
+                                                    <div className={cn("p-2 rounded-full", isMe ? "bg-white/20" : "bg-black/20")}>
+                                                        {type === 'video' ? <Video className="w-5 h-5" /> : <Phone className="w-5 h-5" />}
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span>{type === 'video' ? "Video Call" : "Voice Call"}</span>
+                                                        <span className={cn("text-xs mt-0.5", s > 0 ? (isMe ? "text-orange-100" : "text-zinc-400") : "text-red-300 font-bold")}>
+                                                            {s > 0 ? `${mStr}:${sStr}` : "Missed Call"}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })() : (
+                                            <span className="leading-snug whitespace-pre-wrap flex-wrap break-all">{msg.content}</span>
+                                        )}
                                     </div>
                                 </div>
                             </div>
