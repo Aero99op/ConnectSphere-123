@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ChevronLeft, Check, Globe, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 
 const LANGUAGES = [
     { id: 'en', name: "English", native: "English" },
@@ -14,7 +14,8 @@ const LANGUAGES = [
 ];
 
 export default function LanguageSettingsPage() {
-    const [userId, setUserId] = useState<string | null>(null);
+    const { user: authUser, supabase } = useAuth();
+    const userId = authUser?.id || null;
     const [activeLang, setActiveLang] = useState<string>('en');
 
     const [isLoading, setIsLoading] = useState(true);
@@ -24,18 +25,15 @@ export default function LanguageSettingsPage() {
     useEffect(() => {
         async function loadLanguageSettings() {
             try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
-                    setUserId(user.id);
-                    const { data, error } = await supabase
-                        .from('profiles')
-                        .select('language_preference')
-                        .eq('id', user.id)
-                        .single();
+                if (!authUser) { setIsLoading(false); return; }
+                const { data } = await supabase
+                    .from('profiles')
+                    .select('language_preference')
+                    .eq('id', authUser.id)
+                    .single();
 
-                    if (data && data.language_preference) {
-                        setActiveLang(data.language_preference);
-                    }
+                if (data && data.language_preference) {
+                    setActiveLang(data.language_preference);
                 }
             } catch (error) {
                 console.error("Error loading language settings:", error);
@@ -44,7 +42,7 @@ export default function LanguageSettingsPage() {
             }
         }
         loadLanguageSettings();
-    }, []);
+    }, [authUser, supabase]);
 
     const handleLanguageSelect = async (langId: string) => {
         if (!userId) return;

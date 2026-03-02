@@ -2,13 +2,14 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import Peer, { DataConnection } from "peerjs";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 
 /**
  * 📡 Gareeb-Pro Signaling (WebRTC)
  * Uses PeerJS for direct signaling to save Supabase Realtime limits.
  */
 export function usePeer() {
+    const { user: authUser } = useAuth();
     const [peer, setPeer] = useState<Peer | null>(null);
     const [myId, setMyId] = useState<string | null>(null);
     const [connections, setConnections] = useState<Record<string, DataConnection>>({});
@@ -19,11 +20,10 @@ export function usePeer() {
         let isMounted = true;
 
         const initPeer = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user || !isMounted) return;
+            if (!authUser || !isMounted) return;
 
             // Use the User's Supabase ID as the Peer ID
-            const newPeer = new Peer(user.id, {
+            const newPeer = new Peer(authUser.id, {
                 debug: 1 // Minimal logging
             });
 
@@ -58,7 +58,7 @@ export function usePeer() {
                 peerRef.current.destroy();
             }
         };
-    }, []);
+    }, [authUser]);
 
     const sendSignal = useCallback((recipientId: string, type: string, payload: any) => {
         if (!peerRef.current || !recipientId) return;

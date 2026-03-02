@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { FileUpload } from "@/components/ui/file-upload";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ArrowLeft } from "lucide-react";
@@ -11,26 +11,19 @@ import Link from "next/link";
 import { toast } from "sonner";
 
 function CreatePostPageContent() {
+    const { user: authUser, supabase } = useAuth();
     const [caption, setCaption] = useState("");
     const [fileUrls, setFileUrls] = useState<string[]>([]);
     const [thumbnailUrl, setThumbnailUrl] = useState<string | undefined>();
     const [loading, setLoading] = useState(false);
-    const [userId, setUserId] = useState<string | null>(null);
+    const userId = authUser?.id || null;
     const router = useRouter();
 
     useEffect(() => {
-        // Check Auth
-        const checkAuth = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user) {
-                setUserId(session.user.id);
-            } else {
-                // Let middleware handle initial protection, but if we get here with no session, then redirect
-                router.push("/login");
-            }
-        };
-        checkAuth();
-    }, [router]);
+        if (!authUser) {
+            router.push("/login");
+        }
+    }, [authUser, router]);
 
     const handleUploadComplete = (urls: string[], thumb?: string) => {
         setFileUrls(urls); // Store the full array of chunk URLs
@@ -44,8 +37,7 @@ function CreatePostPageContent() {
             return;
         }
 
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.email === "guest@connectsphere.com") {
+        if (authUser?.email === "guest@connectsphere.com") {
             toast.error("Oops! Guests can't post to the feed.", {
                 description: "Create a real account to share your thoughts!"
             });

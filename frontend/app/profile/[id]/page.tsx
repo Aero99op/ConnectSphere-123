@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +41,7 @@ function ProfileHeaderSkeleton() {
 }
 
 function AnotherUserProfileContent() {
+    const { user: authUser, supabase } = useAuth();
     const params = useParams();
     const userId = params.id as string;
 
@@ -88,8 +89,7 @@ function AnotherUserProfileContent() {
             // 2. Fetch Stats, Posts & Current User Auth
             setLoadingPosts(true);
 
-            const { data: { user } } = await supabase.auth.getUser();
-            setCurrentUser(user);
+            setCurrentUser(authUser);
 
             const [postsResponse, followersResponse, followingResponse] = await Promise.all([
                 supabase.from('posts').select(`*, profiles(username, avatar_url, full_name, role)`).eq('user_id', userId).order('created_at', { ascending: false }),
@@ -97,12 +97,11 @@ function AnotherUserProfileContent() {
                 supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId)
             ]);
 
-            if (user) {
-                // Check if already following
+            if (authUser) {
                 const { data: followData } = await supabase
                     .from('follows')
                     .select('*')
-                    .match({ follower_id: user.id, following_id: userId })
+                    .match({ follower_id: authUser.id, following_id: userId })
                     .single();
 
                 if (followData) setIsFollowing(true);

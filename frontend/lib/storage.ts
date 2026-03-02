@@ -3,7 +3,6 @@
  * Manages all uploads to Catbox.moe with Proxy/Direct switching.
  */
 
-import { supabase } from "./supabase";
 
 /**
  * Uploads a file to Catbox.moe.
@@ -58,11 +57,10 @@ async function uploadDirect(file: File | Blob): Promise<string> {
 /**
  * Helper to log successful uploads for MOSSAD-level auditing.
  */
-export async function auditUpload(urls: string[], fileName: string, fileSize: number) {
+export async function auditUpload(urls: string[], fileName: string, fileSize: number, supabase: any, userId?: string) {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
         await supabase.from('audit_logs').insert({
-            user_id: user?.id,
+            user_id: userId || null,
             action: 'UPLOAD_SUCCESS',
             media_urls: urls,
             metadata: { file_name: fileName, file_size: fileSize }

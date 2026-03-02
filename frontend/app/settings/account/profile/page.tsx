@@ -1,30 +1,29 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { ProfileEditForm } from "@/components/ui/profile-edit-form";
 import { Loader2, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 
 export default function ProfileEditPage() {
+    const { user: authUser, supabase } = useAuth();
     const [profile, setProfile] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         async function fetchProfile() {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data } = await supabase
-                    .from("profiles")
-                    .select("*")
-                    .eq("id", user.id)
-                    .single();
-                setProfile(data);
-            }
+            if (!authUser) { setLoading(false); return; }
+            const { data } = await supabase
+                .from("profiles")
+                .select("*")
+                .eq("id", authUser.id)
+                .single();
+            setProfile(data);
             setLoading(false);
         }
         fetchProfile();
-    }, []);
+    }, [authUser, supabase]);
 
     if (loading) {
         return (

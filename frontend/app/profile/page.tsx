@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState, Suspense } from "react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, Settings, LogOut, MessageCircle, MapPin, Camera, Compass } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -12,13 +12,14 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 function ProfilePageContent() {
+    const { user: authUser, supabase, signOut } = useAuth();
     const [activeTab, setActiveTab] = useState<'posts' | 'saved' | 'reports'>('posts');
     const [profile, setProfile] = useState<any>(null);
     const [posts, setPosts] = useState<any[]>([]);
     const [savedPosts, setSavedPosts] = useState<any[]>([]);
     const [reports, setReports] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const currentUserId = authUser?.id || null;
     const router = useRouter();
 
     useEffect(() => {
@@ -28,12 +29,7 @@ function ProfilePageContent() {
     const fetchProfile = async () => {
         setLoading(true);
 
-        // Get Current User
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) setCurrentUserId(user.id);
-
-        if (!user) {
-            // Guest View or Logged Out
+        if (!authUser) {
             setProfile({
                 full_name: "Guest User",
                 username: "guest",
@@ -44,6 +40,7 @@ function ProfilePageContent() {
             setLoading(false);
             return;
         }
+        const user = authUser;
         try {
             // Fetch Profile Data
             const { data: profileData } = await supabase
@@ -132,13 +129,13 @@ function ProfilePageContent() {
     };
 
     const handleLogout = async () => {
-        await supabase.auth.signOut();
+        await signOut();
         window.location.href = '/role-selection';
     };
 
     const handleMessage = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user || !profile) return;
+        if (!authUser || !profile) return;
+        const user = authUser;
 
         if (user.id === profile.id) return;
 

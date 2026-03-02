@@ -6,22 +6,22 @@ import { Home, Search, PlusSquare, Heart, MessageCircle, User, Compass, Menu } f
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 
 export function Sidebar() {
     const pathname = usePathname();
+    const { user: authUser, supabase } = useAuth();
     const [user, setUser] = useState<any>(null);
 
     useEffect(() => {
         const getUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+            if (authUser) {
+                const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).maybeSingle();
                 setUser(profile);
             }
         };
         getUser();
-    }, []);
+    }, [authUser, supabase]);
 
     const links = [
         { href: "/", label: "Home", icon: Home },

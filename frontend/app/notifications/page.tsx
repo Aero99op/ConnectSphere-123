@@ -3,49 +3,46 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { ArrowLeft, Bell, Loader2, Heart, MessageCircle, UserPlus, Info } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
 
 export default function NotificationsPage() {
+    const { user: authUser, supabase } = useAuth();
     const [notifications, setNotifications] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [userId, setUserId] = useState<string | null>(null);
+    const userId = authUser?.id || null;
 
     useEffect(() => {
         async function fetchNotifications() {
+            if (!authUser) { setLoading(false); return; }
             setLoading(true);
-            const { data: { user } } = await supabase.auth.getUser();
 
-            if (user) {
-                setUserId(user.id);
-                const { data, error } = await supabase
+            const { data, error } = await supabase
+                .from('notifications')
+                .select(`
+                    *,
+                    actor_profile:profiles!notifications_actor_id_fkey(username, avatar_url)
+                `)
+                .eq('recipient_id', authUser.id)
+                .order('created_at', { ascending: false })
+                .limit(50);
+
+            if (!error && data) {
+                setNotifications(data);
+
+                await supabase
                     .from('notifications')
-                    .select(`
-                        *,
-                        actor_profile:profiles!notifications_actor_id_fkey(username, avatar_url)
-                    `)
-                    .eq('recipient_id', user.id)
-                    .order('created_at', { ascending: false })
-                    .limit(50);
-
-                if (!error && data) {
-                    setNotifications(data);
-
-                    // Mark as read
-                    await supabase
-                        .from('notifications')
-                        .update({ is_read: true })
-                        .eq('recipient_id', user.id)
-                        .eq('is_read', false);
-                }
+                    .update({ is_read: true })
+                    .eq('recipient_id', authUser.id)
+                    .eq('is_read', false);
             }
             setLoading(false);
         }
         fetchNotifications();
-    }, []);
+    }, [authUser, supabase]);
 
     const getIcon = (type: string) => {
         switch (type) {

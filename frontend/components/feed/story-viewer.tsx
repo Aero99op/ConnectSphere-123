@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { X, Heart, MessageCircle, Send, MoreHorizontal, ChevronLeft, ChevronRight, Eye, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { toast } from "sonner";
 import { ShareSheet } from "./share-sheet";
 import { downloadAndMergeChunks } from "@/lib/utils/chunk-uploader";
@@ -16,22 +16,16 @@ interface StoryViewerProps {
 }
 
 export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewerProps) {
+    const { user: authUser, supabase } = useAuth();
     const [currentIndex, setCurrentIndex] = useState(initialStoryIndex);
     const [progress, setProgress] = useState(0);
     const [paused, setPaused] = useState(false);
     const [liked, setLiked] = useState(false);
     const [comment, setComment] = useState("");
     const [showShareSheet, setShowShareSheet] = useState(false);
-    const [userId, setUserId] = useState<string | null>(null);
+    const userId = authUser?.id || null;
     const [mediaBlobUrl, setMediaBlobUrl] = useState<string | null>(null);
     const [isLoadingMedia, setIsLoadingMedia] = useState(false);
-
-    // Get Auth User once
-    useEffect(() => {
-        supabase.auth.getUser().then(({ data }) => {
-            if (data.user) setUserId(data.user.id);
-        });
-    }, []);
 
     // Safety check
     if (!stories || stories.length === 0 || !stories[currentIndex]) return null;

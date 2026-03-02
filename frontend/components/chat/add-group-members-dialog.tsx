@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Users, X, Check, Search, CircleDashed, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,7 @@ interface AddGroupMembersDialogProps {
 }
 
 export function AddGroupMembersDialog({ conversationId, onClose, onMembersAdded }: AddGroupMembersDialogProps) {
+    const { user: authUser, supabase } = useAuth();
     const [query, setQuery] = useState("");
     const [friends, setFriends] = useState<User[]>([]);
     const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -33,10 +34,8 @@ export function AddGroupMembersDialog({ conversationId, onClose, onMembersAdded 
 
     const fetchEligibleFriends = async () => {
         setLoading(true);
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!authUser) return;
 
-        // 1. Fetch current participants
         const { data: currentParticipants } = await supabase
             .from('conversation_participants')
             .select('user_id')
@@ -44,11 +43,10 @@ export function AddGroupMembersDialog({ conversationId, onClose, onMembersAdded 
 
         const participantIds = currentParticipants?.map(p => p.user_id) || [];
 
-        // 2. Fetch all users (MVP approach)
         const { data } = await supabase
             .from('profiles')
             .select('id, username, full_name, avatar_url')
-            .neq('id', user.id)
+            .neq('id', authUser.id)
             .limit(100);
 
         if (data) {

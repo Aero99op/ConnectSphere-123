@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { usePeer } from "@/hooks/use-peer";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MessageCircle, X, Loader2, Plus } from "lucide-react";
@@ -11,23 +11,19 @@ import { CreateGroupDialog } from "./create-group-dialog";
 import { NewChatDialog } from "./new-chat-dialog";
 
 export function ChatList() {
+    const { user: authUser, supabase } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
     const [activeChat, setActiveChat] = useState<any>(null);
     const [loading, setLoading] = useState(false);
-    const [userId, setUserId] = useState<string | null>(null);
+    const userId = authUser?.id || null;
     const [showCreateGroup, setShowCreateGroup] = useState(false);
     const [showNewChat, setShowNewChat] = useState(false);
     const { incomingSignal, clearSignal } = usePeer();
 
     useEffect(() => {
-        const getUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            setUserId(user?.id || null);
-            if (user) fetchConversations(user.id);
-        };
-        getUser();
-    }, []); // Initial load only
+        if (authUser) fetchConversations(authUser.id);
+    }, [authUser]);
 
     // 📡 Handle Incoming Peer Signals
     useEffect(() => {

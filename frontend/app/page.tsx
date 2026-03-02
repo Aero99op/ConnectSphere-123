@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState, Suspense } from "react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { PostCard } from "@/components/feed/post-card";
 import { Loader2, Bell, MessageCircle, AlertTriangle, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -16,13 +16,14 @@ import { cn } from "@/lib/utils";
 import { FileUpload } from "@/components/ui/file-upload";
 
 function HomeFeedContent() {
+    const { user: authUser, supabase } = useAuth();
     const [posts, setPosts] = useState<any[]>([]);
     const [stories, setStories] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isInitializing, setIsInitializing] = useState(true);
     const [viewingStoryIndex, setViewingStoryIndex] = useState<number | null>(null);
     const [isAddingStory, setIsAddingStory] = useState(false);
-    const [userId, setUserId] = useState<string | null>(null);
+    const userId = authUser?.id || null;
     const [userProfile, setUserProfile] = useState<any>(null);
 
     const router = useRouter();
@@ -137,12 +138,10 @@ function HomeFeedContent() {
 
         const init = async () => {
             setLoading(true);
-            const { data: { user } } = await supabase.auth.getUser();
 
-            if (user) {
-                setUserId(user.id);
+            if (authUser) {
                 try {
-                    const { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+                    const { data } = await supabase.from('profiles').select('*').eq('id', authUser.id).maybeSingle();
                     setUserProfile(data);
 
                     if (data?.role === 'official') {
@@ -155,7 +154,7 @@ function HomeFeedContent() {
             }
 
             // Normal feed initialization
-            await Promise.all([fetchPosts(), fetchStories(user?.id || null)]);
+            await Promise.all([fetchPosts(), fetchStories(authUser?.id || null)]);
 
             // Realtime Listeners 
             feedChannel = supabase
@@ -166,7 +165,7 @@ function HomeFeedContent() {
                 })
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stories' }, () => {
                     console.log("New story added! Updating rail...");
-                    fetchStories(user?.id || null);
+                    fetchStories(authUser?.id || null);
                 })
                 .subscribe();
 
@@ -180,7 +179,7 @@ function HomeFeedContent() {
                 supabase.removeChannel(feedChannel);
             }
         };
-    }, [router]);
+    }, [authUser, router]);
 
 
     const [storyFileUrls, setStoryFileUrls] = useState<string[]>([]);

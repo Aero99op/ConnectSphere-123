@@ -3,26 +3,19 @@
 import { useState, useEffect } from "react";
 import { ChatSidebar } from "./chat-sidebar";
 import { ChatView } from "./chat-view";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { Loader2, MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export function MessagesLayout() {
+    const { user: authUser, loading: authLoading } = useAuth();
     const [activeChat, setActiveChat] = useState<any>(null);
-    const [userId, setUserId] = useState<string | null>(null);
+    const userId = authUser?.id || null;
     const [isMobile, setIsMobile] = useState(false);
     const [mounted, setMounted] = useState(false);
-    const [authChecked, setAuthChecked] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
-        const getUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            setUserId(user?.id || null);
-            setAuthChecked(true);
-        };
-        getUser();
-
         const checkMobile = () => setIsMobile(window.innerWidth < 768);
         checkMobile();
         setMounted(true);
@@ -31,12 +24,12 @@ export function MessagesLayout() {
     }, []);
 
     useEffect(() => {
-        if (mounted && authChecked && !userId) {
+        if (mounted && !authLoading && !userId) {
             router.push('/login');
         }
-    }, [mounted, authChecked, userId, router]);
+    }, [mounted, authLoading, userId, router]);
 
-    if (!mounted || !authChecked || !userId) {
+    if (!mounted || authLoading || !userId) {
         return (
             <div className="w-full h-full flex items-center justify-center bg-black">
                 <Loader2 className="w-8 h-8 animate-spin text-orange-500" />

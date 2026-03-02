@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ChevronLeft, Shield, Lock, EyeOff, UserCheck, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 
 export default function PrivacySettingsPage() {
-    const [userId, setUserId] = useState<string | null>(null);
+    const { user: authUser, supabase } = useAuth();
+    const userId = authUser?.id || null;
     const [isPrivate, setIsPrivate] = useState(false);
     const [hideOnlineStatus, setHideOnlineStatus] = useState(false);
 
@@ -17,20 +18,17 @@ export default function PrivacySettingsPage() {
     useEffect(() => {
         async function loadPrivacySettings() {
             try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
-                    setUserId(user.id);
-                    // Attempt to fetch, defaults will be false if columns don't exist
-                    const { data, error } = await supabase
-                        .from('profiles')
-                        .select('is_private, hide_online_status')
-                        .eq('id', user.id)
-                        .single();
+                if (!authUser) { setIsLoading(false); return; }
+                // Attempt to fetch, defaults will be false if columns don't exist
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('is_private, hide_online_status')
+                    .eq('id', authUser.id)
+                    .single();
 
-                    if (data) {
-                        setIsPrivate(data.is_private || false);
-                        setHideOnlineStatus(data.hide_online_status || false);
-                    }
+                if (data) {
+                    setIsPrivate(data.is_private || false);
+                    setHideOnlineStatus(data.hide_online_status || false);
                 }
             } catch (error) {
                 console.error("Error loading privacy settings:", error);
@@ -40,7 +38,7 @@ export default function PrivacySettingsPage() {
             }
         }
         loadPrivacySettings();
-    }, []);
+    }, [authUser, supabase]);
 
     const toggleSetting = async (field: 'is_private' | 'hide_online_status', currentValue: boolean) => {
         if (!userId) return;

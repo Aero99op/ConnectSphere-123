@@ -3,13 +3,13 @@
 export const dynamic = "force-dynamic";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
 import { Loader2, ArrowLeft, Mail, Lock, User, Sparkles } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Suspense, useEffect } from 'react';
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { signIn, useSession } from "next-auth/react";
 
 function LoginContent() {
     const [email, setEmail] = useState("");
@@ -19,147 +19,75 @@ function LoginContent() {
     const [mode, setMode] = useState<"login" | "signup">("login");
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { data: session } = useSession();
 
     const role = searchParams.get('role') || "citizen";
     const isOfficial = role === "official";
 
     // Check if already logged in -> Redirect
     useEffect(() => {
-        const checkUser = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                router.push(isOfficial ? "/dashboard" : "/");
-            }
-        };
-        checkUser();
-    }, [isOfficial, router]);
-
-    // Pre-fill credentials based on role (Jugaad for testing)
-    useEffect(() => {
-        if (isOfficial) {
-            setEmail("spandandepartmentbbsr@gov.in");
-            setPassword("1234");
-        } else {
-            setEmail("spandanpatra1234@gmail.com");
-            setPassword("1234");
+        if (session) {
+            router.push(isOfficial ? "/dashboard" : "/");
         }
-    }, [isOfficial]);
-
-    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    }, [session, isOfficial, router]);
 
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
 
-        let retries = 0;
-        const maxRetries = 3;
+        try {
+            if (mode === "login") {
+                const result = await signIn('credentials', {
+                    email,
+                    password,
+                    action: 'login',
+                    redirect: false,
+                });
 
-        while (retries <= maxRetries) {
-            try {
-                if (mode === "login") {
-                    const { data: authData, error } = await supabase.auth.signInWithPassword({
-                        email,
-                        password: password === "1234" ? "guest123456" : password, // Internal jugaad for test pass
-                    });
-
-                    if (error) {
-                        if (error.status === 429) {
-                            throw error; // Let the catch block handle the rate limit retry
-                        }
-                        if (error.message.includes("Invalid login credentials") && password === "1234") {
-                            // If test bypass failed, maybe account doesn't exist, try auto-signup
-                            handleAutoSignup();
-                            return;
-                        }
-                        throw error;
-                    }
-
-                    // Fetch actual role from database after successful login
-                    if (authData?.user) {
-                        const { data: profile, error: profileError } = await supabase.from('profiles').select('role').eq('id', authData.user.id).single();
-                        if (profileError) {
-                            console.error("Error fetching profile after login:", profileError);
-                            toast.error("Login successful, but failed to get user role. Please refresh.");
-                            setLoading(false);
-                            return;
-                        }
-                        if (profile?.role === 'official') {
-                            router.push('/dashboard');
-                            toast.success("Welcome back, Official! 🏛️");
-                            setLoading(false);
-                            return;
-                        }
-                    }
-
-                    // Default redirect for non-officials or if role couldn't be determined as official
-                    toast.success("Welcome back! 🚀");
-                    router.push("/"); // Citizen default
+                if (result?.error) {
+                    toast.error(result.error);
                     setLoading(false);
                     return;
-                } else {
-                    const { error } = await supabase.auth.signUp({
-                        email,
-                        password,
-                        options: {
-                            data: {
-                                role: role,
-                                full_name: fullName,
-                            },
-                        },
-                    });
+                }
 
-                    if (error) {
-                        if (error.status === 429) throw error;
-                        throw error;
-                    }
-                    toast.success("Account created! 🌟 Check your email if verification is on, otherwise just login.");
-                    setMode("login");
-                    if (mode === "signup") {
-                        router.push(isOfficial ? "/dashboard" : "/");
-                    }
+                toast.success("Welcome back! 🚀");
+                router.push(isOfficial ? "/dashboard" : "/");
+            } else {
+                // Signup
+                const result = await signIn('credentials', {
+                    email,
+                    password,
+                    action: 'signup',
+                    fullName,
+                    role,
+                    redirect: false,
+                });
+
+                if (result?.error) {
+                    toast.error(result.error);
                     setLoading(false);
-                    return; // exit loop on success
+                    return;
                 }
-            } catch (error: any) {
-                if (error.status === 429 || error.message?.toLowerCase().includes("rate limit") || error.message?.toLowerCase().includes("too many requests")) {
-                    if (retries < maxRetries) {
-                        const delayMins = Math.pow(2, retries); // 1, 2, 4 seconds...
-                        toast.error(`Traffic is massive! Retrying in ${delayMins} second(s)... 🚦`);
-                        await sleep(delayMins * 1000);
-                        retries++;
-                        continue;
-                    } else {
-                        toast.error("Too many people logging in at once. Please wait a few minutes and try again. 🚧");
-                        break; // exit loop after max retries
-                    }
-                } else {
-                    toast.error(error.message || "Something went wrong!");
-                    break; // exit loop on other errors
-                }
+
+                toast.success("Account created! 🌟 Welcome to ConnectSphere!");
+                router.push(isOfficial ? "/dashboard" : "/");
             }
+        } catch (error: any) {
+            toast.error(error.message || "Something went wrong!");
         }
         setLoading(false);
     };
 
-    const handleAutoSignup = async () => {
-        const { error: signUpError } = await supabase.auth.signUp({
-            email,
-            password: "guest123456",
-            options: {
-                data: {
-                    role: isOfficial ? "official" : "citizen",
-                    full_name: isOfficial ? "Department BBSR" : "Spandan Patra",
-                }
-            }
-        });
-
-        if (signUpError) {
-            toast.error("Auto-signup failed: " + signUpError.message);
-        } else {
-            toast.success("Test Account Auto-created! 🚀");
-            router.push(isOfficial ? "/dashboard" : "/");
+    const handleGoogleLogin = async () => {
+        setLoading(true);
+        try {
+            await signIn('google', {
+                callbackUrl: isOfficial ? '/dashboard' : '/',
+            });
+        } catch (error: any) {
+            toast.error("Google Auth mein lafda! 🚨");
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     return (
@@ -256,6 +184,35 @@ function LoginContent() {
                 </button>
             </form>
 
+            {/* Divider */}
+            <div className="my-6 flex items-center gap-4">
+                <div className="h-px bg-white/10 flex-1" />
+                <span className="text-zinc-500 text-sm font-medium">ya fir</span>
+                <div className="h-px bg-white/10 flex-1" />
+            </div>
+
+            {/* Google OAuth Button */}
+            <button
+                onClick={handleGoogleLogin}
+                disabled={loading}
+                type="button"
+                className="w-full bg-white text-black font-bold py-3 px-4 rounded-xl shadow-lg transform transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 hover:bg-zinc-100"
+            >
+                {loading ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-black" />
+                ) : (
+                    <>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="20" height="20">
+                            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                        </svg>
+                        Google se Login Karo
+                    </>
+                )}
+            </button>
+
             <div className="mt-8 pt-6 border-t border-white/5 text-center">
                 <button
                     onClick={() => setMode(mode === "login" ? "signup" : "login")}
@@ -269,7 +226,7 @@ function LoginContent() {
                 </button>
             </div>
 
-            {/* Jugaad Notice */}
+            {/* Free Notice */}
             <p className="mt-6 text-[10px] text-zinc-600 text-center uppercase tracking-widest">
                 Unlimited Auth • Free Forever • ConnectSphere
             </p>

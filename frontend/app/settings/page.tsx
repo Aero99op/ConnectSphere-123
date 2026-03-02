@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import {
     User,
     Bell,
@@ -18,13 +18,13 @@ import {
 } from "lucide-react";
 
 export default function SettingsPage() {
+    const { signOut } = useAuth();
     const router = useRouter();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
 
     const handleLogout = async () => {
         setIsLoggingOut(true);
-        await supabase.auth.signOut();
-        // Redirect completely out of the app to the role selection
+        await signOut();
         router.push("/role-selection");
     };
 

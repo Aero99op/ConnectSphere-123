@@ -4,13 +4,14 @@ export const dynamic = "force-dynamic";
 
 import { useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { Loader2, Camera, MapPin, Upload, X, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { uploadToCatbox } from "@/lib/upload";
 import { cn } from "@/lib/utils";
 
 function ReportIssuePageContent() {
+    const { user: authUser, supabase } = useAuth();
     const router = useRouter();
     const [loading, setLoading] = useState(false);
 
@@ -119,9 +120,7 @@ function ReportIssuePageContent() {
         setLoading(true);
 
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-
-            if (user?.email === "guest@connectsphere.com") {
+            if (authUser?.email === "guest@connectsphere.com") {
                 toast.error("Oops! Guests can't submit reports.", {
                     description: "Create a verified account to help your community!"
                 });
@@ -129,9 +128,8 @@ function ReportIssuePageContent() {
                 return;
             }
 
-            // 2. Insert into DB using REAL uploaded URLs
             const { error } = await supabase.from('reports').insert({
-                user_id: user?.id || null,
+                user_id: authUser?.id || null,
                 title: `${type.toUpperCase()} Issue`,
                 description,
                 type,

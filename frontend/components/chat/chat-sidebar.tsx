@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MessageCircle, Search, Edit, Users, ChevronLeft, Loader2 } from "lucide-react";
 import { NewChatDialog } from "./new-chat-dialog";
@@ -15,25 +15,17 @@ interface ChatSidebarProps {
 }
 
 export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
+    const { user: authUser, supabase } = useAuth();
     const [conversations, setConversations] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
-    const [userId, setUserId] = useState<string | null>(null);
+    const userId = authUser?.id || null;
     const [showNewChat, setShowNewChat] = useState(false);
     const [showCreateGroup, setShowCreateGroup] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => {
-        let isMounted = true;
-        const getUser = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!isMounted) return;
-            const uid = session?.user?.id || null;
-            setUserId(uid);
-            if (uid) fetchConversations(uid);
-        };
-        getUser();
-        return () => { isMounted = false; };
-    }, []);
+        if (authUser) fetchConversations(authUser.id);
+    }, [authUser]);
 
     useEffect(() => {
         if (!userId) return;

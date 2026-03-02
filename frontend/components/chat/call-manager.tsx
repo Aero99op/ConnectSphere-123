@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { toast } from "sonner";
 import { VideoCallWindow } from "./video-call-window";
 import { GroupCallWindow } from "./group-call-window";
@@ -11,31 +11,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export function CallManager() {
+    const { user, supabase } = useAuth();
     const [incomingCall, setIncomingCall] = useState<any>(null);
     const [activeCall, setActiveCall] = useState<any>(null);
-    const [userId, setUserId] = useState<string | null>(null);
+    const userId = user?.id || null;
 
     const activeCallRef = useRef<any>(null);
     useEffect(() => { activeCallRef.current = activeCall; }, [activeCall]);
-
-    // 1. Manage User Auth State
-    useEffect(() => {
-        let isMounted = true;
-        const checkUser = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (isMounted) setUserId(session?.user?.id || null);
-        };
-        checkUser();
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            if (isMounted) setUserId(session?.user?.id || null);
-        });
-
-        return () => {
-            isMounted = false;
-            subscription.unsubscribe();
-        };
-    }, []);
 
     // 2. Manage Realtime Channel based on userId
     useEffect(() => {

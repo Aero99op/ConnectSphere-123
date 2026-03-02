@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import {
     Loader2,
     Filter,
@@ -37,6 +37,7 @@ import { BottomNav } from '@/components/layout/bottom-nav'
 import { Toaster } from "sonner"
 
 export function DepartmentDashboard() {
+    const { user: authUser, supabase, signOut } = useAuth();
     const [reports, setReports] = useState<any[]>([]);
     const [history, setHistory] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -58,25 +59,24 @@ export function DepartmentDashboard() {
 
     useEffect(() => {
         const initDashboard = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-
-            if (user) {
-                const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-                if (profile?.role !== 'official') {
-                    window.location.href = '/';
-                    return;
-                }
-
-                if (profile?.assigned_area) {
-                    setJurisdiction(profile.assigned_area);
-                } else {
-                    setIsSettingLocation(true);
-                }
-                setUserRole(profile?.role || null);
-            } else {
+            if (!authUser) {
                 window.location.href = '/';
                 return;
             }
+
+            const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).single();
+            if (profile?.role !== 'official') {
+                window.location.href = '/';
+                return;
+            }
+
+            if (profile?.assigned_area) {
+                setJurisdiction(profile.assigned_area);
+            } else {
+                setIsSettingLocation(true);
+            }
+            setUserRole(profile?.role || null);
+            setProfileData(profile);
             fetchReports();
             fetchHistory();
         };
@@ -145,9 +145,8 @@ export function DepartmentDashboard() {
 
     const handleSetJurisdiction = async () => {
         if (!tempLocation) return toast.error("Coordinate input required.");
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            const { error } = await supabase.from('profiles').update({ assigned_area: tempLocation }).eq('id', user.id);
+        if (authUser) {
+            const { error } = await supabase.from('profiles').update({ assigned_area: tempLocation }).eq('id', authUser.id);
             if (!error) {
                 setJurisdiction(tempLocation);
                 setIsSettingLocation(false);
@@ -182,8 +181,7 @@ export function DepartmentDashboard() {
     const submitStatusUpdate = async () => {
         if (!updateDesc) return toast.error("Action descriptor required.");
 
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!authUser) return;
 
         toast.loading("Transmitting to mainframe... 📡");
 
@@ -207,7 +205,7 @@ export function DepartmentDashboard() {
 
         const { error: historyError } = await supabase.from("report_updates").insert({
             report_id: selectedReport.id,
-            official_id: user.id,
+            official_id: authUser.id,
             new_status: newStatus,
             description: updateDesc,
             media_urls: updateMedia ? [updateMedia] : [],
@@ -675,7 +673,7 @@ export function DepartmentDashboard() {
 
                             <div className="mt-10 grid grid-cols-1 gap-4 relative z-10">
                                 <button
-                                    onClick={() => supabase.auth.signOut().then(() => window.location.href = '/role-selection')}
+                                    onClick={() => signOut().then(() => window.location.href = '/role-selection')}
                                     className="bg-red-950/50 border border-red-500/30 text-red-400 font-black py-4 rounded-xl hover:bg-red-900/80 hover:text-red-300 transition-all text-xs uppercase tracking-[0.2em] shadow-[0_4px_20px_rgba(239,68,68,0.1)] active:scale-95"
                                 >
                                     Terminate Session

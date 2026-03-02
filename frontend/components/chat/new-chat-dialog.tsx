@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Users, X, Search, CircleDashed, MessageCircle } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 
@@ -14,6 +14,7 @@ interface NewChatDialogProps {
 }
 
 export function NewChatDialog({ onClose, onCreateGroup, onChatStart, currentUserId }: NewChatDialogProps) {
+    const { supabase } = useAuth();
     const [query, setQuery] = useState("");
     const [friends, setFriends] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -24,14 +25,12 @@ export function NewChatDialog({ onClose, onCreateGroup, onChatStart, currentUser
 
     const fetchFriends = async () => {
         setLoading(true);
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!currentUserId) return;
 
-        // Fetch all users for MVP so we can easily find people
         const { data } = await supabase
             .from('profiles')
             .select('id, username, full_name, avatar_url')
-            .neq('id', user.id)
+            .neq('id', currentUserId)
             .limit(100);
 
         if (data) {

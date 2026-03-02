@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 function RightSidebarContent() {
+    const { user: authUser, supabase } = useAuth();
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [suggestions, setSuggestions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -16,8 +17,7 @@ function RightSidebarContent() {
 
     useEffect(() => {
         const fetchSidebarData = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
+            if (!authUser) {
                 setLoading(false);
                 return;
             }
@@ -26,7 +26,7 @@ function RightSidebarContent() {
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('*')
-                .eq('id', user.id)
+                .eq('id', authUser.id)
                 .single();
 
             setCurrentUser(profile);
@@ -35,10 +35,10 @@ function RightSidebarContent() {
             const { data: follows } = await supabase
                 .from('follows')
                 .select('following_id')
-                .eq('follower_id', user.id);
+                .eq('follower_id', authUser.id);
 
             const followingIds = follows?.map(f => f.following_id) || [];
-            const excludeIds = [...followingIds, user.id];
+            const excludeIds = [...followingIds, authUser.id];
 
             // 3. Fetch 4 random suggestions excluding already followed and self
             // Note: For a real large-scale app, we might use an RPC call or simpler query logic,
@@ -63,7 +63,7 @@ function RightSidebarContent() {
         };
 
         fetchSidebarData();
-    }, []);
+    }, [authUser, supabase]);
 
     const handleFollowToggle = async (targetId: string) => {
         if (!currentUser) return;

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Play, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { cn } from "@/lib/utils";
 import { downloadAndMergeChunks } from "@/lib/utils/chunk-uploader";
 import { CommentSheet } from "@/components/feed/comment-sheet";
@@ -29,6 +29,7 @@ interface PostProps {
 }
 
 export function PostCard({ post }: PostProps) {
+    const { user: authUser, supabase } = useAuth();
     const [isPlaying, setIsPlaying] = useState(false);
     const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
     const [loadingVideo, setLoadingVideo] = useState(false);
@@ -39,19 +40,17 @@ export function PostCard({ post }: PostProps) {
     const [showShareSheet, setShowShareSheet] = useState(false);
     const [isBookmarked, setIsBookmarked] = useState(false);
     const [isDeleted, setIsDeleted] = useState(false);
-    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const currentUserId = authUser?.id || null;
 
     // Initial checks for bookmark and ownership
     useEffect(() => {
         const init = async () => {
             try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
-                    setCurrentUserId(user.id);
-                    const { data: bookmarkData } = await supabase.from('bookmarks').select('id').eq('post_id', post.id).eq('user_id', user.id).maybeSingle();
+                if (authUser) {
+                    const { data: bookmarkData } = await supabase.from('bookmarks').select('id').eq('post_id', post.id).eq('user_id', authUser.id).maybeSingle();
                     if (bookmarkData) setIsBookmarked(true);
 
-                    const { data: likeData } = await supabase.from('post_likes').select('id').eq('post_id', post.id).eq('user_id', user.id).maybeSingle();
+                    const { data: likeData } = await supabase.from('post_likes').select('id').eq('post_id', post.id).eq('user_id', authUser.id).maybeSingle();
                     if (likeData) setLiked(true);
                 }
             } catch (e) {
@@ -59,7 +58,7 @@ export function PostCard({ post }: PostProps) {
             }
         };
         init();
-    }, [post.id]);
+    }, [post.id, authUser, supabase]);
 
     const handlePlay = async () => {
         if (videoBlobUrl) {
@@ -147,7 +146,7 @@ export function PostCard({ post }: PostProps) {
         setIsBookmarked(newStatus);
 
         if (newStatus) {
-            const { error } = await supabase.from('bookmarks').insert({ post_id: post.id, user_id: (await supabase.auth.getUser()).data.user?.id });
+            const { error } = await supabase.from('bookmarks').insert({ post_id: post.id, user_id: currentUserId });
             if (error) {
                 setIsBookmarked(!newStatus);
                 toast.error("Bookmark fail ho gaya!");

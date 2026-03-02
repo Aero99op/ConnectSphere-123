@@ -5,7 +5,7 @@ import { Search, Send, Check, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { toast } from "sonner";
 
 interface User {
@@ -23,6 +23,7 @@ interface ShareSheetProps {
 }
 
 export function ShareSheet({ open, onOpenChange, entityType, entityId }: ShareSheetProps) {
+    const { user: authUser, supabase } = useAuth();
     const [query, setQuery] = useState("");
     const [friends, setFriends] = useState<User[]>([]);
     const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -45,17 +46,15 @@ export function ShareSheet({ open, onOpenChange, entityType, entityId }: ShareSh
 
     const fetchFriends = async () => {
         setLoading(true);
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!authUser) return;
 
-        // Fetch users I follow
         const { data, error } = await supabase
             .from('follows')
             .select(`
                 following_id,
                 profiles:following_id (id, username, full_name, avatar_url)
             `)
-            .eq('follower_id', user.id);
+            .eq('follower_id', authUser.id);
 
         if (data) {
             // @ts-ignore - Supabase type inference can be tricky with nested joins
@@ -78,7 +77,7 @@ export function ShareSheet({ open, onOpenChange, entityType, entityId }: ShareSh
         if (selected.size === 0) return;
         setSending(true);
 
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = { data: { user: authUser } };
         if (!user) return;
 
         const promises = Array.from(selected).map(async (recipientId) => {

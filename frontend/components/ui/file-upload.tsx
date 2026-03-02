@@ -5,7 +5,7 @@ import { Upload, X, FileVideo, FileImage, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { uploadFileInChunks } from "@/lib/utils/chunk-uploader";
 import { uploadToCatbox, auditUpload } from "@/lib/storage";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { toast } from "sonner";
 
 // Utility for class merging (inline for now if lib/utils doesn't exist)
@@ -19,6 +19,7 @@ interface FileUploadProps {
 }
 
 export function FileUpload({ onUploadComplete, maxSizeMB = 500 }: FileUploadProps) {
+    const { user: authUser, supabase } = useAuth();
     const [isDragging, setIsDragging] = useState(false);
     const [file, setFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
@@ -187,7 +188,7 @@ export function FileUpload({ onUploadComplete, maxSizeMB = 500 }: FileUploadProp
             });
 
             // 3. Security Audit Log (MOSSAD-Level Governance)
-            await auditUpload(urls, file.name, finalFile.size);
+            await auditUpload(urls, file.name, finalFile.size, supabase, authUser?.id);
 
             setStatus("Upload Complete! Zero Server Cost 💸🚀");
             setIsCompleted(true);

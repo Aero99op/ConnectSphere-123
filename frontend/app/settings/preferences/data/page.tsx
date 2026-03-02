@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ChevronLeft, Database, Wifi, Image as ImageIcon, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 
 export default function DataUsageSettingsPage() {
-    const [userId, setUserId] = useState<string | null>(null);
+    const { user: authUser, supabase } = useAuth();
+    const userId = authUser?.id || null;
     const [dataSaver, setDataSaver] = useState(false);
     const [highUploadQuality, setHighUploadQuality] = useState(true);
     const [autoplayVideos, setAutoplayVideos] = useState<'wifi' | 'always' | 'never'>('wifi');
@@ -18,20 +19,17 @@ export default function DataUsageSettingsPage() {
     useEffect(() => {
         async function loadDataSettings() {
             try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
-                    setUserId(user.id);
-                    const { data, error } = await supabase
-                        .from('profiles')
-                        .select('data_saver, high_upload_quality, autoplay_videos')
-                        .eq('id', user.id)
-                        .single();
+                if (!authUser) { setIsLoading(false); return; }
+                const { data } = await supabase
+                    .from('profiles')
+                    .select('data_saver, high_upload_quality, autoplay_videos')
+                    .eq('id', authUser.id)
+                    .single();
 
-                    if (data) {
-                        setDataSaver(data.data_saver ?? false);
-                        setHighUploadQuality(data.high_upload_quality ?? true);
-                        if (data.autoplay_videos) setAutoplayVideos(data.autoplay_videos);
-                    }
+                if (data) {
+                    setDataSaver(data.data_saver ?? false);
+                    setHighUploadQuality(data.high_upload_quality ?? true);
+                    if (data.autoplay_videos) setAutoplayVideos(data.autoplay_videos);
                 }
             } catch (error) {
                 console.error("Error loading data settings:", error);
@@ -40,7 +38,7 @@ export default function DataUsageSettingsPage() {
             }
         }
         loadDataSettings();
-    }, []);
+    }, [authUser, supabase]);
 
     const toggleSetting = async (field: 'data_saver' | 'high_upload_quality', currentValue: boolean) => {
         if (!userId) return;

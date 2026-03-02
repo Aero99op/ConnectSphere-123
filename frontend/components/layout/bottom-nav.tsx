@@ -5,21 +5,18 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Home, Search, PlusSquare, AlertTriangle, User, ClipboardList, LayoutDashboard, Settings, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 
 function BottomNavContent() {
     const pathname = usePathname();
+    const { user, supabase } = useAuth();
     const [role, setRole] = useState<'citizen' | 'official' | null>(null);
 
     useEffect(() => {
         const checkRole = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                // Fetch role AND assigned_area to be robust
                 const { data } = await supabase.from('profiles').select('role, assigned_area').eq('id', user.id).maybeSingle();
-
                 if (data) {
-                    // Logic: Strict check for official role
                     if (data.role === 'official') {
                         setRole('official');
                     } else {
@@ -29,7 +26,7 @@ function BottomNavContent() {
             }
         };
         checkRole();
-    }, []);
+    }, [user, supabase]);
 
     const searchParams = useSearchParams();
     const mode = searchParams.get('mode');

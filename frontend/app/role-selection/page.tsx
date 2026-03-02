@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { User, Building2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 
 export default function RoleSelectionPage() {
+    const { signOut } = useAuth();
     const router = useRouter();
 
 
@@ -44,7 +45,7 @@ export default function RoleSelectionPage() {
                     </Link>
                     <button
                         onClick={async () => {
-                            await supabase.auth.signOut();
+                            await signOut();
                             window.location.reload();
                         }}
                         className="text-xs text-zinc-500 hover:text-white underline py-2"

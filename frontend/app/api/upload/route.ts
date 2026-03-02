@@ -1,13 +1,11 @@
 export const runtime = 'edge';
 
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../auth/[...nextauth]/route';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
-    const supabase = createRouteHandlerClient({ cookies });
-
-    const { data: { session } } = await supabase.auth.getSession();
+    const session = await getServerSession(authOptions);
 
     if (!session) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

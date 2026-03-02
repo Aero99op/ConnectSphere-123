@@ -1,19 +1,17 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { getToken } from 'next-auth/jwt'
 
 const rateLimit = new Map();
 
 export async function middleware(req: NextRequest) {
     const res = NextResponse.next()
-    const supabase = createMiddlewareClient({ req, res })
 
     const ip = req.ip ?? '127.0.0.1';
 
     // 1. Rate Limiting (Simple In-Memory for single instance/dev)
-    // Note: For distributed/serverless scaling, use Redis (Upstash)
     if (req.nextUrl.pathname.startsWith('/api')) {
-        const limit = 100; // requests per minute
+        const limit = 100;
         const windowMs = 60 * 1000;
 
         const record = rateLimit.get(ip) ?? { count: 0, startTime: Date.now() };
@@ -35,21 +33,19 @@ export async function middleware(req: NextRequest) {
         }
     }
 
-    const {
-        data: { session },
-    } = await supabase.auth.getSession()
+    // 2. Auth check via NextAuth JWT (replaces Supabase Auth session)
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
 
     // Protected Routes
-    // Note: Profile is now accessible to everyone (Guest view handled in component)
     const startPaths = ['/dashboard', '/create', '/report']
     const isProtected = startPaths.some(path => req.nextUrl.pathname.startsWith(path))
 
-    if (isProtected && !session) {
+    if (isProtected && !token) {
         return NextResponse.redirect(new URL('/login', req.url))
     }
 
     // Auth Routes (Login) - Redirect to Feed if already logged in
-    if (req.nextUrl.pathname.startsWith('/login') && session) {
+    if (req.nextUrl.pathname.startsWith('/login') && token) {
         return NextResponse.redirect(new URL('/', req.url))
     }
 

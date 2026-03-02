@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Users, X, Check, Search, CircleDashed, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,7 @@ interface CreateGroupDialogProps {
 }
 
 export function CreateGroupDialog({ onClose, onGroupCreated }: CreateGroupDialogProps) {
+    const { user: authUser, supabase } = useAuth();
     const [groupName, setGroupName] = useState("");
     const [query, setQuery] = useState("");
     const [friends, setFriends] = useState<User[]>([]);
@@ -33,14 +34,12 @@ export function CreateGroupDialog({ onClose, onGroupCreated }: CreateGroupDialog
 
     const fetchFriends = async () => {
         setLoading(true);
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!authUser) return;
 
-        // Fetch all users for MVP so we can easily find people
         const { data } = await supabase
             .from('profiles')
             .select('id, username, full_name, avatar_url')
-            .neq('id', user.id)
+            .neq('id', authUser.id)
             .limit(100);
 
         if (data) {

@@ -19,7 +19,7 @@ import {
     DrawerTrigger
 } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { toast } from "sonner";
 
 interface PostOptionsSheetProps {
@@ -30,6 +30,7 @@ interface PostOptionsSheetProps {
 }
 
 export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostOptionsSheetProps) {
+    const { user: authUser, supabase } = useAuth();
     const [open, setOpen] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [copying, setCopying] = useState(false);
@@ -60,13 +61,12 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
     };
 
     const handleRemention = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!authUser) return;
 
         toast.loading("Rementioning (Reposting)...", { id: 'remention' });
 
         const { error } = await supabase.from('posts').insert({
-            user_id: user.id,
+            user_id: authUser.id,
             caption: `Retransmitted: ${post.caption}`,
             media_urls: post.media_urls,
             thumbnail_url: post.thumbnail_url,

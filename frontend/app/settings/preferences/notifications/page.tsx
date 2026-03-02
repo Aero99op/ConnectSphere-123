@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ChevronLeft, Bell, BellRing, Smartphone, Mail, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 
 export default function NotificationsSettingsPage() {
-    const [userId, setUserId] = useState<string | null>(null);
+    const { user: authUser, supabase } = useAuth();
+    const userId = authUser?.id || null;
     const [pushNotifications, setPushNotifications] = useState(true);
     const [emailAlerts, setEmailAlerts] = useState(false);
     const [inAppAlerts, setInAppAlerts] = useState(true);
@@ -18,20 +19,17 @@ export default function NotificationsSettingsPage() {
     useEffect(() => {
         async function loadNotificationSettings() {
             try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
-                    setUserId(user.id);
-                    const { data, error } = await supabase
-                        .from('profiles')
-                        .select('push_notifications, email_alerts, in_app_alerts')
-                        .eq('id', user.id)
-                        .single();
+                if (!authUser) { setIsLoading(false); return; }
+                const { data } = await supabase
+                    .from('profiles')
+                    .select('push_notifications, email_alerts, in_app_alerts')
+                    .eq('id', authUser.id)
+                    .single();
 
-                    if (data) {
-                        setPushNotifications(data.push_notifications ?? true);
-                        setEmailAlerts(data.email_alerts ?? false);
-                        setInAppAlerts(data.in_app_alerts ?? true);
-                    }
+                if (data) {
+                    setPushNotifications(data.push_notifications ?? true);
+                    setEmailAlerts(data.email_alerts ?? false);
+                    setInAppAlerts(data.in_app_alerts ?? true);
                 }
             } catch (error) {
                 console.error("Error loading notification settings:", error);
@@ -40,7 +38,7 @@ export default function NotificationsSettingsPage() {
             }
         }
         loadNotificationSettings();
-    }, []);
+    }, [authUser, supabase]);
 
     const toggleSetting = async (field: 'push_notifications' | 'email_alerts' | 'in_app_alerts', currentValue: boolean) => {
         if (!userId) return;

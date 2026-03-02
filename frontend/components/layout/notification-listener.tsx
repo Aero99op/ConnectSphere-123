@@ -1,31 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export function NotificationListener() {
-    const [userId, setUserId] = useState<string | null>(null);
-
-    // 1. Manage User Auth State
-    useEffect(() => {
-        let isMounted = true;
-        const checkUser = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (isMounted) setUserId(session?.user?.id || null);
-        };
-        checkUser();
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            if (isMounted) setUserId(session?.user?.id || null);
-        });
-
-        return () => {
-            isMounted = false;
-            subscription.unsubscribe();
-        };
-    }, []);
+    const { user, supabase } = useAuth();
+    const userId = user?.id || null;
 
     // 2. Manage Realtime Channel
     useEffect(() => {

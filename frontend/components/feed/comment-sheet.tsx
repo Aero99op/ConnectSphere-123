@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, Send } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { MessageCircle } from "lucide-react";
 
 interface CommentSheetProps {
@@ -14,6 +14,7 @@ interface CommentSheetProps {
 }
 
 export function CommentSheet({ postId, open, onOpenChange }: CommentSheetProps) {
+    const { user, supabase } = useAuth();
     const [comments, setComments] = useState<any[]>([]);
     const [newComment, setNewComment] = useState("");
     const [loading, setLoading] = useState(false);
@@ -52,7 +53,6 @@ export function CommentSheet({ postId, open, onOpenChange }: CommentSheetProps) 
         if (!newComment.trim()) return;
 
         try {
-            const { data: { user } } = await supabase.auth.getUser();
             if (!user) return alert("Login toh karlo!");
 
             const { error } = await supabase.from("comments").insert({
@@ -125,7 +125,6 @@ export function CommentSheet({ postId, open, onOpenChange }: CommentSheetProps) 
                                     <button
                                         className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-400 transition-opacity p-1 text-xs font-bold uppercase"
                                         onClick={async () => {
-                                            const { data: { user } } = await supabase.auth.getUser();
                                             if (user?.id === comment.user_id) {
                                                 await supabase.from("comments").delete().eq("id", comment.id);
                                                 fetchComments();

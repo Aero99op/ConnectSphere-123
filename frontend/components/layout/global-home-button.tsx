@@ -6,25 +6,25 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Home } from "lucide-react";
 import { useEffect, useState, Suspense } from "react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 
 function GlobalHomeButtonContent() {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const mode = searchParams.get('mode');
 
+    const { user, supabase } = useAuth();
     const [role, setRole] = useState<'citizen' | 'official' | null>(null);
 
     useEffect(() => {
         const checkRole = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 const { data } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
                 if (data) setRole(data.role as 'citizen' | 'official');
             }
         };
         checkRole();
-    }, []);
+    }, [user, supabase]);
 
     // Do not show on Home page itself
     if (pathname === "/") return null;
