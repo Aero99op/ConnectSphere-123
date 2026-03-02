@@ -31,6 +31,7 @@ jobs:
           git remote add hf https://Spandan1234:$HF_TOKEN@huggingface.co/spaces/Spandan1234/connectsphere
           
           # 2. Push only the 'backend' folder of THIS repo to HF's main branch
-          # Since this action runs inside ConnectSphere's GitHub repo, 
-          # it ONLY sees ConnectSphere files.
-          git subtree push --prefix backend hf main --force
+          # Using split and push to allow force pushing (subtree push doesn't support --force)
+          COMMIT_HASH=$(git subtree split --prefix backend main)
+          git push hf $COMMIT_HASH:main --force
+
