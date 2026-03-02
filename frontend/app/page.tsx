@@ -10,7 +10,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { StoryViewer } from "@/components/feed/story-viewer";
-import { DepartmentDashboard } from "@/components/dashboard/department-dashboard";
 import { RightSidebar } from "@/components/layout/right-sidebar";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,9 +25,6 @@ function HomeFeedContent() {
     const [userId, setUserId] = useState<string | null>(null);
     const [userProfile, setUserProfile] = useState<any>(null);
 
-    const [role, setRole] = useState<string | null>(null);
-    const [viewMode, setViewMode] = useState<'feed' | 'department'>('feed');
-    const searchParams = useSearchParams();
     const router = useRouter();
 
     const fetchStories = async (currentUserId: string | null) => {
@@ -142,88 +138,42 @@ function HomeFeedContent() {
         const init = async () => {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
-            let finalMode: 'feed' | 'department' = 'feed';
 
             if (user) {
-                let userRole = 'citizen';
                 setUserId(user.id);
                 try {
                     const { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
                     setUserProfile(data);
-                    userRole = data?.role || 'citizen';
-                    setRole(userRole);
 
-                    // Default logic
-                    finalMode = userRole === 'official' ? 'department' : 'feed';
+                    if (data?.role === 'official') {
+                        router.push('/dashboard');
+                        return;
+                    }
                 } catch (e) {
                     console.error("Failed to load user profile for Feed routing:", e);
-                    setRole('citizen');
-                    finalMode = 'feed';
                 }
-
-                // Check saved preference
-                try {
-                    const savedMode = localStorage.getItem('connectsphere_mode');
-                    if (savedMode === 'feed' || savedMode === 'department') {
-                        finalMode = savedMode;
-                    }
-                } catch (e) { }
-
-                // URL Params override everything
-                const modeParam = searchParams.get('mode');
-                if (modeParam === 'department') {
-                    if (userRole === 'official') {
-                        finalMode = 'department';
-                        try { localStorage.setItem('connectsphere_mode', 'department'); } catch (e) { }
-                    } else {
-                        finalMode = 'feed';
-                    }
-                } else if (modeParam === 'feed') {
-                    finalMode = 'feed';
-                    try { localStorage.setItem('connectsphere_mode', 'feed'); } catch (e) { }
-                }
-
-                if (finalMode === 'department' && userRole !== 'official') {
-                    finalMode = 'feed';
-                }
-
-            } else {
-                finalMode = 'feed';
             }
 
-            setViewMode(finalMode);
+            // Normal feed initialization
+            await Promise.all([fetchPosts(), fetchStories(user?.id || null)]);
 
-            if (finalMode === 'feed') {
-                await Promise.all([fetchPosts(), fetchStories(user?.id || null)]);
-
-                // Realtime Listeners 
-                feedChannel = supabase
-                    .channel('feed-updates')
-                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, () => {
-                        console.log("New post added! Updating feed...");
-                        fetchPosts();
-                    })
-                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stories' }, () => {
-                        console.log("New story added! Updating rail...");
-                        fetchStories(user?.id || null);
-                    })
-                    .subscribe();
-            } else {
-                setLoading(false);
-            }
-
-            setIsInitializing(false);
-        };
-
-        init();
-
-        // Return a cleanup function for the component
-        return () => {
+            // Realtime Listeners 
+            feedChannel = supabase
+                .channel('feed-updates')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, () => {
+                    console.log("New post added! Updating feed...");
+                    fetchPosts();
+                })
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stories' }, () => {
+                    console.log("New story added! Updating rail...");
+                    fetchStories(user?.id || null);
+                })
+                .subscribe();
             if (feedChannel) {
                 supabase.removeChannel(feedChannel);
             }
         };
-    }, [searchParams, role]);
+    }, [router]);
 
 
     const [storyFileUrls, setStoryFileUrls] = useState<string[]>([]);
@@ -258,17 +208,6 @@ function HomeFeedContent() {
         return (
             <div className="w-full h-screen flex items-center justify-center bg-black">
                 <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-            </div>
-        );
-    }
-
-    if (viewMode === 'department') {
-        return (
-            <div className="fixed inset-0 z-[100] w-screen h-screen overflow-y-auto bg-black text-white">
-                <DepartmentDashboard onSwitchMode={() => {
-                    setViewMode('feed');
-                    router.push('/?mode=feed');
-                }} />
             </div>
         );
     }

@@ -36,11 +36,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { Toaster } from "sonner"
 
-interface DepartmentDashboardProps {
-    onSwitchMode?: () => void;
-}
-
-export function DepartmentDashboard({ onSwitchMode }: DepartmentDashboardProps) {
+export function DepartmentDashboard() {
     const [reports, setReports] = useState<any[]>([]);
     const [history, setHistory] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -66,7 +62,11 @@ export function DepartmentDashboard({ onSwitchMode }: DepartmentDashboardProps) 
 
             if (user) {
                 const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-                setProfileData(profile);
+                if (profile?.role !== 'official') {
+                    window.location.href = '/';
+                    return;
+                }
+
                 if (profile?.assigned_area) {
                     setJurisdiction(profile.assigned_area);
                 } else {
@@ -74,8 +74,8 @@ export function DepartmentDashboard({ onSwitchMode }: DepartmentDashboardProps) 
                 }
                 setUserRole(profile?.role || null);
             } else {
-                setJurisdiction("Guest View");
-                setUserRole("guest");
+                window.location.href = '/';
+                return;
             }
             fetchReports();
             fetchHistory();
@@ -673,13 +673,7 @@ export function DepartmentDashboard({ onSwitchMode }: DepartmentDashboardProps) 
                                 </div>
                             </div>
 
-                            <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
-                                <button
-                                    onClick={onSwitchMode}
-                                    className="flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black py-4 rounded-xl shadow-[0_4px_20px_rgba(6,182,212,0.3)] active:scale-95 transition-all text-xs uppercase tracking-[0.2em]"
-                                >
-                                    Enter Citizen Mode
-                                </button>
+                            <div className="mt-10 grid grid-cols-1 gap-4 relative z-10">
                                 <button
                                     onClick={() => supabase.auth.signOut().then(() => window.location.href = '/role-selection')}
                                     className="bg-red-950/50 border border-red-500/30 text-red-400 font-black py-4 rounded-xl hover:bg-red-900/80 hover:text-red-300 transition-all text-xs uppercase tracking-[0.2em] shadow-[0_4px_20px_rgba(239,68,68,0.1)] active:scale-95"

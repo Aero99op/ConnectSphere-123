@@ -28,7 +28,7 @@ function LoginContent() {
         const checkUser = async () => {
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
-                router.push(isOfficial ? "/?mode=department" : "/?mode=feed");
+                router.push(isOfficial ? "/dashboard" : "/");
             }
         };
         checkUser();
@@ -51,7 +51,7 @@ function LoginContent() {
 
         try {
             if (mode === "login") {
-                const { error } = await supabase.auth.signInWithPassword({
+                const { data: authData, error } = await supabase.auth.signInWithPassword({
                     email,
                     password: password === "1234" ? "guest123456" : password, // Internal jugaad for test pass
                 });
@@ -65,7 +65,25 @@ function LoginContent() {
                     throw error;
                 }
 
+                // Fetch actual role from database after successful login
+                if (authData?.user) {
+                    const { data: profile, error: profileError } = await supabase.from('profiles').select('role').eq('id', authData.user.id).single();
+                    if (profileError) {
+                        console.error("Error fetching profile after login:", profileError);
+                        toast.error("Login successful, but failed to get user role. Please refresh.");
+                        return;
+                    }
+                    if (profile?.role === 'official') {
+                        router.push('/dashboard');
+                        toast.success("Welcome back, Official! 🏛️");
+                        return;
+                    }
+                }
+
+                // Default redirect for non-officials or if role couldn't be determined as official
                 toast.success("Welcome back! 🚀");
+                router.push("/"); // Citizen default
+                return;
             } else {
                 const { error } = await supabase.auth.signUp({
                     email,
@@ -81,9 +99,10 @@ function LoginContent() {
                 if (error) throw error;
                 toast.success("Account created! 🌟 Check your email if verification is on, otherwise just login.");
                 setMode("login");
+                if (mode === "signup") {
+                    router.push(isOfficial ? "/dashboard" : "/");
+                }
             }
-
-            router.push(isOfficial ? "/?mode=department" : "/?mode=feed");
         } catch (error: any) {
             toast.error(error.message || "Something went wrong!");
         } finally {
@@ -107,7 +126,7 @@ function LoginContent() {
             toast.error("Auto-signup failed: " + signUpError.message);
         } else {
             toast.success("Test Account Auto-created! 🚀");
-            router.push(isOfficial ? "/?mode=department" : "/?mode=feed");
+            router.push(isOfficial ? "/dashboard" : "/");
         }
         setLoading(false);
     };

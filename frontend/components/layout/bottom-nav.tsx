@@ -35,7 +35,7 @@ function BottomNavContent() {
     const mode = searchParams.get('mode');
 
     // Hide on login/auth pages, Department Dashboard, and /messages (which is full-screen)
-    if (pathname.startsWith("/login") || pathname.startsWith("/auth") || pathname.startsWith("/role-selection") || pathname.startsWith("/messages") || mode === 'department') return null;
+    if (pathname.startsWith("/login") || pathname.startsWith("/auth") || pathname.startsWith("/role-selection") || pathname.startsWith("/messages") || pathname.startsWith("/dashboard")) return null;
 
     const citizenItems = [
         { href: "/", icon: Home, label: "Home" },
