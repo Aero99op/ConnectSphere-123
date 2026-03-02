@@ -169,6 +169,13 @@ function HomeFeedContent() {
                     fetchStories(user?.id || null);
                 })
                 .subscribe();
+
+            setIsInitializing(false);
+        };
+
+        init();
+
+        return () => {
             if (feedChannel) {
                 supabase.removeChannel(feedChannel);
             }
