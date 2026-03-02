@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-import { getToken } from 'next-auth/jwt'
+import { auth } from '@/auth'
 
 const rateLimit = new Map();
 
-export async function middleware(req: NextRequest) {
+export default auth((req: any) => {
     const res = NextResponse.next()
-
+    //@ts-ignore - ip might not be typed on NextAuthRequest
     const ip = req.ip ?? '127.0.0.1';
 
     // 1. Rate Limiting (Simple In-Memory for single instance/dev)
@@ -33,8 +32,8 @@ export async function middleware(req: NextRequest) {
         }
     }
 
-    // 2. Auth check via NextAuth JWT (replaces Supabase Auth session)
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    // 2. Auth check via NextAuth v5
+    const token = req.auth;
 
     // Protected Routes
     const startPaths = ['/dashboard', '/create', '/report']
@@ -50,7 +49,7 @@ export async function middleware(req: NextRequest) {
     }
 
     return res
-}
+})
 
 export const config = {
     matcher: [
