@@ -1,0 +1,34 @@
+name: Deploy Backend to Hugging Face
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to HF Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # Git configuration
+          git config --global user.email "bot@connectsphere.ai"
+          git config --global user.name "ConnectSphere Bot"
+          
+          # 1. Add the specific HF Space remote for THIS project
+          # HF Space URL: https://huggingface.co/spaces/Spandan1234/connectsphere
+          # Using the token only for authentication to THIS specific URL
+          git remote add hf https://Spandan1234:$HF_TOKEN@huggingface.co/spaces/Spandan1234/connectsphere
+          
+          # 2. Push only the 'backend' folder of THIS repo to HF's main branch
+          # Since this action runs inside ConnectSphere's GitHub repo, 
+          # it ONLY sees ConnectSphere files.
+          git subtree push --prefix backend hf main --force
