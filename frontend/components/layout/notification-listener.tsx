@@ -14,12 +14,7 @@ export function NotificationListener() {
 
     // 2. Manage Realtime Channel
     useEffect(() => {
-        console.log("[NotificationListener] Effect triggered. userId:", userId, "isLeader:", isLeader);
-        if (!userId || !isLeader) {
-            if (userId && !isLeader) console.log("[NotificationListener] Not leader, skipping connection.");
-            return;
-        }
-        console.log("[NotificationListener] I am leader! Connecting...");
+        if (!userId || !isLeader) return;
         let isMounted = true;
         let channel: any;
         let heartbeat: NodeJS.Timeout;
