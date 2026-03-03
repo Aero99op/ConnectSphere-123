@@ -24,7 +24,12 @@ export function CallManager() {
 
     // 2. Manage Realtime Channel based on userId
     useEffect(() => {
-        if (!userId || !isLeader) return;
+        console.log("[CallManager] Effect triggered. userId:", userId, "isLeader:", isLeader);
+        if (!userId || !isLeader) {
+            if (userId && !isLeader) console.log("[CallManager] Not leader, skipping connection.");
+            return;
+        }
+        console.log("[CallManager] I am leader! Connecting...");
         let isMounted = true;
         let channel: any;
 

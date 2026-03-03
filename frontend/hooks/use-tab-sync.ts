@@ -9,11 +9,13 @@ import { useEffect, useState, useRef } from "react";
  * Uses BroadcastChannel to coordinate between tabs.
  */
 export function useTabSync() {
-    const [isLeader, setIsLeader] = useState(true); // Default to true to avoid initial delay
+    const [isLeader, setIsLeader] = useState(false); // Start as false to prevent race conditions
     const channelRef = useRef<BroadcastChannel | null>(null);
 
     useEffect(() => {
         if (typeof window === "undefined") return;
+
+        console.log("[TabSync] Initializing tab sync...");
 
         const channel = new BroadcastChannel("cs-tab-sync");
         channelRef.current = channel;
@@ -22,6 +24,7 @@ export function useTabSync() {
 
         const claimLeadership = () => {
             if (document.visibilityState === "visible") {
+                console.log("[TabSync] Claiming leadership for tab", id);
                 setIsLeader(true);
                 channel.postMessage({ type: "CLAIM_LEADERSHIP", id });
             }
@@ -29,6 +32,7 @@ export function useTabSync() {
 
         const handleMessage = (event: MessageEvent) => {
             const { type, id: senderId } = event.data;
+            console.log("[TabSync] Received message:", type, "from", senderId);
 
             if (type === "CLAIM_LEADERSHIP" && senderId !== id) {
                 // If another tab claims leadership and we are hidden, we yield
