@@ -53,7 +53,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     // Hash password
                     const hashedPassword = await bcrypt.hash(credentials.password as string, 12);
 
-                    // Create user in profiles table
                     const { error: insertError } = await adminSupabase
                         .from('profiles')
                         .insert({
@@ -63,8 +62,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                             full_name: credentials.fullName || email.split('@')[0],
                             role: credentials.role || 'citizen',
                             password_hash: hashedPassword,
+                            is_onboarded: false,
                             avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent((credentials.fullName as string) || email)}`,
-                            created_at: new Date().toISOString(),
                         });
 
                     if (insertError) {
@@ -133,7 +132,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                             role: 'citizen',
                             is_onboarded: false,
                             avatar_url: user.image || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name || user.email)}`,
-                            created_at: new Date().toISOString(),
                         });
 
                         if (insertError) {

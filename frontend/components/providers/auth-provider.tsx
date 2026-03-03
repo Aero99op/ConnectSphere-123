@@ -23,6 +23,7 @@ interface AuthContextType {
         };
     } | null;
     supabase: SupabaseClient;
+    isAuthenticated: boolean;
     loading: boolean;
     signOut: () => Promise<void>;
 }
@@ -40,6 +41,7 @@ const AuthContext = createContext<AuthContextType>({
     user: null,
     session: null,
     supabase: anonSupabase,
+    isAuthenticated: false,
     loading: true,
     signOut: async () => { },
 });
@@ -92,13 +94,16 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         await nextAuthSignOut({ callbackUrl: '/role-selection' });
     };
 
+    const isAuthenticated = !!(nextAuthSession as any)?.supabaseAccessToken;
+
     const contextValue = useMemo(() => ({
         user: unifiedUser,
         session: unifiedUser ? { user: unifiedUser } : null,
         supabase: supabaseContextClient,
+        isAuthenticated,
         loading,
         signOut: handleSignOut,
-    }), [unifiedUser, supabaseContextClient, loading]);
+    }), [unifiedUser, supabaseContextClient, isAuthenticated, loading]);
 
     return (
         <AuthContext.Provider value={contextValue}>

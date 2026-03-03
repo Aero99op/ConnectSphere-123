@@ -6,7 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 export function OnboardingGuard({ children }: { children: React.ReactNode }) {
-    const { user, supabase, loading: authLoading } = useAuth();
+    const { user, supabase, loading: authLoading, isAuthenticated } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
     const [isOnboarded, setIsOnboarded] = useState<boolean | null>(null);
@@ -17,6 +17,12 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
 
         if (!user) {
             setChecking(false);
+            return;
+        }
+
+        // Wait until the Supabase client has a real JWT (not just anon key)
+        // Otherwise RLS will block the query and return 0 rows
+        if (!isAuthenticated) {
             return;
         }
 
@@ -62,7 +68,7 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
         };
 
         checkOnboarding();
-    }, [user, authLoading, pathname, router, supabase]);
+    }, [user, authLoading, isAuthenticated, pathname, router, supabase]);
 
     if (authLoading || checking) {
         return (
