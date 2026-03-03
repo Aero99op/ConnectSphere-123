@@ -17,7 +17,7 @@ const INTERESTS_LIST = [
 ];
 
 export default function OnboardingPage() {
-    const { user, supabase } = useAuth();
+    const { user } = useAuth();
     const router = useRouter();
     const [loading, setLoading] = useState(false);
 
@@ -55,19 +55,21 @@ export default function OnboardingPage() {
         setLoading(true);
 
         try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({
+            const res = await fetch('/api/onboarding', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
                     country: country.trim(),
                     age: ageNum,
-                    interests: interests,
-                    is_onboarded: true,
-                    personalization: { setup_date: new Date().toISOString() }
-                })
-                .eq('id', user?.id!);
+                    interests,
+                }),
+            });
 
-            if (error) {
-                throw error;
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to save details.');
             }
 
             toast.success("Welcome aboard! Let's get started. 🚀");
@@ -151,8 +153,8 @@ export default function OnboardingPage() {
                                         type="button"
                                         onClick={() => handleInterestToggle(interest)}
                                         className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border ${isSelected
-                                                ? 'bg-primary border-primary text-primary-foreground shadow-md shadow-primary/20 scale-105'
-                                                : 'bg-zinc-800/50 border-white/10 text-zinc-400 hover:border-white/30 hover:bg-zinc-800'
+                                            ? 'bg-primary border-primary text-primary-foreground shadow-md shadow-primary/20 scale-105'
+                                            : 'bg-zinc-800/50 border-white/10 text-zinc-400 hover:border-white/30 hover:bg-zinc-800'
                                             }`}
                                     >
                                         {interest}

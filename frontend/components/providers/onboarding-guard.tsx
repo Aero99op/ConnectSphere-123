@@ -6,7 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 export function OnboardingGuard({ children }: { children: React.ReactNode }) {
-    const { user, supabase, loading: authLoading, isAuthenticated } = useAuth();
+    const { user, loading: authLoading, isAuthenticated } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
     const [isOnboarded, setIsOnboarded] = useState<boolean | null>(null);
@@ -20,44 +20,31 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        // Wait until the Supabase client has a real JWT (not just anon key)
-        // Otherwise RLS will block the query and return 0 rows
         if (!isAuthenticated) {
             return;
         }
 
         const checkOnboarding = async () => {
             try {
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select('is_onboarded')
-                    .eq('id', user.id)
-                    .maybeSingle();
+                // Use server-side API to bypass RLS completely
+                const res = await fetch('/api/onboarding', {
+                    method: 'GET',
+                    credentials: 'include',
+                });
 
-                if (error) {
-                    console.warn("Onboarding check error:", error.message);
-                    // If the column doesn't exist yet, just let user through
+                if (!res.ok) {
+                    console.warn("Onboarding API returned error:", res.status);
                     setChecking(false);
                     return;
                 }
 
-                // No profile found at all — treat as new user
-                if (!data) {
-                    setIsOnboarded(false);
-                    if (pathname !== '/onboarding') {
-                        router.replace('/onboarding');
-                    }
-                    setChecking(false);
-                    return;
-                }
+                const data = await res.json();
 
-                // Profile found — check is_onboarded
-                setIsOnboarded(data.is_onboarded ?? true);
-                const isNewUser = data.is_onboarded === false;
+                setIsOnboarded(data.isOnboarded);
 
-                if (isNewUser && pathname !== '/onboarding') {
+                if (!data.isOnboarded && pathname !== '/onboarding') {
                     router.replace('/onboarding');
-                } else if (data.is_onboarded && pathname === '/onboarding') {
+                } else if (data.isOnboarded && pathname === '/onboarding') {
                     router.replace('/');
                 }
             } catch (error) {
@@ -68,7 +55,7 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
         };
 
         checkOnboarding();
-    }, [user, authLoading, isAuthenticated, pathname, router, supabase]);
+    }, [user, authLoading, isAuthenticated]);
 
     if (authLoading || checking) {
         return (
