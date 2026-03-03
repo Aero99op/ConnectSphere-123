@@ -117,7 +117,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     const userId = emailToUUID(user.email);
                     const adminSupabase = createAdminSupabaseClient();
 
-                    const { data: existingProfile, error: existingError } = await adminSupabase
+                    const { data: existingProfile } = await adminSupabase
                         .from('profiles')
                         .select('id')
                         .eq('id', userId)
@@ -128,16 +128,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         const { error: insertError } = await adminSupabase.from('profiles').insert({
                             id: userId,
                             email: user.email,
-                            username: user.email.split('@')[0] + Math.floor(Math.random() * 1000), // Append random to avoid unique constraint collisions
+                            username: user.email.split('@')[0] + Math.floor(Math.random() * 1000),
                             full_name: user.name || user.email.split('@')[0],
                             role: 'citizen',
+                            is_onboarded: false,
                             avatar_url: user.image || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name || user.email)}`,
                             created_at: new Date().toISOString(),
                         });
 
                         if (insertError) {
                             console.error("Profile creation error during Google Auth:", insertError);
-                            // We don't throw here! We still want them to login, even if profile creation failed slightly
                         }
                     }
                     user.id = userId;

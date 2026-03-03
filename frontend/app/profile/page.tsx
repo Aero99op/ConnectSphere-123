@@ -24,7 +24,7 @@ function ProfilePageContent() {
 
     useEffect(() => {
         fetchProfile();
-    }, []);
+    }, [authUser]);
 
     const fetchProfile = async () => {
         setLoading(true);
