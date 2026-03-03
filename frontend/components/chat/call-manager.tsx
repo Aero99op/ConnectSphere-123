@@ -144,11 +144,12 @@ export function CallManager() {
             {activeCall && !activeCall.isGroup && (
                 <VideoCallWindow
                     roomId={activeCall.roomId}
-                    remoteUserId={activeCall.remoteUserId}
-                    isCaller={activeCall.isCaller}
+                    recipientId={activeCall.remoteUserId}
+                    isIncoming={!activeCall.isCaller}
                     callType={activeCall.callType}
                     onEndCall={handleEndCall}
                     initialMinimized={!activeCall.isCaller}
+                    currentUserId={userId || ''}
                 />
             )}
 

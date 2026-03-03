@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Phone, Maximize2, Minimize2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { getApinatorClient } from "@/lib/apinator";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -24,6 +24,7 @@ const ICE_SERVERS = {
 };
 
 export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, initialMinimized = false }: GroupCallWindowProps) {
+    const { supabase } = useAuth();
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(callType === 'audio');
     const [isMinimized, setIsMinimized] = useState(initialMinimized);

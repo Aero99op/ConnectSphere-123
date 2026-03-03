@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { usePeer } from "@/hooks/use-peer";
-import { Send, X, Loader2, Video, Paperclip, FileIcon, ImageIcon, Camera } from "lucide-react";
+import { Send, Image as ImageIcon, Video, Phone, MoreVertical, X, Laugh, File as FileIcon, Search, UserPlus, Info, Trash2, Loader2, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,7 @@ interface ChatWindowProps {
 }
 
 export function ChatWindow({ conversationId, recipientName, recipientAvatar, recipientId, isGroup, onClose, currentUserId }: ChatWindowProps) {
+    const { supabase } = useAuth();
     const [messages, setMessages] = useState<any[]>([]);
     const [newMessage, setNewMessage] = useState("");
     const [loading, setLoading] = useState(true);

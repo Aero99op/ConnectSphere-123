@@ -1,20 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Phone, Maximize2, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/components/providers/auth-provider";
 import { getApinatorClient } from "@/lib/apinator";
-import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface VideoCallWindowProps {
     roomId: string; // The chat conversation ID or unique call ID
-    remoteUserId: string;
-    isCaller: boolean;
+    recipientId: string;
+    isIncoming: boolean;
     callType: 'audio' | 'video';
     onEndCall: (duration: number) => void;
     initialMinimized?: boolean;
+    currentUserId: string;
 }
 
 const ICE_SERVERS = {
@@ -24,7 +25,8 @@ const ICE_SERVERS = {
     ],
 };
 
-export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEndCall, initialMinimized = false }: VideoCallWindowProps) {
+export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onEndCall, initialMinimized = false, currentUserId }: VideoCallWindowProps) {
+    const { supabase } = useAuth();
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(callType === 'audio');
     const [isMinimized, setIsMinimized] = useState(initialMinimized);
@@ -63,7 +65,7 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
 
         // Fetch remote user details for UI
         const fetchUser = async () => {
-            const { data } = await supabase.from('profiles').select('*').eq('id', remoteUserId).single();
+            const { data } = await supabase.from('profiles').select('*').eq('id', recipientId).single();
             if (data && !isCleaningUp) setRemoteUserProfile(data);
         };
         fetchUser();
@@ -171,13 +173,13 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
 
             peerConnection.current.onicecandidate = (event) => {
                 if (event.candidate) {
-                    sendSignal('ice-candidate', { candidate: event.candidate, from: isCaller ? 'caller' : 'receiver' });
+                    sendSignal('ice-candidate', { candidate: event.candidate, from: !isIncoming ? 'caller' : 'receiver' });
                 }
             };
 
             // Listen for signaling events from Apinator
             channel.bind('receiver-ready', async () => {
-                if (isCaller && peerConnection.current) {
+                if (!isIncoming && peerConnection.current) {
                     try {
                         const offer = await peerConnection.current.createOffer();
                         await peerConnection.current.setLocalDescription(offer);
@@ -190,7 +192,7 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
 
             channel.bind('ice-candidate', async (data: any) => {
                 const payload = typeof data === 'string' ? JSON.parse(data) : data;
-                const isFromMe = isCaller ? payload.from === 'caller' : payload.from === 'receiver';
+                const isFromMe = !isIncoming ? payload.from === 'caller' : payload.from === 'receiver';
                 if (peerConnection.current && !isFromMe) {
                     try {
                         await peerConnection.current.addIceCandidate(new RTCIceCandidate(payload.candidate));
@@ -202,7 +204,7 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
 
             channel.bind('call-offer', async (data: any) => {
                 const payload = typeof data === 'string' ? JSON.parse(data) : data;
-                if (!isCaller && peerConnection.current) {
+                if (isIncoming && peerConnection.current) {
                     try {
                         await peerConnection.current.setRemoteDescription(new RTCSessionDescription(payload.offer));
                         const answer = await peerConnection.current.createAnswer();
@@ -216,7 +218,7 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
 
             channel.bind('call-answer', async (data: any) => {
                 const payload = typeof data === 'string' ? JSON.parse(data) : data;
-                if (isCaller && peerConnection.current) {
+                if (!isIncoming && peerConnection.current) {
                     try {
                         await peerConnection.current.setRemoteDescription(new RTCSessionDescription(payload.answer));
                     } catch (err) {
@@ -230,14 +232,14 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
             });
 
             channel.bind('caller-ready', async () => {
-                if (!isCaller) {
+                if (isIncoming) {
                     sendSignal('receiver-ready', {});
                 }
             });
 
             // Signal readiness
             setTimeout(() => {
-                if (!isCaller) {
+                if (isIncoming) {
                     sendSignal('receiver-ready', {});
                 } else {
                     sendSignal('caller-ready', {});
