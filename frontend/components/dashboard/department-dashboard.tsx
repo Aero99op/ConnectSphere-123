@@ -217,6 +217,33 @@ export function DepartmentDashboard() {
         if (historyError) {
             toast.error("Status updated, but telemetry log failed.");
         } else {
+            // Trigger Apinator real-time update for officials
+            fetch('/api/apinator/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channel: 'reports-updates',
+                    event: 'report-update',
+                    data: { id: selectedReport.id, status: newStatus }
+                })
+            }).catch(console.error);
+
+            // Notify the reporter
+            fetch('/api/apinator/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channel: `notifications-${selectedReport.user_id}`,
+                    event: 'notification-new',
+                    data: {
+                        type: 'report_update',
+                        title: 'Report Status Updated',
+                        content: `Your report "${selectedReport.title}" is now: ${newStatus.toUpperCase()}`,
+                        link: '/profile'
+                    }
+                })
+            }).catch(console.error);
+
             toast.success(`OVERRIDE ACCEPTED: ${newStatus.toUpperCase()}`);
         }
 

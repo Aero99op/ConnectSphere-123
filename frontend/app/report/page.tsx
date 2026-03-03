@@ -142,6 +142,17 @@ function ReportIssuePageContent() {
 
             if (error) throw error;
 
+            // Trigger Apinator real-time notification for officials
+            fetch('/api/apinator/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channel: 'reports-updates',
+                    event: 'report-new',
+                    data: { userId: authUser?.id }
+                })
+            }).catch(e => console.error("Apinator trigger failed", e));
+
             toast.success("Report Submitted! Authorities notified.");
             router.push('/profile');
 

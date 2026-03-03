@@ -200,6 +200,27 @@ function ProfilePageContent() {
         };
     }, [authUser, supabase]);
 
+    // Apinator-based report status updates (UNLIMITED)
+    useEffect(() => {
+        if (!authUser) return;
+
+        const client = getApinatorClient();
+        if (!client) return;
+
+        const channel = client.subscribe('reports-updates');
+
+        channel.bind('report-update', (data: any) => {
+            const payload = typeof data === 'string' ? JSON.parse(data) : data;
+            setReports((prev) =>
+                prev.map(r => r.id === payload.id ? { ...r, ...payload } : r)
+            );
+        });
+
+        return () => {
+            client.unsubscribe('reports-updates');
+        };
+    }, [authUser]);
+
 
     if (loading) {
         return (

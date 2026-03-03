@@ -19,9 +19,15 @@ export function NotificationListener() {
 
         const channel = client.subscribe(`notifications-${userId}`);
 
-        channel.bind('notification_ping', async (data: any) => {
+        const handleIncomingNotification = async (data: any) => {
             console.log("[NotificationListener] Apinator notification received:", data);
             const payload = typeof data === 'string' ? JSON.parse(data) : data;
+
+            // For report updates, we might have the content directly
+            if (payload.type === 'report_update') {
+                showReportNotificationToast(payload);
+                return;
+            }
 
             const { data: actor } = await supabase
                 .from('profiles')
@@ -30,7 +36,10 @@ export function NotificationListener() {
                 .single();
 
             if (actor) showNotificationToast(actor, payload);
-        });
+        };
+
+        channel.bind('notification_ping', handleIncomingNotification);
+        channel.bind('notification-new', handleIncomingNotification);
 
         console.log(`[NotificationListener] Subscribed to Apinator channel: notifications-${userId}`);
 
@@ -39,6 +48,28 @@ export function NotificationListener() {
             console.log(`[NotificationListener] Unsubscribed from Apinator channel: notifications-${userId}`);
         };
     }, [userId]);
+
+    const showReportNotificationToast = (notification: any) => {
+        toast.custom((t) => (
+            <div className="flex items-center gap-4 bg-[#030613]/95 backdrop-blur-xl border border-cyan-500/30 p-5 rounded-3xl shadow-[0_0_30px_rgba(34,211,238,0.2)] animate-in slide-in-from-right-5">
+                <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center shadow-inner">
+                    <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
+                </div>
+                <div className="flex flex-col gap-1">
+                    <p className="text-sm text-white font-black tracking-tightest uppercase">
+                        {notification.title}
+                    </p>
+                    <p className="text-xs text-cyan-200/70 font-medium leading-tight">
+                        {notification.content}
+                    </p>
+                    <p className="text-[9px] text-cyan-500/40 font-mono mt-1 uppercase tracking-widest font-black">Tactical Intel Update</p>
+                </div>
+            </div>
+        ), {
+            duration: 6000,
+            position: 'top-right'
+        });
+    };
 
     const showNotificationToast = (actor: any, notification: any) => {
         let actionLabel = "";
