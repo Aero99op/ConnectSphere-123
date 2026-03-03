@@ -37,8 +37,29 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
 
         const channel = client.subscribe(`sidebar-${userId}`);
 
-        channel.bind('conversation-update', () => {
-            if (userId) fetchConversations(userId);
+        channel.bind('conversation-update', (data: any) => {
+            const payload = typeof data === 'string' ? JSON.parse(data) : data;
+            if (payload.lastMessage) {
+                setConversations((prev) => {
+                    const next = [...prev];
+                    const idx = next.findIndex(c => c.id === payload.conversationId);
+                    if (idx !== -1) {
+                        next[idx] = {
+                            ...next[idx],
+                            last_message: payload.lastMessage,
+                            updated_at: payload.lastMessage.created_at
+                        };
+                        // Move to top
+                        const item = next.splice(idx, 1)[0];
+                        return [item, ...next];
+                    }
+                    // If conversation not in list, re-fetch
+                    fetchConversations(userId);
+                    return prev;
+                });
+            } else {
+                fetchConversations(userId);
+            }
         });
 
         console.log(`[ChatSidebar] Subscribed to Apinator channel: sidebar-${userId}`);
@@ -66,10 +87,25 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
             .order("updated_at", { ascending: false });
 
         if (!error && data) {
-            const formatted = data.map((conv: any) => {
+            // Sequential fetching of last messages (could be optimized with a specialized function/view)
+            const formatted = await Promise.all(data.map(async (conv: any) => {
+                const { data: lastMsg } = await supabase
+                    .from("messages")
+                    .select("*")
+                    .eq("conversation_id", conv.id)
+                    .order("created_at", { ascending: false })
+                    .limit(1)
+                    .single();
+
+                const common = {
+                    id: conv.id,
+                    updated_at: conv.updated_at,
+                    last_message: lastMsg
+                };
+
                 if (conv.is_group) {
                     return {
-                        id: conv.id,
+                        ...common,
                         recipient: {
                             id: conv.id,
                             full_name: conv.group_name || "Mandli",
@@ -82,7 +118,7 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
                     const otherUserId = conv.user1_id === uid ? conv.user2_id : conv.user1_id;
                     const otherUser = conv.user1_id === uid ? conv.user2 : conv.user1;
                     return {
-                        id: conv.id,
+                        ...common,
                         recipient: {
                             id: otherUserId,
                             full_name: otherUser?.full_name || "Unknown User",
@@ -92,7 +128,7 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
                         }
                     };
                 }
-            });
+            }));
             setConversations(formatted);
         }
         setLoading(false);
@@ -176,10 +212,22 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
                                 <div className="flex-1 min-w-0 text-left">
                                     <div className="flex justify-between items-baseline mb-0.5">
                                         <p className="font-semibold text-[15px] text-white truncate">{chat.recipient.full_name}</p>
+                                        {chat.last_message && (
+                                            <span className="text-[10px] text-zinc-500 whitespace-nowrap">
+                                                {new Date(chat.last_message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        )}
                                     </div>
-                                    <p className="text-xs text-zinc-400 truncate">
-                                        {chat.recipient.is_group ? "Tap to view Mandli" : `@${chat.recipient.username}`}
-                                    </p>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <p className="text-xs text-zinc-400 truncate flex-1">
+                                            {chat.last_message
+                                                ? (chat.last_message.sender_id === userId ? "You: " : "") + chat.last_message.content
+                                                : (chat.recipient.is_group ? "Mandli started" : `@${chat.recipient.username}`)}
+                                        </p>
+                                        {chat.last_message?.is_read === false && chat.last_message.sender_id !== userId && (
+                                            <div className="w-2 h-2 bg-orange-500 rounded-full shrink-0" />
+                                        )}
+                                    </div>
                                 </div>
                             </button>
                         ))}

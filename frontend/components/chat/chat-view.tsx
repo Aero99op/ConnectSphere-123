@@ -44,6 +44,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     const fileInputRef = useRef<HTMLInputElement>(null);
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const lastTypingSignalRef = useRef<number>(0);
+    const groupParticipantsRef = useRef<string[]>([]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // Apinator-based Realtime Chat (UNLIMITED connections)
@@ -121,12 +122,19 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
 
         console.log(`[ChatView] Subscribed to Apinator channel: chat-${conversationId}`);
 
+        if (isGroup) {
+            supabase.from('conversation_participants').select('user_id').eq('conversation_id', conversationId)
+                .then(({ data }) => {
+                    if (data) groupParticipantsRef.current = data.map(p => p.user_id);
+                });
+        }
+
         return () => {
             isMounted = false;
             clearInterval(typingCleanupInterval);
             client.unsubscribe(`chat-${conversationId}`);
         };
-    }, [conversationId]);
+    }, [conversationId, isGroup]);
 
     useEffect(() => {
         scrollToBottom();
@@ -225,9 +233,22 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     };
 
     const handleSend = async () => {
-        if (!newMessage.trim() && !selectedMedia) return;
-
         const msgContent = newMessage.trim();
+        if (!msgContent && !selectedMedia) return;
+
+        // Instant typing clear for other clients
+        fetch('/api/apinator/trigger', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                channel: `chat-${conversationId}`,
+                event: 'typing',
+                data: { userId: currentUserId, isTyping: false }
+            })
+        }).catch(console.error);
+
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        lastTypingSignalRef.current = 0;
 
         if (editingMessageId && !selectedMedia) {
             setNewMessage("");
@@ -329,22 +350,19 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
 
             // Notify sidebar refresh for recipients
             if (isGroup) {
-                // For groups, fetch all participants and notify them
-                supabase.from('conversation_participants').select('user_id').eq('conversation_id', conversationId)
-                    .then(({ data: participants }) => {
-                        participants?.forEach((p: any) => {
-                            if (p.user_id === currentUserId) return;
-                            fetch('/api/apinator/trigger', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    channel: `sidebar-${p.user_id}`,
-                                    event: 'conversation-update',
-                                    data: { conversationId }
-                                })
-                            }).catch(console.error);
-                        });
-                    });
+                // Use cached participants to avoid Supabase call
+                groupParticipantsRef.current.forEach((uid) => {
+                    if (uid === currentUserId) return;
+                    fetch('/api/apinator/trigger', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            channel: `sidebar-${uid}`,
+                            event: 'conversation-update',
+                            data: { conversationId, lastMessage: insertedMsg }
+                        })
+                    }).catch(console.error);
+                });
             } else {
                 // 1-on-1: Just notify the recipient
                 fetch('/api/apinator/trigger', {
@@ -353,7 +371,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                     body: JSON.stringify({
                         channel: `sidebar-${recipientId}`,
                         event: 'conversation-update',
-                        data: { conversationId }
+                        data: { conversationId, lastMessage: insertedMsg }
                     })
                 }).catch(console.error);
             }
