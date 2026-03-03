@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Settings, LogOut, MessageCircle, MapPin, Camera, Compass } from "lucide-react";
+import { Loader2, Settings, LogOut, MessageCircle, MapPin, Camera, Compass, Bookmark, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { PostCard } from "@/components/feed/post-card";
 import { toast } from "sonner";
@@ -18,6 +18,8 @@ function ProfilePageContent() {
     const [posts, setPosts] = useState<any[]>([]);
     const [savedPosts, setSavedPosts] = useState<any[]>([]);
     const [reports, setReports] = useState<any[]>([]);
+    const [followersCount, setFollowersCount] = useState(0);
+    const [followingCount, setFollowingCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const currentUserId = authUser?.id || null;
     const router = useRouter();
@@ -108,6 +110,16 @@ function ProfilePageContent() {
                 .order("created_at", { ascending: false });
 
             setReports(reportsData || []);
+
+            // Fetch Follower Counts
+            const [folCount, followingCount] = await Promise.all([
+                supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', user.id),
+                supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', user.id)
+            ]);
+
+            setFollowersCount(folCount.count || 0);
+            setFollowingCount(followingCount.count || 0);
+
         } catch (error) {
             console.error("Failed to load profile", error);
         } finally {
@@ -163,6 +175,43 @@ function ProfilePageContent() {
         }
     };
 
+    useEffect(() => {
+        let followChannel: any;
+
+        const initRealtime = async () => {
+            if (!authUser) return;
+
+            followChannel = supabase
+                .channel('profile-follows-realtime')
+                .on('postgres_changes', {
+                    event: '*',
+                    schema: 'public',
+                    table: 'follows',
+                }, async (payload: any) => {
+                    // Refresh counts if any follow change involves this user
+                    if (payload.new?.follower_id === authUser.id || payload.old?.follower_id === authUser.id ||
+                        payload.new?.following_id === authUser.id || payload.old?.following_id === authUser.id) {
+
+                        const [folCount, fingCount] = await Promise.all([
+                            supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', authUser.id),
+                            supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', authUser.id)
+                        ]);
+
+                        setFollowersCount(folCount.count || 0);
+                        setFollowingCount(fingCount.count || 0);
+                    }
+                })
+                .subscribe();
+        };
+
+        initRealtime();
+
+        return () => {
+            if (followChannel) supabase.removeChannel(followChannel);
+        };
+    }, [authUser, supabase]);
+
+
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-[#050507] gap-6">
@@ -184,12 +233,20 @@ function ProfilePageContent() {
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_rgba(255,165,0,0.15),transparent_70%)]" />
                 <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:32px_32px] opacity-10" />
 
-                <button
-                    onClick={handleLogout}
-                    className="absolute top-6 right-6 p-2.5 glass border-premium rounded-2xl text-zinc-400 hover:text-white hover:bg-white/10 transition-all active:scale-90 shadow-premium-sm"
-                >
-                    <LogOut className="w-5 h-5" />
-                </button>
+                <div className="absolute top-6 right-6 flex items-center gap-3">
+                    <button
+                        onClick={() => router.push('/settings')}
+                        className="p-2.5 glass border-premium rounded-2xl text-zinc-400 hover:text-white hover:bg-white/10 transition-all active:scale-90 shadow-premium-sm"
+                    >
+                        <Settings className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={handleLogout}
+                        className="p-2.5 glass border-premium rounded-2xl text-zinc-400 hover:text-white hover:bg-white/10 transition-all active:scale-90 shadow-premium-sm"
+                    >
+                        <LogOut className="w-5 h-5" />
+                    </button>
+                </div>
             </div>
 
             {/* Profile Info Card */}
@@ -224,7 +281,8 @@ function ProfilePageContent() {
                         <div className="flex gap-4 p-4 glass rounded-3xl border-premium bg-black/40">
                             {[
                                 { label: 'Posts', val: posts.length },
-                                { label: 'Reports', val: reports.length },
+                                { label: 'Followers', val: followersCount },
+                                { label: 'Following', val: followingCount },
                                 { label: 'Karma', val: profile?.karma_points || 0 }
                             ].map((stat) => (
                                 <div key={stat.label} className="text-center px-4 border-r border-white/5 last:border-0">
@@ -257,7 +315,7 @@ function ProfilePageContent() {
                 <div className="glass-panel p-1.5 rounded-[2rem] border-premium shadow-premium-md flex gap-2">
                     {[
                         { id: 'posts', label: 'Posts', icon: Camera },
-                        { id: 'saved', label: 'Saved', icon: Settings },
+                        { id: 'saved', label: 'Saved', icon: Bookmark },
                         { id: 'reports', label: 'Reports', icon: Compass }
                     ].map((tab) => (
                         <button

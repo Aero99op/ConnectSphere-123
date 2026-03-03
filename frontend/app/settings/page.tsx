@@ -14,7 +14,10 @@ import {
     Info,
     LogOut,
     ChevronRight,
-    Loader2
+    Loader2,
+    Users,
+    MessageCircle,
+    Compass
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -30,26 +33,41 @@ export default function SettingsPage() {
 
     const settingSections = [
         {
-            title: "Account & Profile",
+            title: "Account & Meta Data",
             items: [
                 { icon: User, label: "Edit Profile Info", description: "Naam, Bio aur Avatar badlo", href: "/settings/account/profile" },
-                { icon: Shield, label: "Privacy & Safety", description: "Kaun tumhari posts dekh sakta hai", href: "/settings/account/privacy" },
+                { icon: Shield, label: "Privacy and Security", description: "Password, Auths aur Meta control center", href: "/settings/account/privacy" },
+                { icon: Compass, label: "Verification Badge", description: "Blue tick ke liye apply karo", href: "/settings/account/verification" },
+            ]
+        },
+        {
+            title: "Activity & Interactions",
+            items: [
+                { icon: Bell, label: "Notifications", description: "Alerts aur sound control", href: "/settings/preferences/notifications" },
+                { icon: Users, label: "Blocked Accounts", description: "Gareeb aur pareshan karne waalo ki list", href: "/settings/interactions/blocked" },
+                { icon: MessageCircle, label: "Message Preferences", description: "PM filtering aur read receipts", href: "/settings/interactions/messages" },
             ]
         },
         {
             title: "App Preferences",
             items: [
-                { icon: Bell, label: "Notifications", description: "Alerts ko control karo", href: "/settings/preferences/notifications" },
-                { icon: Paintbrush, label: "Appearance", description: "Dark/Light mode aur themes", href: "/settings/preferences/appearance" },
-                { icon: Globe, label: "Language", description: "Hindi, English, etc.", href: "/settings/preferences/language" },
+                { icon: Paintbrush, label: "Appearance & Theme", description: "Dark/Light mode aur premium Indian themes", href: "/settings/preferences/appearance" },
+                { icon: Globe, label: "Language", description: "Hindi, English aur regional languages", href: "/settings/preferences/language" },
                 { icon: HardDrive, label: "Data Usage", description: "Media auto-play aur quality", href: "/settings/preferences/data" },
             ]
         },
         {
-            title: "Support & About",
+            title: "Professional & Content",
+            items: [
+                { icon: Globe, label: "Creator Tools", description: "Monetization aur Analytics", href: "/settings/content/creator" },
+                { icon: HelpCircle, label: "Civic Reports Dashboard", description: "Apni reports ka progress dekho", href: "/settings/content/reports" },
+            ]
+        },
+        {
+            title: "Support & Legal",
             items: [
                 { icon: HelpCircle, label: "Help Center", description: "Jugaad aur pareshani ka hal", href: "/settings/support/help" },
-                { icon: Info, label: "About ConnectSphere", description: "Version 1.0 (Beta)", href: "/settings/support/about" },
+                { icon: Info, label: "About ConnectSphere", description: "Version 1.0 (Beta Edition)", href: "/settings/support/about" },
             ]
         }
     ];
