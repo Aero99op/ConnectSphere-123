@@ -24,25 +24,73 @@ export function CallManager() {
     useEffect(() => {
         if (!userId) return;
         let isMounted = true;
+        let ringTimeout: NodeJS.Timeout;
 
-        const client = getApinatorClient();
-        if (!client) return;
+        const setupSubscription = () => {
+            const client = getApinatorClient();
+            if (!client) return null;
 
-        const channel = client.subscribe(`call-${userId}`);
+            const channel = client.subscribe(`call-${userId}`);
 
-        channel.bind('incoming-call', (data: any) => {
-            const payload = typeof data === 'string' ? JSON.parse(data) : data;
-            console.log("[CallManager] Apinator incoming-call:", payload);
-            if (!activeCallRef.current && isMounted) {
-                setIncomingCall(payload);
+            channel.bind('incoming-call', (data: any) => {
+                const payload = typeof data === 'string' ? JSON.parse(data) : data;
+                console.log("[CallManager] Apinator incoming-call:", payload);
+                if (!activeCallRef.current && isMounted) {
+                    setIncomingCall(payload);
+
+                    // Auto-clear after 30s (Missed Call)
+                    if (ringTimeout) clearTimeout(ringTimeout);
+                    ringTimeout = setTimeout(() => {
+                        if (isMounted) {
+                            setIncomingCall(null);
+                            toast.info(`Missed call from ${payload.callerName || "Stranger"}`);
+                        }
+                    }, 30000);
+                }
+            });
+
+            console.log(`[CallManager] Subscribed to Apinator channel: call-${userId}`);
+            return channel;
+        };
+
+        let currentChannel = setupSubscription();
+
+        // RE-SYNC ON VISIBILITY (Smart Fix for background tabs)
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && userId && isMounted) {
+                console.log("[CallManager] Tab visible, refreshing call subscription...");
+                const client = getApinatorClient();
+                if (client) {
+                    client.unsubscribe(`call-${userId}`);
+                    currentChannel = setupSubscription();
+                }
             }
-        });
+        };
 
-        console.log(`[CallManager] Subscribed to Apinator channel: call-${userId}`);
+        // HEARTBEAT (Keep connection hot)
+        const heartbeatInterval = setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                fetch('/api/apinator/trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        channel: `call-${userId}`,
+                        event: 'ping',
+                        data: { t: Date.now() }
+                    })
+                }).catch(() => { });
+            }
+        }, 60000);
+
+        window.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
             isMounted = false;
-            client.unsubscribe(`call-${userId}`);
+            if (ringTimeout) clearTimeout(ringTimeout);
+            clearInterval(heartbeatInterval);
+            window.removeEventListener('visibilitychange', handleVisibilityChange);
+            const client = getApinatorClient();
+            if (client) client.unsubscribe(`call-${userId}`);
         };
     }, [userId]);
 
