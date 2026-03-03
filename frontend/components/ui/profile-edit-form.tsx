@@ -7,8 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FileUpload } from "@/components/ui/file-upload";
 import { toast } from "sonner";
-import { Loader2, User } from "lucide-react";
+import { Loader2, User, MapPin, Calendar, Heart } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+const INTERESTS_LIST = [
+    "Technology", "Sports", "Politics", "Gaming", "Music",
+    "Movies", "Art", "Science", "Education", "Travel",
+    "Fashion", "Food", "Fitness", "Business"
+];
 
 interface ProfileEditFormProps {
     initialData: {
@@ -17,6 +23,9 @@ interface ProfileEditFormProps {
         username: string;
         bio: string;
         avatar_url: string;
+        country?: string;
+        age?: number;
+        interests?: string[];
     };
     onSuccess?: () => void;
 }
@@ -25,7 +34,22 @@ export function ProfileEditForm({ initialData, onSuccess }: ProfileEditFormProps
     const [fullName, setFullName] = useState(initialData.full_name || "");
     const [bio, setBio] = useState(initialData.bio || "");
     const [avatarUrl, setAvatarUrl] = useState(initialData.avatar_url || "");
+    const [country, setCountry] = useState(initialData.country || "");
+    const [age, setAge] = useState(initialData.age?.toString() || "");
+    const [interests, setInterests] = useState<string[]>(initialData.interests || []);
     const [loading, setLoading] = useState(false);
+
+    const handleInterestToggle = (interest: string) => {
+        if (interests.includes(interest)) {
+            setInterests(interests.filter(i => i !== interest));
+        } else {
+            if (interests.length >= 5) {
+                toast.error("You can select up to 5 interests maximum.");
+                return;
+            }
+            setInterests([...interests, interest]);
+        }
+    };
 
     const handleSave = async () => {
         setLoading(true);
@@ -36,6 +60,9 @@ export function ProfileEditForm({ initialData, onSuccess }: ProfileEditFormProps
                     full_name: fullName,
                     bio: bio,
                     avatar_url: avatarUrl,
+                    country: country.trim(),
+                    age: age ? parseInt(age) : null,
+                    interests: interests,
                     updated_at: new Date().toISOString()
                 })
                 .eq("id", initialData.id);
@@ -98,6 +125,64 @@ export function ProfileEditForm({ initialData, onSuccess }: ProfileEditFormProps
                         placeholder="Kuch toh likho apne baare mein..."
                         className="bg-black/50 border-white/10 focus:border-primary transition-all rounded-xl min-h-[100px] resize-none"
                     />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-sm font-bold text-zinc-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-orange-400" />
+                            Country
+                        </label>
+                        <Input
+                            value={country}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCountry(e.target.value)}
+                            placeholder="e.g. India"
+                            className="bg-black/50 border-white/10 focus:border-primary transition-all rounded-xl"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-bold text-zinc-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-pink-400" />
+                            Age
+                        </label>
+                        <Input
+                            type="number"
+                            value={age}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAge(e.target.value)}
+                            placeholder="e.g. 21"
+                            className="bg-black/50 border-white/10 focus:border-primary transition-all rounded-xl"
+                            min="13"
+                            max="120"
+                        />
+                    </div>
+                </div>
+
+                <div className="space-y-3 pt-2">
+                    <label className="text-sm font-bold text-zinc-400 uppercase tracking-widest ml-1 flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                            <Heart className="w-4 h-4 text-red-400" />
+                            Interests
+                        </span>
+                        <span className="text-xs text-zinc-500 font-normal">{interests.length}/5 selected</span>
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                        {INTERESTS_LIST.map((interest) => {
+                            const isSelected = interests.includes(interest);
+                            return (
+                                <button
+                                    key={interest}
+                                    type="button"
+                                    onClick={() => handleInterestToggle(interest)}
+                                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border ${isSelected
+                                        ? 'bg-primary border-primary text-primary-foreground shadow-md shadow-primary/20 scale-105'
+                                        : 'bg-zinc-800/50 border-white/10 text-zinc-400 hover:border-white/30 hover:bg-zinc-800'
+                                        }`}
+                                >
+                                    {interest}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
             </div>
 
