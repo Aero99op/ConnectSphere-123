@@ -31,44 +31,83 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
     // Apinator-based sidebar updates (UNLIMITED, no Supabase connection)
     useEffect(() => {
         if (!userId) return;
+        let isMounted = true;
 
-        const client = getApinatorClient();
-        if (!client) return;
+        const setupSubscription = () => {
+            const client = getApinatorClient();
+            if (!client) return null;
 
-        const channel = client.subscribe(`sidebar-${userId}`);
+            const channel = client.subscribe(`sidebar-${userId}`);
 
-        channel.bind('conversation-update', (data: any) => {
-            const payload = typeof data === 'string' ? JSON.parse(data) : data;
-            if (payload.lastMessage) {
-                setConversations((prev) => {
-                    const next = [...prev];
-                    const idx = next.findIndex(c => c.id === payload.conversationId);
-                    if (idx !== -1) {
-                        next[idx] = {
-                            ...next[idx],
-                            last_message: payload.lastMessage,
-                            updated_at: payload.lastMessage.created_at
-                        };
-                        // Move to top
-                        const item = next.splice(idx, 1)[0];
-                        return [item, ...next];
-                    }
-                    // If conversation not in list, re-fetch
-                    fetchConversations(userId);
-                    return prev;
-                });
-            } else {
-                fetchConversations(userId);
+            channel.bind('conversation-update', (data: any) => {
+                const payload = typeof data === 'string' ? JSON.parse(data) : data;
+                if (payload.lastMessage) {
+                    setConversations((prev) => {
+                        const next = [...prev];
+                        const idx = next.findIndex(c => c.id === payload.conversationId);
+                        if (idx !== -1) {
+                            next[idx] = {
+                                ...next[idx],
+                                last_message: payload.lastMessage,
+                                updated_at: payload.lastMessage.created_at
+                            };
+                            const item = next.splice(idx, 1)[0];
+                            return [item, ...next];
+                        }
+                        if (isMounted) fetchConversations(userId);
+                        return prev;
+                    });
+                } else {
+                    if (isMounted) fetchConversations(userId);
+                }
+            });
+
+            console.log(`[ChatSidebar] Subscribed to Apinator channel: sidebar-${userId}`);
+            return channel;
+        };
+
+        let currentChannel = setupSubscription();
+
+        // RE-SYNC ON VISIBILITY
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && isMounted) {
+                console.log("[ChatSidebar] Tab visible, refreshing sidebar...");
+                const client = getApinatorClient();
+                if (client) {
+                    client.unsubscribe(`sidebar-${userId}`);
+                    currentChannel = setupSubscription();
+                    fetchConversations(userId); // Force catchup
+                }
             }
-        });
+        };
 
-        console.log(`[ChatSidebar] Subscribed to Apinator channel: sidebar-${userId}`);
+        // HEARTBEAT
+        const heartbeatInterval = setInterval(() => {
+            if (document.visibilityState === 'visible' && isMounted) {
+                fetch('/api/apinator/trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        channel: `sidebar-${userId}`,
+                        event: 'ping',
+                        data: { t: Date.now() }
+                    })
+                }).catch(() => { });
+            }
+        }, 10000); // 10s Fast Pulse
+
+        window.addEventListener('visibilitychange', handleVisibilityChange);
+
+        fetchConversations(userId);
 
         return () => {
-            client.unsubscribe(`sidebar-${userId}`);
+            isMounted = false;
+            clearInterval(heartbeatInterval);
+            window.removeEventListener('visibilitychange', handleVisibilityChange);
+            const client = getApinatorClient();
+            if (client) client.unsubscribe(`sidebar-${userId}`);
         };
     }, [userId]);
-
     const fetchConversations = async (uid: string) => {
         setLoading(true);
         const { data, error } = await supabase

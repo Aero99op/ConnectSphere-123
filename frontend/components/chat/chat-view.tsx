@@ -52,56 +52,66 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         let isMounted = true;
         fetchMessages();
 
-        const client = getApinatorClient();
-        if (!client) return;
+        const setupSubscription = () => {
+            const client = getApinatorClient();
+            if (!client) return null;
 
-        const channel = client.subscribe(`chat-${conversationId}`);
+            const channel = client.subscribe(`chat-${conversationId}`);
 
-        channel.bind('new-message', async (data: any) => {
-            const newMsg = typeof data === 'string' ? JSON.parse(data) : data;
-
-            if (isMounted) {
-                setMessages((prev) => {
-                    // Prevent duplicates (especially if we added it optimistically locally)
-                    if (prev.some(m => m.id === newMsg.id)) return prev;
-
-                    // If it's a message from someone else, we might need their profile
-                    // (Sender already has their profile in state from optimistic update)
-                    return [...prev, newMsg];
-                });
-                scrollToBottom();
-            }
-
-            // Fetch profile if missing (usually for incoming messages)
-            if (newMsg.sender_id !== currentUserId && !newMsg.sender) {
-                const { data: senderProfile } = await supabase.from('profiles').select('username, full_name, avatar_url').eq('id', newMsg.sender_id).single();
-                if (senderProfile && isMounted) {
-                    setMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, sender: senderProfile } : m));
+            channel.bind('new-message', async (data: any) => {
+                const newMsg = typeof data === 'string' ? JSON.parse(data) : data;
+                if (isMounted) {
+                    setMessages((prev) => {
+                        // Prevent duplicates and handle optimistic replacement
+                        if (prev.some(m => m.id === newMsg.id)) return prev;
+                        return [...prev, newMsg];
+                    });
+                    scrollToBottom();
                 }
-            }
-        });
 
-        channel.bind('update-message', (data: any) => {
-            const updatedMsg = typeof data === 'string' ? JSON.parse(data) : data;
-            if (isMounted) {
-                setMessages((prev) => prev.map(m => m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m));
-            }
-        });
-
-        channel.bind('typing', (data: any) => {
-            const payload = typeof data === 'string' ? JSON.parse(data) : data;
-            if (payload.userId !== currentUserId && isMounted) {
-                setTypingUsers(prev => {
-                    const next = new Map(prev);
-                    if (payload.isTyping) {
-                        next.set(payload.userId, Date.now());
-                    } else {
-                        next.delete(payload.userId);
+                if (newMsg.sender_id !== currentUserId && !newMsg.sender) {
+                    const { data: senderProfile } = await supabase.from('profiles').select('username, full_name, avatar_url').eq('id', newMsg.sender_id).single();
+                    if (senderProfile && isMounted) {
+                        setMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, sender: senderProfile } : m));
                     }
-                    return next;
-                });
-            }
-        });
+                }
+            });
+
+            channel.bind('message-confirmed', (data: any) => {
+                const payload = typeof data === 'string' ? JSON.parse(data) : data;
+                if (isMounted) {
+                    setMessages(prev => prev.map(m => m.id === payload.tempId ? payload.actualMsg : m));
+                }
+            });
+
+            channel.bind('update-message', (data: any) => {
+                const updatedMsg = typeof data === 'string' ? JSON.parse(data) : data;
+                if (isMounted) {
+                    setMessages((prev) => prev.map(m => m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m));
+                }
+            });
+
+            channel.bind('typing', (data: any) => {
+                const payload = typeof data === 'string' ? JSON.parse(data) : data;
+                if (payload.userId !== currentUserId && isMounted) {
+                    setTypingUsers(prev => {
+                        const next = new Map(prev);
+                        if (payload.isTyping) next.set(payload.userId, Date.now());
+                        else next.delete(payload.userId);
+                        return next;
+                    });
+                }
+            });
+
+            channel.bind('presence', (data: any) => {
+                // Future presence logic (e.g., Green Dot sync)
+            });
+
+            console.log(`[ChatView] Subscribed to Apinator channel: chat-${conversationId}`);
+            return channel;
+        };
+
+        let currentChannel = setupSubscription();
 
         // Cleanup expired typing indicators every 3 seconds
         const typingCleanupInterval = setInterval(() => {
@@ -111,7 +121,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                 let changed = false;
                 const next = new Map(prev);
                 Array.from(next.entries()).forEach(([uid, timestamp]) => {
-                    if (now - timestamp > 4000) { // Auto-expire after 4 seconds
+                    if (now - timestamp > 4000) {
                         next.delete(uid);
                         changed = true;
                     }
@@ -120,7 +130,33 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             });
         }, 3000);
 
-        console.log(`[ChatView] Subscribed to Apinator channel: chat-${conversationId}`);
+        // HEARTBEAT & PRESENCE (Keep connection super-hot)
+        const heartbeatInterval = setInterval(() => {
+            if (document.visibilityState === 'visible' && isMounted) {
+                fetch('/api/apinator/trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        channel: `chat-${conversationId}`,
+                        event: 'presence',
+                        data: { userId: currentUserId, status: 'active', t: Date.now() }
+                    })
+                }).catch(() => { });
+            }
+        }, 10000); // 10s Fast Pulse
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && isMounted) {
+                const client = getApinatorClient();
+                if (client) {
+                    client.unsubscribe(`chat-${conversationId}`);
+                    currentChannel = setupSubscription();
+                    fetchMessages();
+                }
+            }
+        };
+
+        window.addEventListener('visibilitychange', handleVisibilityChange);
 
         if (isGroup) {
             supabase.from('conversation_participants').select('user_id').eq('conversation_id', conversationId)
@@ -132,7 +168,10 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         return () => {
             isMounted = false;
             clearInterval(typingCleanupInterval);
-            client.unsubscribe(`chat-${conversationId}`);
+            clearInterval(heartbeatInterval);
+            window.removeEventListener('visibilitychange', handleVisibilityChange);
+            const client = getApinatorClient();
+            if (client) client.unsubscribe(`chat-${conversationId}`);
         };
     }, [conversationId, isGroup]);
 
@@ -305,7 +344,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         const newPayload: any = {
             conversation_id: conversationId,
             sender_id: currentUserId,
-            content: msgContent || "", // ensuring it's never exactly null if not needed, although nullable
+            content: msgContent || "",
             file_urls: mediaUrl ? [mediaUrl] : []
         };
 
@@ -313,6 +352,27 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             newPayload.file_name = mediaFile.name;
             newPayload.file_size = mediaFile.size;
         }
+
+        // TURBO-LIVE: Trigger Apinator signal parallel to Supabase insert
+        const tempId = Math.random().toString(36).substring(7);
+        const optimisticMsg = {
+            id: tempId,
+            ...newPayload,
+            sender: { username: "...", full_name: "Transmitting...", avatar_url: "" },
+            created_at: new Date().toISOString(),
+            is_optimistic: true
+        };
+
+        // Parallel trigger 1: Real-time message signal
+        fetch('/api/apinator/trigger', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                channel: `chat-${conversationId}`,
+                event: 'new-message',
+                data: optimisticMsg
+            })
+        }).catch(console.error);
 
         const { data: insertedMsg, error } = await supabase
             .from("messages")
@@ -329,28 +389,27 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             console.error("Failed to send", error);
             toast.error("Sandesh bhej nahi paye");
         } else if (insertedMsg) {
-            // Optimistic UI: Add to local state immediately
-            setMessages(prev => {
-                if (prev.some(m => m.id === insertedMsg.id)) return prev;
-                return [...prev, insertedMsg];
-            });
-            scrollToBottom();
-
-            // Notify other clients via Apinator
-            // Notify other clients via Apinator
+            // Confirm the message to recipient (replacing tempId)
             fetch('/api/apinator/trigger', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     channel: `chat-${conversationId}`,
-                    event: 'new-message',
-                    data: insertedMsg
+                    event: 'message-confirmed',
+                    data: { tempId, actualMsg: insertedMsg }
                 })
             }).catch(console.error);
 
-            // Notify sidebar refresh for recipients
+            // Optimistic UI: Add to local state immediately
+            setMessages(prev => {
+                const filtered = prev.filter(m => m.id !== tempId);
+                if (filtered.some(m => m.id === insertedMsg.id)) return filtered;
+                return [...filtered, insertedMsg];
+            });
+            scrollToBottom();
+
+            // Notify sidebar refresh for recipients (ULTRA-FAST)
             if (isGroup) {
-                // Use cached participants to avoid Supabase call
                 groupParticipantsRef.current.forEach((uid) => {
                     if (uid === currentUserId) return;
                     fetch('/api/apinator/trigger', {
@@ -364,7 +423,6 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                     }).catch(console.error);
                 });
             } else {
-                // 1-on-1: Just notify the recipient
                 fetch('/api/apinator/trigger', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -389,20 +447,27 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         if (error) {
             console.error("Failed to delete", error);
             toast.error("Sandesh delete nahi hua");
+        } else {
+            // Trigger realtime update for others
+            fetch('/api/apinator/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channel: `chat-${conversationId}`,
+                    event: 'update-message',
+                    data: { id: msgId, content: "🚫 This message was deleted", is_deleted: true }
+                })
+            }).catch(console.error);
         }
         setMessageContextMenuId(null);
     };
 
     const handleDeleteMessageForMe = async (msgId: string) => {
-        // Optimistic update
         setMessages(prev => prev.map(m => m.id === msgId ? { ...m, deleted_for: [...(m.deleted_for || []), currentUserId] } : m));
-
         const { error } = await supabase.rpc('delete_message_for_me', { msg_id: msgId });
-
         if (error) {
             console.error("Failed to delete for me", error);
             toast.error("Sandesh delete nahi hua");
-            // Revert on error
             setMessages(prev => prev.map(m => m.id === msgId ? { ...m, deleted_for: (m.deleted_for || []).filter((id: string) => id !== currentUserId) } : m));
         }
         setMessageContextMenuId(null);
@@ -416,13 +481,9 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
 
     const handleTyping = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         setNewMessage(e.target.value);
-
         const now = Date.now();
-        // Throttle typing signals: max once per 500ms
-        if (now - lastTypingSignalRef.current > 500) {
+        if (now - lastTypingSignalRef.current > 200) { // Turbo-Live: 200ms throttle
             lastTypingSignalRef.current = now;
-
-            // Send typing indicator via Apinator (UNLIMITED)
             fetch('/api/apinator/trigger', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -466,58 +527,35 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         const callerAvatar = profile?.avatar_url || "https://github.com/shadcn.png";
 
         if (isGroup) {
-            // 1. Dispatch local event directly for Group calls
             window.dispatchEvent(new CustomEvent('start-outgoing-call', {
-                detail: {
-                    roomId: conversationId,
-                    remoteUserId: null, // Full mesh uses channel presence
-                    callType: type,
-                    isGroup: true
-                }
+                detail: { roomId: conversationId, remoteUserId: null, callType: type, isGroup: true }
             }));
-
             toast.success("Mandli call shuru ho rahi hai...");
 
-            // 2. We need to notify all participants.
-            // Ideally, we'd have a backend signal or loop through members.
-            // Here we fetch members and send them a P2P incoming-call event
-            const { data: participants } = await supabase
-                .from('conversation_participants')
-                .select('user_id')
-                .eq('conversation_id', conversationId);
-
-            if (participants) {
-                // Send call notification to each participant via Apinator
-                participants.forEach((p: any) => {
-                    if (p.user_id === currentUserId) return;
-                    fetch('/api/apinator/trigger', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            channel: `call-${p.user_id}`,
-                            event: 'incoming-call',
-                            data: {
-                                roomId: conversationId,
-                                callerId: currentUserId,
-                                callerName: recipientName,
-                                callerAvatar: recipientAvatar,
-                                callType: type,
-                                isGroup: true
-                            }
-                        })
-                    }).catch(console.error);
-                });
-            }
+            groupParticipantsRef.current.forEach((uid) => {
+                if (uid === currentUserId) return;
+                fetch('/api/apinator/trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        channel: `call-${uid}`,
+                        event: 'incoming-call',
+                        data: {
+                            roomId: conversationId,
+                            callerId: currentUserId,
+                            callerName: recipientName,
+                            callerAvatar: recipientAvatar,
+                            callType: type,
+                            isGroup: true
+                        }
+                    })
+                }).catch(console.error);
+            });
             return;
         }
 
-        // 1-on-1 call: trigger local + send via Apinator
         window.dispatchEvent(new CustomEvent('start-outgoing-call', {
-            detail: {
-                roomId: conversationId,
-                remoteUserId: recipientId,
-                callType: type
-            }
+            detail: { roomId: conversationId, remoteUserId: recipientId, callType: type }
         }));
         toast.success("Bula rahe hain...");
 
@@ -542,11 +580,10 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     const handleLeaveGroup = async () => {
         if (!isGroup) return;
         if (!confirm("Kya tum sach mein Mandli se nikalna chahte ho?")) return;
-
         const { error } = await supabase.rpc('leave_group', { conv_id: conversationId });
         if (error) {
             console.error("Failed to leave group", error);
-            toast.error("Mandli chhod nahi paye. RPC check karo.");
+            toast.error("Mandli chhod nahi paye.");
         } else {
             toast.success("Mandli se nikal gaye.");
             onBack();
@@ -632,274 +669,280 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                         </div>
                     )}
                 </div>
-            </div>
+            </div >
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 custom-scrollbar bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-zinc-900/40 via-[#0a0a0a] to-[#0a0a0a]">
-                {loading ? (
-                    <div className="flex justify-center items-center h-full">
-                        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-                    </div>
-                ) : messages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-zinc-500 mt-10 space-y-3">
-                        <Avatar className="w-24 h-24 mb-4 border border-white/10 opacity-70">
-                            <AvatarImage src={recipientAvatar} />
-                            <AvatarFallback className="text-4xl">{recipientName[0]}</AvatarFallback>
-                        </Avatar>
-                        <p className="text-xl font-semibold text-white/80">{recipientName}</p>
-                        <p className="text-sm text-center">
-                            {isGroup ? "Mandli ban gayi hai. Guptugu shuru karein!" : `Say Namaste 🙏 to ${recipientName}`}
-                        </p>
-                    </div>
-                ) : (
-                    messages
-                        .filter(msg => !msg.deleted_for?.includes(currentUserId))
-                        .map((msg, index, visibleMsgs) => {
-                            const isMe = msg.sender_id === currentUserId;
-                            const showSender = isGroup && !isMe;
-                            const prevMsg = index > 0 ? visibleMsgs[index - 1] : null;
-                            const showAvatar = showSender && (!prevMsg || prevMsg.sender_id !== msg.sender_id);
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 custom-scrollbar bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-zinc-900/40 via-[#0a0a0a] to-[#0a0a0a]" >
+                {
+                    loading ? (
+                        <div className="flex justify-center items-center h-full" >
+                            <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+                        </div>
+                    ) : messages.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-zinc-500 mt-10 space-y-3">
+                            <Avatar className="w-24 h-24 mb-4 border border-white/10 opacity-70">
+                                <AvatarImage src={recipientAvatar} />
+                                <AvatarFallback className="text-4xl">{recipientName[0]}</AvatarFallback>
+                            </Avatar>
+                            <p className="text-xl font-semibold text-white/80">{recipientName}</p>
+                            <p className="text-sm text-center">
+                                {isGroup ? "Mandli ban gayi hai. Guptugu shuru karein!" : `Say Namaste 🙏 to ${recipientName}`}
+                            </p>
+                        </div>
+                    ) : (
+                        messages
+                            .filter(msg => !msg.deleted_for?.includes(currentUserId))
+                            .map((msg, index, visibleMsgs) => {
+                                const isMe = msg.sender_id === currentUserId;
+                                const showSender = isGroup && !isMe;
+                                const prevMsg = index > 0 ? visibleMsgs[index - 1] : null;
+                                const showAvatar = showSender && (!prevMsg || prevMsg.sender_id !== msg.sender_id);
 
-                            return (
-                                <div
-                                    key={msg.id}
-                                    id={`msg-${msg.id}`}
-                                    data-message-id={msg.id}
-                                    className={cn("flex flex-col gap-1 w-full", isMe ? "items-end" : "items-start")}
-                                >
-                                    {showAvatar && (
-                                        <span className="text-[11px] text-zinc-500 ml-10 mb-0.5">
-                                            {msg.sender?.full_name || msg.sender?.username || "Unknown"}
-                                        </span>
-                                    )}
-                                    <div className={cn("flex gap-2 max-w-[85%] md:max-w-[70%]", isMe ? "flex-row-reverse" : "flex-row text-left")}>
-                                        {showSender ? (
-                                            <div className="w-8 shrink-0">
-                                                {showAvatar && (
-                                                    <Avatar className="w-8 h-8 border border-white/10">
-                                                        <AvatarImage src={msg.sender?.avatar_url} />
-                                                        <AvatarFallback>{msg.sender?.username?.[0]}</AvatarFallback>
-                                                    </Avatar>
+                                return (
+                                    <div
+                                        key={msg.id}
+                                        id={`msg-${msg.id}`}
+                                        data-message-id={msg.id}
+                                        className={cn("flex flex-col gap-1 w-full", isMe ? "items-end" : "items-start")}
+                                    >
+                                        {showAvatar && (
+                                            <span className="text-[11px] text-zinc-500 ml-10 mb-0.5">
+                                                {msg.sender?.full_name || msg.sender?.username || "Unknown"}
+                                            </span>
+                                        )}
+                                        <div className={cn("flex gap-2 max-w-[85%] md:max-w-[70%]", isMe ? "flex-row-reverse" : "flex-row text-left")}>
+                                            {showSender ? (
+                                                <div className="w-8 shrink-0">
+                                                    {showAvatar && (
+                                                        <Avatar className="w-8 h-8 border border-white/10">
+                                                            <AvatarImage src={msg.sender?.avatar_url} />
+                                                            <AvatarFallback>{msg.sender?.username?.[0]}</AvatarFallback>
+                                                        </Avatar>
+                                                    )}
+                                                </div>
+                                            ) : null}
+
+                                            <div className={cn(
+                                                "px-4 py-2.5 rounded-[20px] text-[15px] break-words flex flex-col gap-2 relative shadow-md",
+                                                isMe ? "bg-gradient-to-br from-orange-600 to-orange-500 text-white rounded-tr-sm"
+                                                    : "bg-[#262626] text-zinc-100 rounded-tl-sm border border-white/5"
+                                            )}>
+                                                {/* Shared Post Preview */}
+                                                {msg.post && (
+                                                    <div className="rounded-xl overflow-hidden border border-white/20 bg-black cursor-pointer hover:opacity-90 transition-opacity w-64 md:w-72">
+                                                        <img
+                                                            src={msg.post.thumbnail_url || msg.post.file_urls?.[0]}
+                                                            alt="Shared Post"
+                                                            className="w-full h-48 object-cover"
+                                                        />
+                                                        <div className="p-3 text-sm bg-black/60 backdrop-blur-sm text-white border-t border-white/10">
+                                                            {msg.post.caption ? <span className="line-clamp-2">{msg.post.caption}</span> : "Shared a Post"}
+                                                        </div>
+                                                    </div>
                                                 )}
-                                            </div>
-                                        ) : null}
 
-                                        <div className={cn(
-                                            "px-4 py-2.5 rounded-[20px] text-[15px] break-words flex flex-col gap-2 relative shadow-md",
-                                            isMe ? "bg-gradient-to-br from-orange-600 to-orange-500 text-white rounded-tr-sm"
-                                                : "bg-[#262626] text-zinc-100 rounded-tl-sm border border-white/5"
-                                        )}>
-                                            {/* Shared Post Preview */}
-                                            {msg.post && (
-                                                <div className="rounded-xl overflow-hidden border border-white/20 bg-black cursor-pointer hover:opacity-90 transition-opacity w-64 md:w-72">
-                                                    <img
-                                                        src={msg.post.thumbnail_url || msg.post.file_urls?.[0]}
-                                                        alt="Shared Post"
-                                                        className="w-full h-48 object-cover"
-                                                    />
-                                                    <div className="p-3 text-sm bg-black/60 backdrop-blur-sm text-white border-t border-white/10">
-                                                        {msg.post.caption ? <span className="line-clamp-2">{msg.post.caption}</span> : "Shared a Post"}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Shared Story Preview */}
-                                            {msg.story && (
-                                                <div className="rounded-xl overflow-hidden border border-white/20 bg-black w-48 cursor-pointer hover:opacity-90 transition-opacity">
-                                                    <img
-                                                        src={msg.story.media_url}
-                                                        alt="Shared Story"
-                                                        className="w-full h-72 object-cover"
-                                                    />
-                                                    <div className="p-2 text-xs font-semibold text-center bg-gradient-to-t from-black to-transparent text-white absolute bottom-0 w-full">
-                                                        Shared Story
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {msg.content?.startsWith("[CALL_LOG]:") ? (() => {
-                                                const parts = msg.content.split(":");
-                                                const type = parts[1];
-                                                const s = parseInt(parts[2]) || 0;
-                                                const mStr = Math.floor(s / 60).toString();
-                                                const sStr = (s % 60).toString().padStart(2, '0');
-                                                return (
-                                                    <div className="flex items-center gap-3 font-medium cursor-default px-1 py-0.5" onClick={() => !msg.is_deleted && setMessageContextMenuId(messageContextMenuId === msg.id ? null : msg.id)}>
-                                                        <div className={cn("p-2 rounded-full", isMe ? "bg-white/20" : "bg-black/20")}>
-                                                            {type === 'video' ? <Video className="w-5 h-5" /> : <Phone className="w-5 h-5" />}
-                                                        </div>
-                                                        <div className="flex flex-col">
-                                                            <span>{type === 'video' ? "Video Call" : "Voice Call"}</span>
-                                                            <span className={cn("text-xs mt-0.5", s > 0 ? (isMe ? "text-orange-100" : "text-zinc-400") : "text-red-300 font-bold")}>
-                                                                {s > 0 ? `${mStr}:${sStr}` : "Missed Call"}
-                                                            </span>
+                                                {/* Shared Story Preview */}
+                                                {msg.story && (
+                                                    <div className="rounded-xl overflow-hidden border border-white/20 bg-black w-48 cursor-pointer hover:opacity-90 transition-opacity">
+                                                        <img
+                                                            src={msg.story.media_url}
+                                                            alt="Shared Story"
+                                                            className="w-full h-72 object-cover"
+                                                        />
+                                                        <div className="p-2 text-xs font-semibold text-center bg-gradient-to-t from-black to-transparent text-white absolute bottom-0 w-full">
+                                                            Shared Story
                                                         </div>
                                                     </div>
-                                                );
-                                            })() : (
-                                                <div
-                                                    className="flex flex-col cursor-pointer"
-                                                    onClick={() => !msg.is_deleted && setMessageContextMenuId(messageContextMenuId === msg.id ? null : msg.id)}
-                                                >
-                                                    {/* Media Rendering */}
-                                                    {!msg.is_deleted && msg.file_urls && msg.file_urls.length > 0 && (
-                                                        <div className="mb-2 w-full max-w-[240px] md:max-w-[320px] rounded-lg overflow-hidden bg-black/20">
-                                                            {msg.file_name?.toLowerCase().match(/\.(jpeg|jpg|gif|png|webp|bmp)$/i) || msg.file_urls[0].toLowerCase().match(/\.(jpeg|jpg|gif|png|webp|bmp)$/i) ? (
-                                                                <div
-                                                                    className="relative w-[240px] h-[320px] md:w-[320px] md:h-[400px] cursor-zoom-in"
-                                                                    onClick={(e) => { e.stopPropagation(); setFullScreenImage(msg.file_urls[0]); }}
-                                                                >
-                                                                    <Image
+                                                )}
+
+                                                {msg.content?.startsWith("[CALL_LOG]:") ? (() => {
+                                                    const parts = msg.content.split(":");
+                                                    const type = parts[1];
+                                                    const s = parseInt(parts[2]) || 0;
+                                                    const mStr = Math.floor(s / 60).toString();
+                                                    const sStr = (s % 60).toString().padStart(2, '0');
+                                                    return (
+                                                        <div className="flex items-center gap-3 font-medium cursor-default px-1 py-0.5" onClick={() => !msg.is_deleted && setMessageContextMenuId(messageContextMenuId === msg.id ? null : msg.id)}>
+                                                            <div className={cn("p-2 rounded-full", isMe ? "bg-white/20" : "bg-black/20")}>
+                                                                {type === 'video' ? <Video className="w-5 h-5" /> : <Phone className="w-5 h-5" />}
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <span>{type === 'video' ? "Video Call" : "Voice Call"}</span>
+                                                                <span className={cn("text-xs mt-0.5", s > 0 ? (isMe ? "text-orange-100" : "text-zinc-400") : "text-red-300 font-bold")}>
+                                                                    {s > 0 ? `${mStr}:${sStr}` : "Missed Call"}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })() : (
+                                                    <div
+                                                        className="flex flex-col cursor-pointer"
+                                                        onClick={() => !msg.is_deleted && setMessageContextMenuId(messageContextMenuId === msg.id ? null : msg.id)}
+                                                    >
+                                                        {/* Media Rendering */}
+                                                        {!msg.is_deleted && msg.file_urls && msg.file_urls.length > 0 && (
+                                                            <div className="mb-2 w-full max-w-[240px] md:max-w-[320px] rounded-lg overflow-hidden bg-black/20">
+                                                                {msg.file_name?.toLowerCase().match(/\.(jpeg|jpg|gif|png|webp|bmp)$/i) || msg.file_urls[0].toLowerCase().match(/\.(jpeg|jpg|gif|png|webp|bmp)$/i) ? (
+                                                                    <div
+                                                                        className="relative w-[240px] h-[320px] md:w-[320px] md:h-[400px] cursor-zoom-in"
+                                                                        onClick={(e) => { e.stopPropagation(); setFullScreenImage(msg.file_urls[0]); }}
+                                                                    >
+                                                                        <Image
+                                                                            src={msg.file_urls[0]}
+                                                                            alt={msg.file_name || "MMS Image"}
+                                                                            fill
+                                                                            className="object-cover hover:opacity-95 transition-opacity"
+                                                                            sizes="(max-width: 768px) 240px, 320px"
+                                                                            unoptimized={!msg.file_urls[0].includes('catbox.moe') && !msg.file_urls[0].includes('imgur.com') && !msg.file_urls[0].includes('tenor.com')}
+                                                                        />
+                                                                    </div>
+                                                                ) : msg.file_name?.toLowerCase().match(/\.(mp4|webm|ogg)$/i) || msg.file_urls[0].toLowerCase().match(/\.(mp4|webm|ogg)$/i) ? (
+                                                                    <video
                                                                         src={msg.file_urls[0]}
-                                                                        alt={msg.file_name || "MMS Image"}
-                                                                        fill
-                                                                        className="object-cover hover:opacity-95 transition-opacity"
-                                                                        sizes="(max-width: 768px) 240px, 320px"
-                                                                        unoptimized={!msg.file_urls[0].includes('catbox.moe') && !msg.file_urls[0].includes('imgur.com') && !msg.file_urls[0].includes('tenor.com')}
+                                                                        controls
+                                                                        className="w-full max-h-[300px]"
+                                                                        preload="metadata"
                                                                     />
-                                                                </div>
-                                                            ) : msg.file_name?.toLowerCase().match(/\.(mp4|webm|ogg)$/i) || msg.file_urls[0].toLowerCase().match(/\.(mp4|webm|ogg)$/i) ? (
-                                                                <video
-                                                                    src={msg.file_urls[0]}
-                                                                    controls
-                                                                    className="w-full max-h-[300px]"
-                                                                    preload="metadata"
-                                                                />
-                                                            ) : msg.file_name?.toLowerCase().match(/\.(mp3|wav|ogg)$/i) || msg.file_urls[0].toLowerCase().match(/\.(mp3|wav|ogg)$/i) ? (
-                                                                <div className="p-3 w-full bg-black/40 rounded-lg">
-                                                                    <div className="text-xs mb-2 opacity-80 truncate">{msg.file_name || "Audio Note"}</div>
-                                                                    <audio src={msg.file_urls[0]} controls className="w-full h-8" />
-                                                                </div>
-                                                            ) : (
-                                                                <a
-                                                                    href={msg.file_urls[0]}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="flex items-center gap-2 p-3 bg-black/40 hover:bg-black/60 transition-colors text-sm"
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                >
-                                                                    <ImageIcon className="w-5 h-5 shrink-0 opacity-70" />
-                                                                    <span className="truncate flex-1">{msg.file_name || "Download Attachment"}</span>
-                                                                </a>
-                                                            )}
-                                                        </div>
-                                                    )}
-
-                                                    {msg.content && (
-                                                        <span className={cn("leading-snug whitespace-pre-wrap flex-wrap break-all", msg.is_deleted && "italic opacity-70")}>
-                                                            {msg.content}
-                                                        </span>
-                                                    )}
-                                                    {msg.is_edited && !msg.is_deleted && (
-                                                        <span className="text-[10px] opacity-60 self-end mt-1 italic leading-none">edited</span>
-                                                    )}
-                                                </div>
-                                            )}
-                                            {/* Message Context Menu (Edit/Delete) */}
-                                            {messageContextMenuId === msg.id && !msg.is_deleted && (
-                                                <>
-                                                    <div className="fixed inset-0 z-30" onClick={(e) => { e.stopPropagation(); setMessageContextMenuId(null); }} />
-                                                    <div className={cn(
-                                                        "absolute z-40 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl py-1 w-32 animate-in fade-in zoom-in-95",
-                                                        isMe ? "right-0 top-full mt-1" : "left-0 top-full mt-1"
-                                                    )}>
-                                                        {isMe && !msg.content?.startsWith("[CALL_LOG]:") && !msg.post && !msg.story && (
-                                                            <button
-                                                                onClick={(e) => { e.stopPropagation(); handleEditMessageClick(msg); }}
-                                                                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
-                                                            >
-                                                                Edit
-                                                            </button>
+                                                                ) : msg.file_name?.toLowerCase().match(/\.(mp3|wav|ogg)$/i) || msg.file_urls[0].toLowerCase().match(/\.(mp3|wav|ogg)$/i) ? (
+                                                                    <div className="p-3 w-full bg-black/40 rounded-lg">
+                                                                        <div className="text-xs mb-2 opacity-80 truncate">{msg.file_name || "Audio Note"}</div>
+                                                                        <audio src={msg.file_urls[0]} controls className="w-full h-8" />
+                                                                    </div>
+                                                                ) : (
+                                                                    <a
+                                                                        href={msg.file_urls[0]}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="flex items-center gap-2 p-3 bg-black/40 hover:bg-black/60 transition-colors text-sm"
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                    >
+                                                                        <ImageIcon className="w-5 h-5 shrink-0 opacity-70" />
+                                                                        <span className="truncate flex-1">{msg.file_name || "Download Attachment"}</span>
+                                                                    </a>
+                                                                )}
+                                                            </div>
                                                         )}
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); handleDeleteMessageForMe(msg.id); }}
-                                                            className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
-                                                        >
-                                                            Delete for Me
-                                                        </button>
-                                                        {isMe && (
+
+                                                        {msg.content && (
+                                                            <span className={cn("leading-snug whitespace-pre-wrap flex-wrap break-all", msg.is_deleted && "italic opacity-70")}>
+                                                                {msg.content}
+                                                            </span>
+                                                        )}
+                                                        {msg.is_edited && !msg.is_deleted && (
+                                                            <span className="text-[10px] opacity-60 self-end mt-1 italic leading-none">edited</span>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                {/* Message Context Menu (Edit/Delete) */}
+                                                {messageContextMenuId === msg.id && !msg.is_deleted && (
+                                                    <>
+                                                        <div className="fixed inset-0 z-30" onClick={(e) => { e.stopPropagation(); setMessageContextMenuId(null); }} />
+                                                        <div className={cn(
+                                                            "absolute z-40 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl py-1 w-32 animate-in fade-in zoom-in-95",
+                                                            isMe ? "right-0 top-full mt-1" : "left-0 top-full mt-1"
+                                                        )}>
+                                                            {isMe && !msg.content?.startsWith("[CALL_LOG]:") && !msg.post && !msg.story && (
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); handleEditMessageClick(msg); }}
+                                                                    className="w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors"
+                                                                >
+                                                                    Edit
+                                                                </button>
+                                                            )}
                                                             <button
-                                                                onClick={(e) => { e.stopPropagation(); handleDeleteMessageEveryone(msg.id); }}
+                                                                onClick={(e) => { e.stopPropagation(); handleDeleteMessageForMe(msg.id); }}
                                                                 className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
                                                             >
-                                                                Delete for Everyone
+                                                                Delete for Me
                                                             </button>
+                                                            {isMe && (
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); handleDeleteMessageEveryone(msg.id); }}
+                                                                    className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                                                                >
+                                                                    Delete for Everyone
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </>
+                                                )}
+                                                {/* Read Receipts (Ticks) for outgoing messages */}
+                                                {isMe && !msg.content?.startsWith("[CALL_LOG]:") && (
+                                                    <div className="absolute right-0 -bottom-4 flex items-center gap-0.5">
+                                                        {msg.is_read ? (
+                                                            <CheckCheck className="w-3.5 h-3.5 text-blue-400" />
+                                                        ) : (
+                                                            <Check className="w-3 h-3 text-zinc-400" />
                                                         )}
                                                     </div>
-                                                </>
-                                            )}
-                                            {/* Read Receipts (Ticks) for outgoing messages */}
-                                            {isMe && !msg.content?.startsWith("[CALL_LOG]:") && (
-                                                <div className="absolute right-0 -bottom-4 flex items-center gap-0.5">
-                                                    {msg.is_read ? (
-                                                        <CheckCheck className="w-3.5 h-3.5 text-blue-400" />
-                                                    ) : (
-                                                        <Check className="w-3 h-3 text-zinc-400" />
-                                                    )}
-                                                </div>
-                                            )}
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            );
-                        })
-                )}
+                                );
+                            })
+                    )
+                }
                 {/* Typing Indicator Bubble */}
-                {typingUsers.size > 0 && (
-                    <div className="flex flex-col gap-1 w-full items-start animate-in slide-in-from-bottom-2 fade-in duration-200">
-                        <span className="text-[11px] text-zinc-500 ml-10 mb-0.5">
-                            {isGroup ? `${Array.from(typingUsers).length} typing...` : 'typing...'}
-                        </span>
-                        <div className="flex gap-2 max-w-[85%] md:max-w-[70%] flex-row text-left">
-                            <div className="w-8 shrink-0">
-                                {isGroup && (
-                                    <Avatar className="w-8 h-8 border border-white/10 opacity-70">
-                                        <AvatarFallback>...</AvatarFallback>
-                                    </Avatar>
-                                )}
-                            </div>
-                            <div className="px-4 py-3 rounded-[20px] bg-[#262626] border border-white/5 rounded-tl-sm flex items-center gap-1 shadow-md h-[42px]">
-                                <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                                <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                                <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                {
+                    typingUsers.size > 0 && (
+                        <div className="flex flex-col gap-1 w-full items-start animate-in slide-in-from-bottom-2 fade-in duration-200">
+                            <span className="text-[11px] text-zinc-500 ml-10 mb-0.5">
+                                {isGroup ? `${Array.from(typingUsers).length} typing...` : 'typing...'}
+                            </span>
+                            <div className="flex gap-2 max-w-[85%] md:max-w-[70%] flex-row text-left">
+                                <div className="w-8 shrink-0">
+                                    {isGroup && (
+                                        <Avatar className="w-8 h-8 border border-white/10 opacity-70">
+                                            <AvatarFallback>...</AvatarFallback>
+                                        </Avatar>
+                                    )}
+                                </div>
+                                <div className="px-4 py-3 rounded-[20px] bg-[#262626] border border-white/5 rounded-tl-sm flex items-center gap-1 shadow-md h-[42px]">
+                                    <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                                    <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                                    <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )
+                }
                 <div ref={messagesEndRef} className="h-4" />
-            </div>
+            </div >
 
             {/* Input Area - Instagram Style Pill */}
-            <div className="p-3 bg-black/95 backdrop-blur-xl border-t border-white/5 shrink-0 w-full pb-[max(0.75rem,env(safe-area-inset-bottom))] relative">
+            < div className="p-3 bg-black/95 backdrop-blur-xl border-t border-white/5 shrink-0 w-full pb-[max(0.75rem,env(safe-area-inset-bottom))] relative" >
 
                 {/* Media Preview Area */}
-                {selectedMedia && (
-                    <div className="absolute bottom-full left-0 right-0 p-3 bg-black/90 backdrop-blur-md border-t border-white/10 flex items-end gap-3 animate-in slide-in-from-bottom-2 z-10">
-                        <div className="relative rounded-xl overflow-hidden bg-zinc-900 border border-white/20 inline-block">
-                            {mediaPreview ? (
-                                selectedMedia.type.startsWith('video/') ? (
-                                    <video src={mediaPreview} className="h-24 max-w-[200px] object-cover" />
+                {
+                    selectedMedia && (
+                        <div className="absolute bottom-full left-0 right-0 p-3 bg-black/90 backdrop-blur-md border-t border-white/10 flex items-end gap-3 animate-in slide-in-from-bottom-2 z-10">
+                            <div className="relative rounded-xl overflow-hidden bg-zinc-900 border border-white/20 inline-block">
+                                {mediaPreview ? (
+                                    selectedMedia.type.startsWith('video/') ? (
+                                        <video src={mediaPreview} className="h-24 max-w-[200px] object-cover" />
+                                    ) : (
+                                        <img src={mediaPreview} className="h-24 w-auto object-cover mix-blend-screen" />
+                                    )
                                 ) : (
-                                    <img src={mediaPreview} className="h-24 w-auto object-cover mix-blend-screen" />
-                                )
-                            ) : (
-                                <div className="h-24 w-24 flex items-center justify-center bg-zinc-800">
-                                    <ImageIcon className="w-8 h-8 text-zinc-500" />
-                                </div>
-                            )}
-                            <button
-                                onClick={cancelMediaSelect}
-                                className="absolute top-1 right-1 p-1 bg-black/60 rounded-full hover:bg-red-500/80 transition-colors"
-                            >
-                                <X className="w-4 h-4 text-white" />
-                            </button>
+                                    <div className="h-24 w-24 flex items-center justify-center bg-zinc-800">
+                                        <ImageIcon className="w-8 h-8 text-zinc-500" />
+                                    </div>
+                                )}
+                                <button
+                                    onClick={cancelMediaSelect}
+                                    className="absolute top-1 right-1 p-1 bg-black/60 rounded-full hover:bg-red-500/80 transition-colors"
+                                >
+                                    <X className="w-4 h-4 text-white" />
+                                </button>
+                            </div>
+                            <div className="flex-1 pb-2">
+                                <p className="text-sm font-medium text-white truncate">{selectedMedia.name}</p>
+                                <p className="text-xs text-zinc-400">{(selectedMedia.size / 1024 / 1024).toFixed(2)} MB</p>
+                            </div>
                         </div>
-                        <div className="flex-1 pb-2">
-                            <p className="text-sm font-medium text-white truncate">{selectedMedia.name}</p>
-                            <p className="text-xs text-zinc-400">{(selectedMedia.size / 1024 / 1024).toFixed(2)} MB</p>
-                        </div>
-                    </div>
-                )}
+                    )
+                }
 
                 <div className="max-w-4xl mx-auto flex items-end gap-2 bg-[#121212] border border-white/10 rounded-3xl p-1 shadow-inner relative z-20">
                     <input
@@ -1018,7 +1061,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                         )}
                     </div>
                 </div>
-            </div>
+            </div >
             {showAddMembers && (
                 <AddGroupMembersDialog
                     conversationId={conversationId}
@@ -1028,25 +1071,27 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             )}
 
             {/* Fullscreen Image Zoom Overlay */}
-            {fullScreenImage && (
-                <div
-                    className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
-                    onClick={() => setFullScreenImage(null)}
-                >
-                    <button
+            {
+                fullScreenImage && (
+                    <div
+                        className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
                         onClick={() => setFullScreenImage(null)}
-                        className="absolute top-4 right-4 p-2 text-white/70 hover:text-white bg-black/50 hover:bg-black/70 rounded-full transition-all"
                     >
-                        <X className="w-6 h-6" />
-                    </button>
-                    <img
-                        src={fullScreenImage}
-                        alt="Zoomed Media"
-                        className="max-w-full max-h-full object-contain cursor-zoom-out animate-in zoom-in-95 duration-200"
-                        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking the image itself
-                    />
-                </div>
-            )}
-        </div>
+                        <button
+                            onClick={() => setFullScreenImage(null)}
+                            className="absolute top-4 right-4 p-2 text-white/70 hover:text-white bg-black/50 hover:bg-black/70 rounded-full transition-all"
+                        >
+                            <X className="w-6 h-6" />
+                        </button>
+                        <img
+                            src={fullScreenImage}
+                            alt="Zoomed Media"
+                            className="max-w-full max-h-full object-contain cursor-zoom-out animate-in zoom-in-95 duration-200"
+                            onClick={(e) => e.stopPropagation()} // Prevent closing when clicking the image itself
+                        />
+                    </div>
+                )
+            }
+        </div >
     );
 }
