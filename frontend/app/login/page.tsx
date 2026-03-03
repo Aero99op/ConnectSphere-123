@@ -237,6 +237,9 @@ function LoginContent() {
                                 provider: 'google',
                                 options: {
                                     redirectTo: `${window.location.origin}${isOfficial ? '/dashboard' : '/'}`,
+                                    queryParams: {
+                                        prompt: 'select_account'
+                                    }
                                 },
                             });
 
