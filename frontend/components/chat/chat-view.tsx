@@ -33,7 +33,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     const [loading, setLoading] = useState(true);
     const [showAddMembers, setShowAddMembers] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
-    const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+    const [typingUsers, setTypingUsers] = useState<Map<string, number>>(new Map()); // userId -> timestamp
     const [messageContextMenuId, setMessageContextMenuId] = useState<string | null>(null);
     const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
     const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
@@ -43,6 +43,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const lastTypingSignalRef = useRef<number>(0);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // Apinator-based Realtime Chat (UNLIMITED connections)
@@ -57,17 +58,25 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
 
         channel.bind('new-message', async (data: any) => {
             const newMsg = typeof data === 'string' ? JSON.parse(data) : data;
-            // Don't show our own message again (it's already in state)
-            if (newMsg.sender_id === currentUserId) return;
-            const { data: senderProfile } = await supabase.from('profiles').select('username, full_name, avatar_url').eq('id', newMsg.sender_id).single();
-            if (senderProfile) newMsg.sender = senderProfile;
+
             if (isMounted) {
                 setMessages((prev) => {
-                    // Prevent duplicates
+                    // Prevent duplicates (especially if we added it optimistically locally)
                     if (prev.some(m => m.id === newMsg.id)) return prev;
+
+                    // If it's a message from someone else, we might need their profile
+                    // (Sender already has their profile in state from optimistic update)
                     return [...prev, newMsg];
                 });
                 scrollToBottom();
+            }
+
+            // Fetch profile if missing (usually for incoming messages)
+            if (newMsg.sender_id !== currentUserId && !newMsg.sender) {
+                const { data: senderProfile } = await supabase.from('profiles').select('username, full_name, avatar_url').eq('id', newMsg.sender_id).single();
+                if (senderProfile && isMounted) {
+                    setMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, sender: senderProfile } : m));
+                }
             }
         });
 
@@ -82,18 +91,39 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             const payload = typeof data === 'string' ? JSON.parse(data) : data;
             if (payload.userId !== currentUserId && isMounted) {
                 setTypingUsers(prev => {
-                    const next = new Set(prev);
-                    if (payload.isTyping) next.add(payload.userId);
-                    else next.delete(payload.userId);
+                    const next = new Map(prev);
+                    if (payload.isTyping) {
+                        next.set(payload.userId, Date.now());
+                    } else {
+                        next.delete(payload.userId);
+                    }
                     return next;
                 });
             }
         });
 
+        // Cleanup expired typing indicators every 3 seconds
+        const typingCleanupInterval = setInterval(() => {
+            if (!isMounted) return;
+            const now = Date.now();
+            setTypingUsers(prev => {
+                let changed = false;
+                const next = new Map(prev);
+                Array.from(next.entries()).forEach(([uid, timestamp]) => {
+                    if (now - timestamp > 4000) { // Auto-expire after 4 seconds
+                        next.delete(uid);
+                        changed = true;
+                    }
+                });
+                return changed ? next : prev;
+            });
+        }, 3000);
+
         console.log(`[ChatView] Subscribed to Apinator channel: chat-${conversationId}`);
 
         return () => {
             isMounted = false;
+            clearInterval(typingCleanupInterval);
             client.unsubscribe(`chat-${conversationId}`);
         };
     }, [conversationId]);
@@ -209,6 +239,10 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             setEditingMessageId(null);
 
             if (!error) {
+                // Optimistic UI: Update locally first
+                setMessages(prev => prev.map(m => m.id === editingMessageId ? { ...m, content: msgContent, is_edited: true } : m));
+                setEditingMessageId(null);
+
                 // Notify other clients via Apinator
                 fetch('/api/apinator/trigger', {
                     method: 'POST',
@@ -224,6 +258,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             if (error) {
                 console.error("Failed to update", error);
                 toast.error("Sandesh update nahi hua");
+                setEditingMessageId(null);
             }
             return;
         }
@@ -258,46 +293,70 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             newPayload.file_size = mediaFile.size;
         }
 
-        const { error } = await supabase
+        const { data: insertedMsg, error } = await supabase
             .from("messages")
-            .insert(newPayload);
+            .insert(newPayload)
+            .select(`
+                *,
+                sender:profiles!sender_id(username, full_name, avatar_url),
+                post:posts(*),
+                story:stories(*)
+            `)
+            .single();
 
         if (error) {
             console.error("Failed to send", error);
             toast.error("Sandesh bhej nahi paye");
-        } else {
+        } else if (insertedMsg) {
+            // Optimistic UI: Add to local state immediately
+            setMessages(prev => {
+                if (prev.some(m => m.id === insertedMsg.id)) return prev;
+                return [...prev, insertedMsg];
+            });
+            scrollToBottom();
+
             // Notify other clients via Apinator
-            const { data: insertedMsg } = await supabase
-                .from('messages')
-                .select('*')
-                .eq('conversation_id', conversationId)
-                .eq('sender_id', currentUserId)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
-
-            if (insertedMsg) {
-                fetch('/api/apinator/trigger', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        channel: `chat-${conversationId}`,
-                        event: 'new-message',
-                        data: insertedMsg
-                    })
-                }).catch(console.error);
-            }
-
-            // Also notify sidebar refresh for recipient
+            // Notify other clients via Apinator
             fetch('/api/apinator/trigger', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    channel: `sidebar-${recipientId}`,
-                    event: 'conversation-update',
-                    data: { conversationId }
+                    channel: `chat-${conversationId}`,
+                    event: 'new-message',
+                    data: insertedMsg
                 })
             }).catch(console.error);
+
+            // Notify sidebar refresh for recipients
+            if (isGroup) {
+                // For groups, fetch all participants and notify them
+                supabase.from('conversation_participants').select('user_id').eq('conversation_id', conversationId)
+                    .then(({ data: participants }) => {
+                        participants?.forEach((p: any) => {
+                            if (p.user_id === currentUserId) return;
+                            fetch('/api/apinator/trigger', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    channel: `sidebar-${p.user_id}`,
+                                    event: 'conversation-update',
+                                    data: { conversationId }
+                                })
+                            }).catch(console.error);
+                        });
+                    });
+            } else {
+                // 1-on-1: Just notify the recipient
+                fetch('/api/apinator/trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        channel: `sidebar-${recipientId}`,
+                        event: 'conversation-update',
+                        data: { conversationId }
+                    })
+                }).catch(console.error);
+            }
         }
     };
 
@@ -340,16 +399,22 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     const handleTyping = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         setNewMessage(e.target.value);
 
-        // Send typing indicator via Apinator (UNLIMITED)
-        fetch('/api/apinator/trigger', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                channel: `chat-${conversationId}`,
-                event: 'typing',
-                data: { userId: currentUserId, isTyping: true }
-            })
-        }).catch(console.error);
+        const now = Date.now();
+        // Throttle typing signals: max once per 500ms
+        if (now - lastTypingSignalRef.current > 500) {
+            lastTypingSignalRef.current = now;
+
+            // Send typing indicator via Apinator (UNLIMITED)
+            fetch('/api/apinator/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channel: `chat-${conversationId}`,
+                    event: 'typing',
+                    data: { userId: currentUserId, isTyping: true }
+                })
+            }).catch(console.error);
+        }
 
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
         typingTimeoutRef.current = setTimeout(() => {
