@@ -25,33 +25,7 @@ function LoginContent() {
     const isOfficial = role === "official";
     const error = searchParams.get('error');
 
-    // Auto-Failover: If NextAuth gives AccessDenied, try Supabase automatically
-    useEffect(() => {
-        if (error === 'AccessDenied' || error === 'OAuthCallback') {
-            const timer = setTimeout(async () => {
-                console.log("NextAuth failed, triggering Supabase failover...");
-                toast.info("NextAuth block hai, Supabase wala rasta try kar raha hoon... 🚀");
-
-                try {
-                    const { createClient } = await import('@supabase/supabase-js');
-                    const supabase = createClient(
-                        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-                    );
-
-                    await supabase.auth.signInWithOAuth({
-                        provider: 'google',
-                        options: {
-                            redirectTo: `${window.location.origin}${isOfficial ? '/dashboard' : '/'}`,
-                        },
-                    });
-                } catch (err) {
-                    console.error("Failover failed too:", err);
-                }
-            }, 1000);
-            return () => clearTimeout(timer);
-        }
-    }, [error, isOfficial]);
+    // Auto-Failover removed to enforce strict NextAuth session creation
 
     // Check if already logged in -> Redirect
     useEffect(() => {
@@ -226,30 +200,11 @@ function LoginContent() {
                     onClick={async () => {
                         setLoading(true);
                         try {
-                            // Primary Flow: Native Supabase OAuth (Most reliable on Cloudflare Edge)
-                            const { createClient } = await import('@supabase/supabase-js');
-                            const supabase = createClient(
-                                process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-                            );
-
-                            const { error } = await supabase.auth.signInWithOAuth({
-                                provider: 'google',
-                                options: {
-                                    redirectTo: `${window.location.origin}${isOfficial ? '/dashboard' : '/'}`,
-                                    queryParams: {
-                                        prompt: 'select_account'
-                                    }
-                                },
+                            // Using NextAuth exclusively to ensure Edge middleware cookies are correctly set
+                            // for protected routes (/create, /dashboard, etc)
+                            await signIn('google', {
+                                callbackUrl: isOfficial ? '/dashboard' : '/',
                             });
-
-                            if (error) {
-                                console.warn("Supabase Auth failed, falling back to NextAuth:", error);
-                                // Fallback Flow: NextAuth
-                                await signIn('google', {
-                                    callbackUrl: isOfficial ? '/dashboard' : '/',
-                                });
-                            }
                         } catch (err: any) {
                             toast.error(err.message || 'Google Auth Failed Completely');
                             setLoading(false);

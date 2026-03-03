@@ -112,29 +112,38 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     callbacks: {
         async signIn({ user, account }) {
             // For Google OAuth: auto-create user in profiles if first time
-            if (account?.provider === 'google' && user.email) {
-                const userId = emailToUUID(user.email);
-                const adminSupabase = createAdminSupabaseClient();
+            try {
+                if (account?.provider === 'google' && user.email) {
+                    const userId = emailToUUID(user.email);
+                    const adminSupabase = createAdminSupabaseClient();
 
-                const { data: existingProfile } = await adminSupabase
-                    .from('profiles')
-                    .select('id')
-                    .eq('id', userId)
-                    .single();
+                    const { data: existingProfile, error: existingError } = await adminSupabase
+                        .from('profiles')
+                        .select('id')
+                        .eq('id', userId)
+                        .maybeSingle();
 
-                if (!existingProfile) {
-                    // First time Google login — create profile
-                    await adminSupabase.from('profiles').insert({
-                        id: userId,
-                        email: user.email,
-                        username: user.email.split('@')[0],
-                        full_name: user.name || user.email.split('@')[0],
-                        role: 'citizen',
-                        avatar_url: user.image || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name || user.email)}`,
-                        created_at: new Date().toISOString(),
-                    });
+                    if (!existingProfile) {
+                        // First time Google login — create profile
+                        const { error: insertError } = await adminSupabase.from('profiles').insert({
+                            id: userId,
+                            email: user.email,
+                            username: user.email.split('@')[0] + Math.floor(Math.random() * 1000), // Append random to avoid unique constraint collisions
+                            full_name: user.name || user.email.split('@')[0],
+                            role: 'citizen',
+                            avatar_url: user.image || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name || user.email)}`,
+                            created_at: new Date().toISOString(),
+                        });
+
+                        if (insertError) {
+                            console.error("Profile creation error during Google Auth:", insertError);
+                            // We don't throw here! We still want them to login, even if profile creation failed slightly
+                        }
+                    }
+                    user.id = userId;
                 }
-                user.id = userId;
+            } catch (err) {
+                console.error("Critical error in NextAuth signIn callback:", err);
             }
             return true;
         },
