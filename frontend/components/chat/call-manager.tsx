@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useTabSync } from "@/hooks/use-tab-sync";
 import { toast } from "sonner";
 import { VideoCallWindow } from "./video-call-window";
 import { GroupCallWindow } from "./group-call-window";
@@ -19,9 +20,11 @@ export function CallManager() {
     const activeCallRef = useRef<any>(null);
     useEffect(() => { activeCallRef.current = activeCall; }, [activeCall]);
 
+    const { isLeader } = useTabSync();
+
     // 2. Manage Realtime Channel based on userId
     useEffect(() => {
-        if (!userId) return;
+        if (!userId || !isLeader) return;
         let isMounted = true;
         let channel: any;
 
@@ -65,30 +68,15 @@ export function CallManager() {
 
         setupChannel();
 
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                console.log(`[CallManager] App became visible. User ID: ${userId}, Channel State: ${channel?.state}`);
-                // Supabase Realtime usually reconnects automatically, but we can nudge it if it's stuck
-                if (channel && channel.state === 'closed') {
-                    console.log("[CallManager] Channel is closed, re-subscribing...");
-                    if (heartbeat) clearInterval(heartbeat);
-                    setupChannel();
-                }
-            }
-        };
-
-        window.addEventListener("visibilitychange", handleVisibilityChange);
-
         return () => {
             isMounted = false;
-            window.removeEventListener("visibilitychange", handleVisibilityChange);
             if (heartbeat) clearInterval(heartbeat);
             if (channel) {
                 console.log(`[CallManager] Cleaning up channel for user:${userId}`);
                 supabase.removeChannel(channel);
             }
         };
-    }, [userId]);
+    }, [userId, isLeader]);
 
     // Listen for Outgoing Calls triggered from ChatView
     useEffect(() => {

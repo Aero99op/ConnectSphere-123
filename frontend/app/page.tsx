@@ -13,6 +13,7 @@ import { StoryViewer } from "@/components/feed/story-viewer";
 import { RightSidebar } from "@/components/layout/right-sidebar";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTabSync } from "@/hooks/use-tab-sync";
 import { FileUpload } from "@/components/ui/file-upload";
 
 function HomeFeedContent() {
@@ -133,10 +134,13 @@ function HomeFeedContent() {
         setLoading(false);
     };
 
+    const { isLeader } = useTabSync();
+
     useEffect(() => {
         let feedChannel: any;
 
         const init = async () => {
+            if (!isLeader) return;
             setLoading(true);
 
             if (authUser) {
@@ -156,18 +160,16 @@ function HomeFeedContent() {
             // Normal feed initialization
             await Promise.all([fetchPosts(), fetchStories(authUser?.id || null)]);
 
-            // Realtime Listeners 
+            // HYPER-SCALE: Global feed realtime listeners disabled for 1M users stability.
+            // Why? Global DB listeners create massive load during viral events.
+            // Solution: Use User-initiated refresh or a Pull-to-Refresh pattern.
+            /* 
             feedChannel = supabase
                 .channel('feed-updates')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, () => {
-                    console.log("New post added! Updating feed...");
-                    fetchPosts();
-                })
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stories' }, () => {
-                    console.log("New story added! Updating rail...");
-                    fetchStories(authUser?.id || null);
-                })
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, () => fetchPosts())
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stories' }, () => fetchStories(authUser?.id || null))
                 .subscribe();
+            */
 
             setIsInitializing(false);
         };
@@ -179,7 +181,7 @@ function HomeFeedContent() {
                 supabase.removeChannel(feedChannel);
             }
         };
-    }, [authUser, router]);
+    }, [authUser, router, isLeader]);
 
 
     const [storyFileUrls, setStoryFileUrls] = useState<string[]>([]);

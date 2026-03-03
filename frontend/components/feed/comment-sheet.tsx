@@ -67,18 +67,34 @@ export function CommentSheet({ postId, open, onOpenChange }: CommentSheetProps) 
                 return;
             }
 
-            // Trigger Notification (Fire and forget, don't block UI)
+            // Trigger Notification + Broadcast Signal (Hyper-Scale)
             supabase.from('posts')
                 .select('user_id')
                 .eq('id', postId)
                 .maybeSingle()
-                .then(({ data: postData }) => {
+                .then(async ({ data: postData }) => {
                     if (postData && postData.user_id !== user.id) {
-                        supabase.from('notifications').insert({
+                        const notifData = {
                             recipient_id: postData.user_id,
                             actor_id: user.id,
                             type: 'comment',
                             entity_id: postId
+                        };
+
+                        // 1. DB Record
+                        await supabase.from('notifications').insert(notifData);
+
+                        // 2. Broadcast Signal
+                        const channel = supabase.channel(`user-notifications-${postData.user_id}`);
+                        channel.subscribe(async (status) => {
+                            if (status === 'SUBSCRIBED') {
+                                await channel.send({
+                                    type: 'broadcast',
+                                    event: 'notification_ping',
+                                    payload: notifData
+                                });
+                                supabase.removeChannel(channel);
+                            }
                         });
                     }
                 });

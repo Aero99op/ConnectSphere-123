@@ -7,6 +7,7 @@ import { MessageCircle, Search, Edit, Users, ChevronLeft, Loader2 } from "lucide
 import { NewChatDialog } from "./new-chat-dialog";
 import { CreateGroupDialog } from "./create-group-dialog";
 import { cn } from "@/lib/utils";
+import { useTabSync } from "@/hooks/use-tab-sync";
 import Link from "next/link";
 
 interface ChatSidebarProps {
@@ -27,8 +28,10 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
         if (authUser) fetchConversations(authUser.id);
     }, [authUser]);
 
+    const { isLeader } = useTabSync();
+
     useEffect(() => {
-        if (!userId) return;
+        if (!userId || !isLeader) return;
         let isMounted = true;
 
         const channel = supabase.channel(`conversations-${userId}`)
@@ -43,7 +46,7 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
             isMounted = false;
             supabase.removeChannel(channel);
         };
-    }, [userId]);
+    }, [userId, isLeader]);
 
     const fetchConversations = async (uid: string) => {
         setLoading(true);

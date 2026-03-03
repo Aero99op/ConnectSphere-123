@@ -127,11 +127,27 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
             }
 
             if (currentStory.user_id && currentStory.user_id !== userId) {
-                await supabase.from('notifications').insert({
+                const notifData = {
                     recipient_id: currentStory.user_id,
                     actor_id: userId,
                     type: 'like',
                     entity_id: currentStory.id
+                };
+
+                // 1. DB Record
+                await supabase.from('notifications').insert(notifData);
+
+                // 2. Broadcast Signal
+                const channel = supabase.channel(`user-notifications-${currentStory.user_id}`);
+                channel.subscribe(async (status) => {
+                    if (status === 'SUBSCRIBED') {
+                        await channel.send({
+                            type: 'broadcast',
+                            event: 'notification_ping',
+                            payload: notifData
+                        });
+                        supabase.removeChannel(channel);
+                    }
                 });
             }
             toast.success("Loved it! ❤️");
@@ -183,12 +199,25 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
             });
             if (msgErr) throw msgErr;
 
-            // 3. Notification Fallback
-            await supabase.from('notifications').insert({
+            // 3. Notification Fallback + Signal
+            const notifData = {
                 recipient_id: currentStory.user_id,
                 actor_id: userId,
                 type: 'comment',
                 entity_id: currentStory.id
+            };
+            await supabase.from('notifications').insert(notifData);
+
+            const channel = supabase.channel(`user-notifications-${currentStory.user_id}`);
+            channel.subscribe(async (status) => {
+                if (status === 'SUBSCRIBED') {
+                    await channel.send({
+                        type: 'broadcast',
+                        event: 'notification_ping',
+                        payload: notifData
+                    });
+                    supabase.removeChannel(channel);
+                }
             });
 
             toast.success("Reply saved & DM sent! ✉️");

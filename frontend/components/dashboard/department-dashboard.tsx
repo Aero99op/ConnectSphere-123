@@ -31,6 +31,7 @@ import {
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { useTabSync } from "@/hooks/use-tab-sync";
 import { DeptTab, DepartmentNav } from "./department-nav";
 import { motion, AnimatePresence } from "framer-motion";
 import { BottomNav } from '@/components/layout/bottom-nav'
@@ -57,12 +58,17 @@ export function DepartmentDashboard() {
     const [updateMedia, setUpdateMedia] = useState("");
     const [captureGeo, setCaptureGeo] = useState(true);
 
+    const { isLeader } = useTabSync();
+
     useEffect(() => {
         const initDashboard = async () => {
             if (!authUser) {
                 window.location.href = '/';
                 return;
             }
+
+            // Only run Realtime if leader
+            if (!isLeader) return;
 
             const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).single();
             if (profile?.role !== 'official') {
@@ -108,7 +114,7 @@ export function DepartmentDashboard() {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [filter]);
+    }, [filter, isLeader]);
 
     const fetchReports = async () => {
         setLoading(true);

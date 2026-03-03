@@ -126,13 +126,29 @@ export function PostCard({ post }: PostProps) {
             await supabase.from('post_likes').insert({ post_id: post.id, user_id: currentUserId });
             await supabase.rpc('increment_karma', { user_id_param: post.user_id });
 
-            // Trigger Notification
+            // Trigger Notification + Broadcast Signal (Hyper-Scale)
             if (post.user_id !== currentUserId) {
-                await supabase.from('notifications').insert({
+                const notifData = {
                     recipient_id: post.user_id,
                     actor_id: currentUserId,
                     type: 'like',
                     entity_id: post.id
+                };
+
+                // 1. Persistent DB entry
+                await supabase.from('notifications').insert(notifData);
+
+                // 2. RAM-based Broadcast (Instant & Scalable)
+                const channel = supabase.channel(`user-notifications-${post.user_id}`);
+                channel.subscribe(async (status) => {
+                    if (status === 'SUBSCRIBED') {
+                        await channel.send({
+                            type: 'broadcast',
+                            event: 'notification_ping',
+                            payload: notifData
+                        });
+                        supabase.removeChannel(channel);
+                    }
                 });
             }
         } else {

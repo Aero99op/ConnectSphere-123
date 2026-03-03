@@ -151,12 +151,28 @@ function AnotherUserProfileContent() {
                 setIsFollowing(true);
                 setStats(s => ({ ...s, followers: s.followers + 1 }));
 
-                // Trigger Follow Notification
-                await supabase.from('notifications').insert({
+                // Trigger Follow Notification + Broadcast Signal (Hyper-Scale)
+                const notifData = {
                     recipient_id: userId,
                     actor_id: currentUser.id,
                     type: 'follow',
                     entity_id: currentUser.id
+                };
+
+                // 1. DB Record
+                await supabase.from('notifications').insert(notifData);
+
+                // 2. Broadcast Signal
+                const channel = supabase.channel(`user-notifications-${userId}`);
+                channel.subscribe(async (status) => {
+                    if (status === 'SUBSCRIBED') {
+                        await channel.send({
+                            type: 'broadcast',
+                            event: 'notification_ping',
+                            payload: notifData
+                        });
+                        supabase.removeChannel(channel);
+                    }
                 });
             }
         }

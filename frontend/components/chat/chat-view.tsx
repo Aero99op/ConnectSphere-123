@@ -8,6 +8,7 @@ import { Send, ChevronLeft, Loader2, Video, Phone, MoreVertical, Image as ImageI
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { useTabSync } from "@/hooks/use-tab-sync";
 import { AddGroupMembersDialog } from "./add-group-members-dialog";
 import Image from "next/image";
 
@@ -44,7 +45,10 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    const { isLeader } = useTabSync();
+
     useEffect(() => {
+        if (!isLeader) return;
         let isMounted = true;
         fetchMessages();
 
@@ -120,7 +124,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             isMounted = false;
             supabase.removeChannel(channel);
         };
-    }, [conversationId]);
+    }, [conversationId, isLeader]);
 
     useEffect(() => {
         scrollToBottom();

@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { PostCard } from "@/components/feed/post-card";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useTabSync } from "@/hooks/use-tab-sync";
 
 function ProfilePageContent() {
     const { user: authUser, supabase, signOut } = useAuth();
@@ -175,14 +176,29 @@ function ProfilePageContent() {
         }
     };
 
+    const { isLeader } = useTabSync();
+
     useEffect(() => {
         let followChannel: any;
 
         const initRealtime = async () => {
-            if (!authUser) return;
+            if (!authUser || !isLeader) return;
 
             followChannel = supabase
-                .channel('profile-follows-realtime')
+                .channel(`profile-follows-${authUser.id}`)
+                .on(
+                    'broadcast',
+                    { event: 'follow_ping' },
+                    async () => {
+                        console.log("[Profile] Follow broadcast received! Refreshing counts...");
+                        const [folCount, fingCount] = await Promise.all([
+                            supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', authUser.id),
+                            supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', authUser.id)
+                        ]);
+                        setFollowersCount(folCount.count || 0);
+                        setFollowingCount(fingCount.count || 0);
+                    }
+                )
                 .on('postgres_changes', {
                     event: '*',
                     schema: 'public',
@@ -209,7 +225,7 @@ function ProfilePageContent() {
         return () => {
             if (followChannel) supabase.removeChannel(followChannel);
         };
-    }, [authUser, supabase]);
+    }, [authUser, supabase, isLeader]);
 
 
     if (loading) {

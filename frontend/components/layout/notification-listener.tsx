@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useTabSync } from "@/hooks/use-tab-sync";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -9,9 +10,11 @@ export function NotificationListener() {
     const { user, supabase } = useAuth();
     const userId = user?.id || null;
 
+    const { isLeader } = useTabSync();
+
     // 2. Manage Realtime Channel
     useEffect(() => {
-        if (!userId) return;
+        if (!userId || !isLeader) return;
         let isMounted = true;
         let channel: any;
         let heartbeat: NodeJS.Timeout;
@@ -19,6 +22,19 @@ export function NotificationListener() {
         const setupSubscription = () => {
             channel = supabase
                 .channel(`user-notifications-${userId}`)
+                .on(
+                    'broadcast',
+                    { event: 'notification_ping' },
+                    async ({ payload }: { payload: any }) => {
+                        console.log("[NotificationListener] Broadcast received:", payload);
+                        const { data: actor } = await supabase
+                            .from('profiles')
+                            .select('username, avatar_url')
+                            .eq('id', payload.actor_id)
+                            .single();
+                        if (actor && isMounted) showNotificationToast(actor, payload);
+                    }
+                )
                 .on(
                     'postgres_changes',
                     {
@@ -57,26 +73,15 @@ export function NotificationListener() {
 
         setupSubscription();
 
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible' && channel?.state === 'closed') {
-                console.log("[NotificationListener] Channel closed on visibility change, re-subscribing...");
-                if (heartbeat) clearInterval(heartbeat);
-                setupSubscription();
-            }
-        };
-
-        window.addEventListener("visibilitychange", handleVisibilityChange);
-
         return () => {
             isMounted = false;
-            window.removeEventListener("visibilitychange", handleVisibilityChange);
             if (heartbeat) clearInterval(heartbeat);
             if (channel) {
                 console.log(`[NotificationListener] Cleaning up channel for ${userId}`);
                 supabase.removeChannel(channel);
             }
         };
-    }, [userId]);
+    }, [userId, isLeader]);
 
     const showNotificationToast = (actor: any, notification: any) => {
         let actionLabel = "";
