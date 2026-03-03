@@ -1,7 +1,9 @@
-// Apinator Edge-Compatible Implementation (Pusher-compatible API)
+// Apinator Edge-Compatible Server Implementation
+// Reverse-engineered from @apinator/server SDK to work on Cloudflare Edge Runtime
+// (avoiding Node.js 'crypto' module by using Web Crypto API)
 
-// Lightweight MD5 for 'body_md5' - Needed for Pusher-compatible API
-function md5(str: string) {
+// --- Edge-compatible MD5 (needed for body_md5 in request signing) ---
+function md5Hex(str: string): string {
     const k = [
         0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee, 0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501,
         0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be, 0x6b901122, 0xfd987193, 0xa679438e, 0x49b40821,
@@ -19,99 +21,116 @@ function md5(str: string) {
         6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21
     ];
     let h = [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476];
-    const encoder = new TextEncoder();
-    const s = encoder.encode(str);
+    const enc = new TextEncoder();
+    const s = enc.encode(str);
     const l = s.length;
-    const b = new Uint32Array(((l + 9) >> 6) + 1 << 4);
-    for (let i = 0; i < l; i++) b[i >> 2] |= s[i] << ((i % 4) << 3);
-    b[l >> 2] |= 0x80 << ((l % 4) << 3);
-    b[b.length - 2] = l << 3;
-    for (let i = 0; i < b.length; i += 16) {
+    const blocks = new Uint32Array((((l + 9) >> 6) + 1) << 4);
+    for (let i = 0; i < l; i++) blocks[i >> 2] |= s[i] << ((i % 4) << 3);
+    blocks[l >> 2] |= 0x80 << ((l % 4) << 3);
+    blocks[blocks.length - 2] = l << 3;
+    for (let i = 0; i < blocks.length; i += 16) {
         let [a, c, d, e] = h;
         for (let j = 0; j < 64; j++) {
-            let f, g;
+            let f: number, g: number;
             if (j < 16) { f = (c & d) | (~c & e); g = j; }
             else if (j < 32) { f = (c & e) | (d & ~e); g = (5 * j + 1) % 16; }
             else if (j < 48) { f = c ^ d ^ e; g = (3 * j + 5) % 16; }
             else { f = d ^ (c | ~e); g = (7 * j) % 16; }
-            const t = e; e = d; d = c;
-            c = (c + ((a + f + k[j] + b[i + g]) << r[j] | (a + f + k[j] + b[i + g]) >>> (32 - r[j]))) | 0;
-            a = t;
+            const tmp = e; e = d; d = c;
+            const sum = (a + f + k[j] + blocks[i + g]) | 0;
+            c = (c + ((sum << r[j]) | (sum >>> (32 - r[j])))) | 0;
+            a = tmp;
         }
-        h[0] = (h[0] + a) | 0; h[1] = (h[1] + c) | 0; h[2] = (h[2] + d) | 0; h[3] = (h[3] + e) | 0;
+        h[0] = (h[0] + a) | 0; h[1] = (h[1] + c) | 0;
+        h[2] = (h[2] + d) | 0; h[3] = (h[3] + e) | 0;
     }
-    return h.map(x => (x >>> 0).toString(16).padStart(8, '0').match(/../g)!.reverse().join('')).join('');
+    return h.map(x => (x >>> 0).toString(16).padStart(8, '0')
+        .match(/../g)!.reverse().join('')).join('');
 }
 
-async function sign(message: string, secret: string) {
-    const encoder = new TextEncoder();
+// --- Edge-compatible HMAC-SHA256 ---
+async function hmacSha256(secret: string, message: string): Promise<string> {
+    const enc = new TextEncoder();
     const key = await crypto.subtle.importKey(
-        'raw',
-        encoder.encode(secret),
-        { name: 'HMAC', hash: 'SHA-256' },
-        false,
-        ['sign']
+        'raw', enc.encode(secret),
+        { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
     );
-    const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(message));
-    return Array.from(new Uint8Array(signature))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
+    const sig = await crypto.subtle.sign('HMAC', key, enc.encode(message));
+    return Array.from(new Uint8Array(sig))
+        .map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// --- Apinator request signing (matches SDK exactly) ---
+// SDK format: signString = `${timestamp}\n${method}\n${path}\n${bodyMD5}`
+async function signRequest(secret: string, method: string, path: string, body: string, timestamp: number): Promise<string> {
+    const bodyMD5 = body === '' ? '' : md5Hex(body);
+    const sigString = `${timestamp}\n${method}\n${path}\n${bodyMD5}`;
+    return hmacSha256(secret, sigString);
+}
+
+// --- Apinator channel signing (matches SDK exactly) ---
+// SDK format: sigString = `${socketId}:${channelName}` or `${socketId}:${channelName}:${channelData}`
+async function signChannel(secret: string, socketId: string, channelName: string, channelData?: string): Promise<string> {
+    const sigString = channelData ? `${socketId}:${channelName}:${channelData}` : `${socketId}:${channelName}`;
+    return hmacSha256(secret, sigString);
+}
+
+// --- Main export ---
 export const getApinatorServer = () => {
     const appId = process.env.APINATOR_APP_ID || '';
     const appKey = process.env.APINATOR_KEY || '';
     const appSecret = process.env.APINATOR_SECRET || '';
     const cluster = process.env.NEXT_PUBLIC_APINATOR_CLUSTER || 'us';
-    const host = `https://api-${cluster}.apinator.io`;
+    // SDK uses: `https://ws-${cluster}.apinator.io`
+    const host = `https://ws-${cluster}.apinator.io`;
 
     return {
-        trigger: async ({ channel, name: eventName, data }: { channel: string, name: string, data: any }) => {
-            const path = `/apps/${appId}/events`;
-            const body = JSON.stringify({
+        trigger: async ({ channel, name: eventName, data }: { channel: string; name: string; data: any }) => {
+            const body: any = {
                 name: eventName,
-                channels: Array.isArray(channel) ? channel : [channel],
-                data: typeof data === 'string' ? data : JSON.stringify(data)
-            });
-
-            const body_md5 = md5(body);
-            const auth_timestamp = Math.floor(Date.now() / 1000);
-            const auth_version = '1.0';
-
-            const params = {
-                auth_key: appKey,
-                auth_timestamp,
-                auth_version,
-                body_md5
+                data: typeof data === 'string' ? data : JSON.stringify(data),
             };
+            // SDK uses 'channel' for single, 'channels' for array
+            if (Array.isArray(channel)) {
+                body.channels = channel;
+            } else {
+                body.channel = channel;
+            }
 
-            const sortedQuery = Object.keys(params)
-                .sort()
-                .map(k => `${k}=${(params as any)[k]}`)
-                .join('&');
+            const bodyString = JSON.stringify(body);
+            const path = `/apps/${appId}/events`;
+            const timestamp = Math.floor(Date.now() / 1000);
+            const signature = await signRequest(appSecret, 'POST', path, bodyString, timestamp);
 
-            const stringToSign = `POST\n${path}\n${sortedQuery}`;
-            const auth_signature = await sign(stringToSign, appSecret);
-
-            const url = `${host}${path}?${sortedQuery}&auth_signature=${auth_signature}`;
-
-            const response = await fetch(url, {
+            // SDK uses these exact headers:
+            const response = await fetch(`${host}${path}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: body
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Realtime-Key': appKey,
+                    'X-Realtime-Timestamp': timestamp.toString(),
+                    'X-Realtime-Signature': signature,
+                },
+                body: bodyString,
             });
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error("[Apinator] Trigger failed:", errorText);
-                throw new Error(`Apinator Trigger failed: ${errorText}`);
+                console.error('[Apinator] Trigger failed:', response.status, errorText);
+                throw new Error(`Apinator trigger failed (${response.status}): ${errorText}`);
             }
-            return response.json();
+
+            const text = await response.text();
+            return text === '' ? {} : JSON.parse(text);
         },
-        authenticateChannel: async (socketId: string, channelName: string) => {
-            const stringToSign = `${socketId}:${channelName}`;
-            const signature = await sign(stringToSign, appSecret);
-            return { auth: `${appKey}:${signature}` };
-        }
+
+        authenticateChannel: async (socketId: string, channelName: string, channelData?: string) => {
+            const signature = await signChannel(appSecret, socketId, channelName, channelData);
+            const result: any = { auth: `${appKey}:${signature}` };
+            if (channelData !== undefined) {
+                result.channel_data = channelData;
+            }
+            return result;
+        },
     };
 };
