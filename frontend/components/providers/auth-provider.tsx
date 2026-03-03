@@ -72,12 +72,16 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
 
     const loading = nextAuthStatus === 'loading' || isNativeLoading;
 
-    // Supabase Client Initialization
     const supabaseContextClient = useMemo(() => {
         // If NextAuth has a session, use its injected token
         const nextAuthToken = (nextAuthSession as any)?.supabaseAccessToken;
         if (nextAuthToken) {
             return createClient(supabaseUrl, supabaseAnonKey, {
+                auth: {
+                    persistSession: false,
+                    autoRefreshToken: false,
+                    detectSessionInUrl: false
+                },
                 global: { headers: { Authorization: `Bearer ${nextAuthToken}` } },
                 realtime: {
                     params: { apikey: supabaseAnonKey },
@@ -90,26 +94,27 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         // the client itself manages the token seamlessly, just return anonSupabase
         // because auth instance inside it is already aware of the session
         return anonSupabase;
-    }, [(nextAuthSession as any)?.supabaseAccessToken, nativeSession]);
+    }, [(nextAuthSession as any)?.supabaseAccessToken]);
 
-    // Construct unified User object
-    let unifiedUser = null;
-
-    if (nextAuthSession?.user) {
-        unifiedUser = {
-            id: (nextAuthSession as any).user.id as string,
-            email: nextAuthSession.user.email as string,
-            name: nextAuthSession.user.name as string,
-            image: nextAuthSession.user.image as string | undefined,
-        };
-    } else if (nativeSession?.user) {
-        unifiedUser = {
-            id: nativeSession.user.id,
-            email: nativeSession.user.email || '',
-            name: nativeSession.user.user_metadata?.full_name || nativeSession.user.email?.split('@')[0] || 'User',
-            image: nativeSession.user.user_metadata?.avatar_url,
-        };
-    }
+    // Construct unified User object (Memoized to prevent infinite re-renders in consumers like OnboardingGuard)
+    const unifiedUser = useMemo(() => {
+        if (nextAuthSession?.user) {
+            return {
+                id: (nextAuthSession as any).user.id as string,
+                email: nextAuthSession.user.email as string,
+                name: nextAuthSession.user.name as string,
+                image: nextAuthSession.user.image as string | undefined,
+            };
+        } else if (nativeSession?.user) {
+            return {
+                id: nativeSession.user.id,
+                email: nativeSession.user.email || '',
+                name: nativeSession.user.user_metadata?.full_name || nativeSession.user.email?.split('@')[0] || 'User',
+                image: nativeSession.user.user_metadata?.avatar_url,
+            };
+        }
+        return null;
+    }, [nextAuthSession?.user, nativeSession?.user]);
 
     const handleSignOut = async () => {
         // Sign out of both systems to be safe
@@ -117,14 +122,16 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         await nextAuthSignOut({ callbackUrl: '/role-selection' });
     };
 
+    const contextValue = useMemo(() => ({
+        user: unifiedUser,
+        session: unifiedUser ? { user: unifiedUser } : null,
+        supabase: supabaseContextClient,
+        loading,
+        signOut: handleSignOut,
+    }), [unifiedUser, supabaseContextClient, loading]);
+
     return (
-        <AuthContext.Provider value={{
-            user: unifiedUser,
-            session: unifiedUser ? { user: unifiedUser } : null,
-            supabase: supabaseContextClient,
-            loading,
-            signOut: handleSignOut,
-        }}>
+        <AuthContext.Provider value={contextValue}>
             {children}
         </AuthContext.Provider>
     );
