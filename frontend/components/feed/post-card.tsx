@@ -138,18 +138,16 @@ export function PostCard({ post }: PostProps) {
                 // 1. Persistent DB entry
                 await supabase.from('notifications').insert(notifData);
 
-                // 2. RAM-based Broadcast (Instant & Scalable)
-                const channel = supabase.channel(`user-notifications-${post.user_id}`);
-                channel.subscribe(async (status) => {
-                    if (status === 'SUBSCRIBED') {
-                        await channel.send({
-                            type: 'broadcast',
-                            event: 'notification_ping',
-                            payload: notifData
-                        });
-                        supabase.removeChannel(channel);
-                    }
-                });
+                // 2. Instant Notification via Apinator (UNLIMITED)
+                fetch('/api/apinator/trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        channel: `notifications-${post.user_id}`,
+                        event: 'notification_ping',
+                        data: notifData
+                    })
+                }).catch(console.error);
             }
         } else {
             // Remove from persistent post_likes table

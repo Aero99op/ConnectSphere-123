@@ -7,7 +7,7 @@ import { MessageCircle, Search, Edit, Users, ChevronLeft, Loader2 } from "lucide
 import { NewChatDialog } from "./new-chat-dialog";
 import { CreateGroupDialog } from "./create-group-dialog";
 import { cn } from "@/lib/utils";
-import { useTabSync } from "@/hooks/use-tab-sync";
+import { getApinatorClient } from "@/lib/apinator";
 import Link from "next/link";
 
 interface ChatSidebarProps {
@@ -28,25 +28,25 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
         if (authUser) fetchConversations(authUser.id);
     }, [authUser]);
 
-    const { isLeader } = useTabSync();
-
+    // Apinator-based sidebar updates (UNLIMITED, no Supabase connection)
     useEffect(() => {
-        if (!userId || !isLeader) return;
-        let isMounted = true;
+        if (!userId) return;
 
-        const channel = supabase.channel(`conversations-${userId}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
-                if (isMounted && userId) fetchConversations(userId);
-            })
-            .subscribe((status: string, err: any) => {
-                if (err) console.error("Sidebar subscribe error:", err);
-            });
+        const client = getApinatorClient();
+        if (!client) return;
+
+        const channel = client.subscribe(`sidebar-${userId}`);
+
+        channel.bind('conversation-update', () => {
+            if (userId) fetchConversations(userId);
+        });
+
+        console.log(`[ChatSidebar] Subscribed to Apinator channel: sidebar-${userId}`);
 
         return () => {
-            isMounted = false;
-            supabase.removeChannel(channel);
+            client.unsubscribe(`sidebar-${userId}`);
         };
-    }, [userId, isLeader]);
+    }, [userId]);
 
     const fetchConversations = async (uid: string) => {
         setLoading(true);

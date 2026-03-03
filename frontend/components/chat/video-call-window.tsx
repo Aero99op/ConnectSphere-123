@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Phone, Maximize2, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getApinatorClient } from "@/lib/apinator";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -133,9 +134,23 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
             }
         };
 
-        const channel = supabase.channel(`call:${roomId}`);
+        // Apinator-based WebRTC signaling (UNLIMITED, no Supabase connection)
+        const client = getApinatorClient();
+        if (!client) return;
+
+        const channelName = `webrtc-${roomId}`;
+        const channel = client.subscribe(channelName);
         let iceCandidateQueue: RTCIceCandidateInit[] = [];
-        let isSubscribed = false;
+        let isSubscribed = true; // Apinator connects immediately
+
+        // Helper to send signaling events via API
+        const sendSignal = (event: string, data: any) => {
+            fetch('/api/apinator/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channel: channelName, event, data })
+            }).catch(console.error);
+        };
 
         const startCall = async () => {
             const stream = await initMedia();
@@ -156,113 +171,78 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
 
             peerConnection.current.onicecandidate = (event) => {
                 if (event.candidate) {
-                    if (isSubscribed) {
-                        channel.send({
-                            type: "broadcast",
-                            event: "ice-candidate",
-                            payload: { candidate: event.candidate, from: isCaller ? 'caller' : 'receiver' },
-                        });
-                    } else {
-                        iceCandidateQueue.push(event.candidate);
-                    }
+                    sendSignal('ice-candidate', { candidate: event.candidate, from: isCaller ? 'caller' : 'receiver' });
                 }
             };
 
-            channel
-                .on("broadcast", { event: "receiver-ready" }, async () => {
-                    if (isCaller && peerConnection.current) {
-                        try {
-                            const offer = await peerConnection.current.createOffer();
-                            await peerConnection.current.setLocalDescription(offer);
-                            channel.send({
-                                type: "broadcast",
-                                event: "call-offer",
-                                payload: { offer },
-                            });
-                        } catch (err) {
-                            console.error("Error creating offer:", err);
-                        }
+            // Listen for signaling events from Apinator
+            channel.bind('receiver-ready', async () => {
+                if (isCaller && peerConnection.current) {
+                    try {
+                        const offer = await peerConnection.current.createOffer();
+                        await peerConnection.current.setLocalDescription(offer);
+                        sendSignal('call-offer', { offer });
+                    } catch (err) {
+                        console.error("Error creating offer:", err);
                     }
-                })
-                .on("broadcast", { event: "ice-candidate" }, async (payload) => {
-                    const isFromMe = isCaller ? payload.payload.from === 'caller' : payload.payload.from === 'receiver';
-                    if (peerConnection.current && !isFromMe) {
-                        try {
-                            await peerConnection.current.addIceCandidate(new RTCIceCandidate(payload.payload.candidate));
-                        } catch (err) {
-                            console.error("Error adding ice candidate", err);
-                        }
-                    }
-                })
-                .on("broadcast", { event: "call-offer" }, async (payload) => {
-                    if (!isCaller && peerConnection.current) {
-                        try {
-                            await peerConnection.current.setRemoteDescription(new RTCSessionDescription(payload.payload.offer));
-                            const answer = await peerConnection.current.createAnswer();
-                            await peerConnection.current.setLocalDescription(answer);
+                }
+            });
 
-                            channel.send({
-                                type: "broadcast",
-                                event: "call-answer",
-                                payload: { answer },
-                            });
-                        } catch (err) {
-                            console.error("Error handling offer:", err);
-                        }
+            channel.bind('ice-candidate', async (data: any) => {
+                const payload = typeof data === 'string' ? JSON.parse(data) : data;
+                const isFromMe = isCaller ? payload.from === 'caller' : payload.from === 'receiver';
+                if (peerConnection.current && !isFromMe) {
+                    try {
+                        await peerConnection.current.addIceCandidate(new RTCIceCandidate(payload.candidate));
+                    } catch (err) {
+                        console.error("Error adding ice candidate", err);
                     }
-                })
-                .on("broadcast", { event: "call-answer" }, async (payload) => {
-                    if (isCaller && peerConnection.current) {
-                        try {
-                            await peerConnection.current.setRemoteDescription(new RTCSessionDescription(payload.payload.answer));
-                        } catch (err) {
-                            console.error("Error handling answer:", err);
-                        }
-                    }
-                })
-                .on("broadcast", { event: "end-call" }, () => {
-                    handleEndCall(false);
-                })
-                .on("broadcast", { event: "caller-ready" }, async () => {
-                    if (!isCaller && isSubscribed) {
-                        channel.send({
-                            type: "broadcast",
-                            event: "receiver-ready",
-                            payload: {}
-                        });
-                    }
-                })
-                .subscribe(async (status) => {
-                    if (status === 'SUBSCRIBED') {
-                        isSubscribed = true;
-                        // Send queued ICE candidates
-                        while (iceCandidateQueue.length > 0) {
-                            const candidate = iceCandidateQueue.shift();
-                            await channel.send({
-                                type: "broadcast",
-                                event: "ice-candidate",
-                                payload: { candidate, from: isCaller ? 'caller' : 'receiver' },
-                            });
-                        }
+                }
+            });
 
-                        if (!isCaller) {
-                            setTimeout(() => {
-                                // Tell the caller we are ready to receive the offer!
-                                channel.send({
-                                    type: "broadcast",
-                                    event: "receiver-ready",
-                                    payload: {}
-                                });
-                            }, 800); // 800ms buffer for Supabase sockets to stabilize
-                        } else {
-                            channel.send({
-                                type: "broadcast",
-                                event: "caller-ready",
-                                payload: {}
-                            });
-                        }
+            channel.bind('call-offer', async (data: any) => {
+                const payload = typeof data === 'string' ? JSON.parse(data) : data;
+                if (!isCaller && peerConnection.current) {
+                    try {
+                        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(payload.offer));
+                        const answer = await peerConnection.current.createAnswer();
+                        await peerConnection.current.setLocalDescription(answer);
+                        sendSignal('call-answer', { answer });
+                    } catch (err) {
+                        console.error("Error handling offer:", err);
                     }
-                });
+                }
+            });
+
+            channel.bind('call-answer', async (data: any) => {
+                const payload = typeof data === 'string' ? JSON.parse(data) : data;
+                if (isCaller && peerConnection.current) {
+                    try {
+                        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(payload.answer));
+                    } catch (err) {
+                        console.error("Error handling answer:", err);
+                    }
+                }
+            });
+
+            channel.bind('end-call', () => {
+                handleEndCall(false);
+            });
+
+            channel.bind('caller-ready', async () => {
+                if (!isCaller) {
+                    sendSignal('receiver-ready', {});
+                }
+            });
+
+            // Signal readiness
+            setTimeout(() => {
+                if (!isCaller) {
+                    sendSignal('receiver-ready', {});
+                } else {
+                    sendSignal('caller-ready', {});
+                }
+            }, 800);
         };
 
         startCall();
@@ -275,14 +255,13 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
         return () => {
             isCleaningUp = true;
             window.removeEventListener("beforeunload", handleBeforeUnload);
-            // Don't call handleEndCall(true) here to prevent React Strict mode from ending the call instantly
             if (localStream.current) {
                 localStream.current.getTracks().forEach(track => track.stop());
             }
             if (peerConnection.current) {
                 peerConnection.current.close();
             }
-            supabase.removeChannel(channel);
+            client.unsubscribe(channelName);
         };
     }, []);
 
@@ -295,11 +274,16 @@ export function VideoCallWindow({ roomId, remoteUserId, isCaller, callType, onEn
         }
 
         if (sendEvent) {
-            const sendEnd = async () => {
-                const sendChannel = supabase.channel(`call:${roomId}`);
-                await sendChannel.send({ type: "broadcast", event: "end-call", payload: {} });
-            };
-            sendEnd();
+            // Send end-call via Apinator
+            fetch('/api/apinator/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channel: `webrtc-${roomId}`,
+                    event: 'end-call',
+                    data: {}
+                })
+            }).catch(console.error);
         }
 
         onEndCall(durationRef.current);

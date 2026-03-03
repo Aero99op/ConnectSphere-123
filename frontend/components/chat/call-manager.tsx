@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
-import { useTabSync } from "@/hooks/use-tab-sync";
+import { getApinatorClient } from "@/lib/apinator";
 import { toast } from "sonner";
 import { VideoCallWindow } from "./video-call-window";
 import { GroupCallWindow } from "./group-call-window";
@@ -20,63 +20,31 @@ export function CallManager() {
     const activeCallRef = useRef<any>(null);
     useEffect(() => { activeCallRef.current = activeCall; }, [activeCall]);
 
-    const { isLeader } = useTabSync();
-
-    // 2. Manage Realtime Channel based on userId
+    // Apinator-based Call Signaling (UNLIMITED, ZERO Supabase connections)
     useEffect(() => {
-        if (!userId || !isLeader) return;
+        if (!userId) return;
         let isMounted = true;
-        let channel: any;
 
-        let heartbeat: NodeJS.Timeout;
+        const client = getApinatorClient();
+        if (!client) return;
 
-        const setupChannel = () => {
-            // Subscribe to MY personal channel for incoming calls
-            channel = supabase.channel(`user:${userId}`, {
-                config: {
-                    broadcast: { self: false },
-                    presence: { key: userId }
-                }
-            });
+        const channel = client.subscribe(`call-${userId}`);
 
-            console.log(`[CallManager] Initializing channel for user:${userId}`);
+        channel.bind('incoming-call', (data: any) => {
+            const payload = typeof data === 'string' ? JSON.parse(data) : data;
+            console.log("[CallManager] Apinator incoming-call:", payload);
+            if (!activeCallRef.current && isMounted) {
+                setIncomingCall(payload);
+            }
+        });
 
-            channel
-                .on("broadcast", { event: "incoming-call" }, (payload: any) => {
-                    console.log("[CallManager] Received incoming-call broadcast:", payload);
-                    if (!activeCallRef.current && isMounted) {
-                        setIncomingCall(payload.payload);
-                    }
-                })
-                .subscribe((status: string, err: any) => {
-                    if (err) console.error("[CallManager] Subscribe error:", err);
-                    console.log(`[CallManager] Channel status for user:${userId}:`, status);
-
-                    // If closed unexpectedly, we might want to retry, but Supabase usually handles it
-                    if (status === 'CLOSED' && isMounted) {
-                        console.warn("[CallManager] Channel closed unexpectedly, cleanup will handle it or Supabase will reconnect.");
-                    }
-                });
-
-            // Heartbeat to keep mobile socket alive
-            heartbeat = setInterval(() => {
-                if (channel.state === 'joined') {
-                    channel.send({ type: "broadcast", event: "heartbeat", payload: { userId } });
-                }
-            }, 30000);
-        };
-
-        setupChannel();
+        console.log(`[CallManager] Subscribed to Apinator channel: call-${userId}`);
 
         return () => {
             isMounted = false;
-            if (heartbeat) clearInterval(heartbeat);
-            if (channel) {
-                console.log(`[CallManager] Cleaning up channel for user:${userId}`);
-                supabase.removeChannel(channel);
-            }
+            client.unsubscribe(`call-${userId}`);
         };
-    }, [userId, isLeader]);
+    }, [userId]);
 
     // Listen for Outgoing Calls triggered from ChatView
     useEffect(() => {

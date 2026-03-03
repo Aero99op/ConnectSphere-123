@@ -2,13 +2,12 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import { RealtimePresenceState } from "@supabase/supabase-js";
 import { uploadToCatbox } from "@/lib/catbox";
+import { getApinatorClient } from "@/lib/apinator";
 import { Send, ChevronLeft, Loader2, Video, Phone, MoreVertical, Image as ImageIcon, Users, LogOut, Check, CheckCheck, Smile, X } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { useTabSync } from "@/hooks/use-tab-sync";
 import { AddGroupMembersDialog } from "./add-group-members-dialog";
 import Image from "next/image";
 
@@ -45,86 +44,58 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    const { isLeader } = useTabSync();
-
+    // Apinator-based Realtime Chat (UNLIMITED connections)
     useEffect(() => {
-        if (!isLeader) return;
         let isMounted = true;
         fetchMessages();
 
-        const handleInserts = async (payload: any) => {
-            const newMsg = payload.new;
-            const { data } = await supabase.from('profiles').select('username, full_name, avatar_url').eq('id', newMsg.sender_id).single();
-            if (data) {
-                newMsg.sender = data;
-            }
+        const client = getApinatorClient();
+        if (!client) return;
+
+        const channel = client.subscribe(`chat-${conversationId}`);
+
+        channel.bind('new-message', async (data: any) => {
+            const newMsg = typeof data === 'string' ? JSON.parse(data) : data;
+            // Don't show our own message again (it's already in state)
+            if (newMsg.sender_id === currentUserId) return;
+            const { data: senderProfile } = await supabase.from('profiles').select('username, full_name, avatar_url').eq('id', newMsg.sender_id).single();
+            if (senderProfile) newMsg.sender = senderProfile;
             if (isMounted) {
-                setMessages((prev) => [...prev, newMsg]);
+                setMessages((prev) => {
+                    // Prevent duplicates
+                    if (prev.some(m => m.id === newMsg.id)) return prev;
+                    return [...prev, newMsg];
+                });
                 scrollToBottom();
             }
-        };
+        });
 
-        const handleUpdates = (payload: any) => {
-            const updatedMsg = payload.new;
+        channel.bind('update-message', (data: any) => {
+            const updatedMsg = typeof data === 'string' ? JSON.parse(data) : data;
             if (isMounted) {
                 setMessages((prev) => prev.map(m => m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m));
             }
-        };
+        });
 
-        const channel = supabase
-            .channel(`chat:${conversationId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'messages',
-                    filter: `conversation_id=eq.${conversationId}`
-                },
-                handleInserts
-            )
-            .on(
-                'postgres_changes',
-                {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'messages',
-                    filter: `conversation_id=eq.${conversationId}`
-                },
-                handleUpdates
-            )
-            .on(
-                'presence',
-                { event: 'sync' },
-                () => {
-                    const newState: RealtimePresenceState = channel.presenceState();
-                    const newTypers = new Set<string>();
-                    for (const id in newState) {
-                        const users = newState[id] as unknown as PresenceUser[];
-                        for (const u of users) {
-                            if (u.isTyping && u.userId !== currentUserId) {
-                                newTypers.add(u.userId);
-                            }
-                        }
-                    }
-                    if (isMounted) setTypingUsers(newTypers);
-                }
-            )
-            .subscribe(async (status: string, err: any) => {
-                if (status === 'SUBSCRIBED') {
-                    await channel.track({
-                        userId: currentUserId,
-                        isTyping: false
-                    });
-                }
-                if (err) console.error("ChatView subscribe error:", err);
-            });
+        channel.bind('typing', (data: any) => {
+            const payload = typeof data === 'string' ? JSON.parse(data) : data;
+            if (payload.userId !== currentUserId && isMounted) {
+                setTypingUsers(prev => {
+                    const next = new Set(prev);
+                    if (payload.isTyping) next.add(payload.userId);
+                    else next.delete(payload.userId);
+                    return next;
+                });
+            }
+        });
+
+        console.log(`[ChatView] Subscribed to Apinator channel: chat-${conversationId}`);
 
         return () => {
             isMounted = false;
-            supabase.removeChannel(channel);
+            client.unsubscribe(`chat-${conversationId}`);
         };
-    }, [conversationId, isLeader]);
+    }, [conversationId]);
 
     useEffect(() => {
         scrollToBottom();
@@ -236,6 +207,19 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
 
             setEditingMessageId(null);
 
+            if (!error) {
+                // Notify other clients via Apinator
+                fetch('/api/apinator/trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        channel: `chat-${conversationId}`,
+                        event: 'update-message',
+                        data: { id: editingMessageId, content: msgContent, is_edited: true }
+                    })
+                }).catch(console.error);
+            }
+
             if (error) {
                 console.error("Failed to update", error);
                 toast.error("Sandesh update nahi hua");
@@ -280,6 +264,39 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         if (error) {
             console.error("Failed to send", error);
             toast.error("Sandesh bhej nahi paye");
+        } else {
+            // Notify other clients via Apinator
+            const { data: insertedMsg } = await supabase
+                .from('messages')
+                .select('*')
+                .eq('conversation_id', conversationId)
+                .eq('sender_id', currentUserId)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+
+            if (insertedMsg) {
+                fetch('/api/apinator/trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        channel: `chat-${conversationId}`,
+                        event: 'new-message',
+                        data: insertedMsg
+                    })
+                }).catch(console.error);
+            }
+
+            // Also notify sidebar refresh for recipient
+            fetch('/api/apinator/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channel: `sidebar-${recipientId}`,
+                    event: 'conversation-update',
+                    data: { conversationId }
+                })
+            }).catch(console.error);
         }
     };
 
@@ -322,22 +339,29 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     const handleTyping = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         setNewMessage(e.target.value);
 
-        const channel = supabase.channel(`chat:${conversationId}`);
-        // Only track if successfully subscribed/joined
-        if (channel.state === 'joined') {
-            channel.track({
-                userId: currentUserId,
-                isTyping: true
-            });
+        // Send typing indicator via Apinator (UNLIMITED)
+        fetch('/api/apinator/trigger', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                channel: `chat-${conversationId}`,
+                event: 'typing',
+                data: { userId: currentUserId, isTyping: true }
+            })
+        }).catch(console.error);
 
-            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-            typingTimeoutRef.current = setTimeout(() => {
-                channel.track({
-                    userId: currentUserId,
-                    isTyping: false
-                });
-            }, 2000);
-        }
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = setTimeout(() => {
+            fetch('/api/apinator/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channel: `chat-${conversationId}`,
+                    event: 'typing',
+                    data: { userId: currentUserId, isTyping: false }
+                })
+            }).catch(console.error);
+        }, 2000);
     };
 
     const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -379,51 +403,47 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                 .eq('conversation_id', conversationId);
 
             if (participants) {
-                // To avoid blocking, we send notifications asynchronously
+                // Send call notification to each participant via Apinator
                 participants.forEach((p: any) => {
                     if (p.user_id === currentUserId) return;
-
-                    const pChannel = supabase.channel(`user:${p.user_id}`);
-                    const sendGroupInvite = async () => {
-                        await pChannel.send({
-                            type: "broadcast",
-                            event: "incoming-call",
-                            payload: {
+                    fetch('/api/apinator/trigger', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            channel: `call-${p.user_id}`,
+                            event: 'incoming-call',
+                            data: {
                                 roomId: conversationId,
                                 callerId: currentUserId,
-                                callerName: recipientName, // name of the group
+                                callerName: recipientName,
                                 callerAvatar: recipientAvatar,
                                 callType: type,
                                 isGroup: true
                             }
-                        });
-                        setTimeout(() => supabase.removeChannel(pChannel), 3000);
-                    };
-
-                    if (pChannel.state === 'joined') sendGroupInvite();
-                    else pChannel.subscribe((status) => { if (status === 'SUBSCRIBED') sendGroupInvite(); });
+                        })
+                    }).catch(console.error);
                 });
             }
             return;
         }
 
-        const channel = supabase.channel(`user:${recipientId}`);
+        // 1-on-1 call: trigger local + send via Apinator
+        window.dispatchEvent(new CustomEvent('start-outgoing-call', {
+            detail: {
+                roomId: conversationId,
+                remoteUserId: recipientId,
+                callType: type
+            }
+        }));
+        toast.success("Bula rahe hain...");
 
-        const sendCall = async () => {
-            // Trigger local call manager instantly to open window
-            window.dispatchEvent(new CustomEvent('start-outgoing-call', {
-                detail: {
-                    roomId: conversationId,
-                    remoteUserId: recipientId,
-                    callType: type
-                }
-            }));
-            toast.success("Bula rahe hain...");
-
-            await channel.send({
-                type: "broadcast",
-                event: "incoming-call",
-                payload: {
+        fetch('/api/apinator/trigger', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                channel: `call-${recipientId}`,
+                event: 'incoming-call',
+                data: {
                     roomId: conversationId,
                     callerId: currentUserId,
                     callerName,
@@ -431,23 +451,8 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                     callType: type,
                     isGroup: false
                 }
-            });
-
-            // Cleanup transient channel after sending to ensure delivery over slow networks
-            setTimeout(() => {
-                supabase.removeChannel(channel);
-            }, 3000);
-        };
-
-        if (channel.state === 'joined') {
-            sendCall();
-        } else {
-            channel.subscribe(async (status) => {
-                if (status === 'SUBSCRIBED') {
-                    sendCall();
-                }
-            });
-        }
+            })
+        }).catch(console.error);
     };
 
     const handleLeaveGroup = async () => {

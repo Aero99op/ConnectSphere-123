@@ -162,18 +162,16 @@ function AnotherUserProfileContent() {
                 // 1. DB Record
                 await supabase.from('notifications').insert(notifData);
 
-                // 2. Broadcast Signal
-                const channel = supabase.channel(`user-notifications-${userId}`);
-                channel.subscribe(async (status) => {
-                    if (status === 'SUBSCRIBED') {
-                        await channel.send({
-                            type: 'broadcast',
-                            event: 'notification_ping',
-                            payload: notifData
-                        });
-                        supabase.removeChannel(channel);
-                    }
-                });
+                // 2. Instant Notification via Apinator (UNLIMITED)
+                fetch('/api/apinator/trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        channel: `notifications-${userId}`,
+                        event: 'notification_ping',
+                        data: notifData
+                    })
+                }).catch(console.error);
             }
         }
         setFollowLoading(false);

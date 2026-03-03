@@ -31,7 +31,7 @@ import {
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { useTabSync } from "@/hooks/use-tab-sync";
+import { getApinatorClient } from "@/lib/apinator";
 import { DeptTab, DepartmentNav } from "./department-nav";
 import { motion, AnimatePresence } from "framer-motion";
 import { BottomNav } from '@/components/layout/bottom-nav'
@@ -58,17 +58,12 @@ export function DepartmentDashboard() {
     const [updateMedia, setUpdateMedia] = useState("");
     const [captureGeo, setCaptureGeo] = useState(true);
 
-    const { isLeader } = useTabSync();
-
     useEffect(() => {
         const initDashboard = async () => {
             if (!authUser) {
                 window.location.href = '/';
                 return;
             }
-
-            // Only run Realtime if leader
-            if (!isLeader) return;
 
             const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).single();
             if (profile?.role !== 'official') {
@@ -89,32 +84,31 @@ export function DepartmentDashboard() {
 
         initDashboard();
 
-        const channel = supabase
-            .channel('realtime-reports')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'reports' },
-                (payload) => {
-                    if (payload.eventType === 'INSERT') {
-                        toast("🚨 INCIDENT DETECTED", {
-                            description: "New report registered in sector.",
-                            icon: <ShieldAlert className="text-red-500 w-5 h-5" />,
-                            style: { background: 'rgba(0,0,0,0.9)', border: '1px solid rgba(239, 68, 68, 0.4)', color: 'white' }
-                        });
-                        fetchReports();
-                    } else if (payload.eventType === 'UPDATE') {
-                        setReports((prev) =>
-                            prev.map((r) => r.id === payload.new.id ? { ...r, ...payload.new } : r)
-                        );
-                    }
-                }
-            )
-            .subscribe();
+        // Apinator-based report updates (UNLIMITED)
+        const client = getApinatorClient();
+        let channelName = 'reports-updates';
+        if (client) {
+            const channel = client.subscribe(channelName);
+            channel.bind('report-new', () => {
+                toast("🚨 INCIDENT DETECTED", {
+                    description: "New report registered in sector.",
+                    icon: <ShieldAlert className="text-red-500 w-5 h-5" />,
+                    style: { background: 'rgba(0,0,0,0.9)', border: '1px solid rgba(239, 68, 68, 0.4)', color: 'white' }
+                });
+                fetchReports();
+            });
+            channel.bind('report-update', (data: any) => {
+                const payload = typeof data === 'string' ? JSON.parse(data) : data;
+                setReports((prev) =>
+                    prev.map((r) => r.id === payload.id ? { ...r, ...payload } : r)
+                );
+            });
+        }
 
         return () => {
-            supabase.removeChannel(channel);
+            if (client) client.unsubscribe(channelName);
         };
-    }, [filter, isLeader]);
+    }, [filter]);
 
     const fetchReports = async () => {
         setLoading(true);

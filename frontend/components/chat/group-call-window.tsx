@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Phone, Maximize2, Minimize2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
+import { getApinatorClient } from "@/lib/apinator";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -72,122 +73,101 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
                     localVideoRef.current.srcObject = stream;
                 }
 
-                // 2. Setup Channel for Signaling (Full Mesh)
-                const channel = supabase.channel(`group-call:${roomId}`, {
-                    config: {
-                        presence: { key: currentUserId },
-                        broadcast: { self: false } // We don't need our own echoes
+                // 2. Setup Channel for Signaling (Full Mesh) via Apinator
+                const client = getApinatorClient();
+                if (!client) return;
+
+                const channelName = `group-call-${roomId}`;
+                const channel = client.subscribe(channelName);
+                channelRef.current = channel;
+
+                // Helper to send signaling events
+                const sendGroupSignal = (event: string, data: any) => {
+                    fetch('/api/apinator/trigger', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ channel: channelName, event, data })
+                    }).catch(console.error);
+                };
+
+                // Handle incoming signaling messages
+                channel.bind('webrtc-signal', async (rawData: any) => {
+                    const payload = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+                    const { senderId, type, data } = payload;
+
+                    if (senderId === currentUserId) return;
+
+                    let pc = peerConnectionsRef.current.get(senderId);
+
+                    if (type === 'offer') {
+                        if (!pc) {
+                            pc = createPeerConnection(senderId, stream, sendGroupSignal);
+                        }
+                        await pc.setRemoteDescription(new RTCSessionDescription(data));
+                        const answer = await pc.createAnswer();
+                        await pc.setLocalDescription(answer);
+                        sendGroupSignal('webrtc-signal', { senderId: currentUserId, targetId: senderId, type: 'answer', data: answer });
+                    } else if (type === 'answer') {
+                        if (payload.targetId !== currentUserId) return;
+                        if (pc) {
+                            await pc.setRemoteDescription(new RTCSessionDescription(data));
+                        }
+                    } else if (type === 'ice-candidate') {
+                        if (pc) {
+                            try {
+                                await pc.addIceCandidate(new RTCIceCandidate(data));
+                            } catch (e) {
+                                console.error("Error adding ice candidate", e);
+                            }
+                        }
                     }
                 });
 
-                channelRef.current = channel;
+                // Handle participant joining
+                channel.bind('user-joined', async (rawData: any) => {
+                    const payload = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+                    const joinedUserId = payload.userId;
+                    if (joinedUserId === currentUserId) return;
+                    if (peerConnectionsRef.current.has(joinedUserId)) return;
 
-                // Handle incoming signaling messages
-                channel
-                    .on("broadcast", { event: "webrtc-signal" }, async (payload: any) => {
-                        const { senderId, type, data } = payload.payload;
-
-                        // Ignore signals from ourselves
-                        if (senderId === currentUserId) return;
-
-                        let pc = peerConnectionsRef.current.get(senderId);
-
-                        if (type === 'offer') {
-                            // Only create connection if we don't have one (e.g. they joined after us)
-                            if (!pc) {
-                                pc = createPeerConnection(senderId, stream, channel);
-                            }
-                            await pc.setRemoteDescription(new RTCSessionDescription(data));
-                            const answer = await pc.createAnswer();
-                            await pc.setLocalDescription(answer);
-
-                            channel.send({
-                                type: "broadcast",
-                                event: "webrtc-signal",
-                                payload: { senderId: currentUserId, targetId: senderId, type: 'answer', data: answer }
-                            });
-                        } else if (type === 'answer') {
-                            // Only handle answers directed specifically to us
-                            if (payload.payload.targetId !== currentUserId) return;
-                            if (pc) {
-                                await pc.setRemoteDescription(new RTCSessionDescription(data));
-                            }
-                        } else if (type === 'ice-candidate') {
-                            if (pc) {
-                                try {
-                                    await pc.addIceCandidate(new RTCIceCandidate(data));
-                                } catch (e) {
-                                    console.error("Error adding ice candidate", e);
-                                }
-                            }
-                        }
-                    })
-                    .on("presence", { event: "sync" }, () => {
-                        const presenceState = channel.presenceState();
-                        const activeUserIds = Object.keys(presenceState);
-
-                        // Handle new users joining
-                        activeUserIds.forEach(id => {
-                            if (id !== currentUserId && !peerConnectionsRef.current.has(id)) {
-                                console.log("New user joined group call:", id);
-
-                                // Fetch profile for display
-                                supabase.from('profiles').select('*').eq('id', id).single().then(({ data }) => {
-                                    if (data) {
-                                        setParticipants(prev => {
-                                            if (prev.find(p => p.id === id)) return prev;
-                                            return [...prev, { id, profile: data, stream: null }];
-                                        });
-                                    }
-                                });
-
-                                // Create connection and send offer (Only the person already in the room sends the offer to avoid glare)
-                                // We use string comparison to deterministically decide who sends the offer
-                                if (currentUserId < id) {
-                                    const pc = createPeerConnection(id, stream, channel);
-                                    pc.createOffer().then(offer => {
-                                        pc.setLocalDescription(offer);
-                                        channel.send({
-                                            type: "broadcast",
-                                            event: "webrtc-signal",
-                                            payload: { senderId: currentUserId, targetId: id, type: 'offer', data: offer }
-                                        });
-                                    });
-                                }
-                            }
+                    console.log("New user joined group call:", joinedUserId);
+                    const { data: profileData } = await supabase.from('profiles').select('*').eq('id', joinedUserId).single();
+                    if (profileData) {
+                        setParticipants(prev => {
+                            if (prev.find(p => p.id === joinedUserId)) return prev;
+                            return [...prev, { id: joinedUserId, profile: profileData, stream: null }];
                         });
+                    }
 
-                        // Handle users leaving
-                        setParticipants(prev => prev.filter(p => {
-                            const isPresent = activeUserIds.includes(p.id) || p.id === currentUserId;
-                            if (!isPresent) {
-                                const pc = peerConnectionsRef.current.get(p.id);
-                                if (pc) {
-                                    pc.close();
-                                    peerConnectionsRef.current.delete(p.id);
-                                }
-                                const videoEl = remoteVideoRefs.current.get(p.id);
-                                if (videoEl) {
-                                    videoEl.srcObject = null;
-                                    remoteVideoRefs.current.delete(p.id);
-                                }
-                            }
-                            return isPresent;
-                        }));
-                    })
-                    .subscribe(async (status) => {
-                        if (status === 'SUBSCRIBED') {
-                            await channel.track({ joinedAt: Date.now() });
+                    if (currentUserId < joinedUserId) {
+                        const pc = createPeerConnection(joinedUserId, stream, sendGroupSignal);
+                        const offer = await pc.createOffer();
+                        await pc.setLocalDescription(offer);
+                        sendGroupSignal('webrtc-signal', { senderId: currentUserId, targetId: joinedUserId, type: 'offer', data: offer });
+                    }
+                });
 
-                            // Start timer
-                            setInterval(() => {
-                                setDuration(prev => {
-                                    durationRef.current = prev + 1;
-                                    return prev + 1;
-                                });
-                            }, 1000);
-                        }
+                channel.bind('user-left', (rawData: any) => {
+                    const payload = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+                    const leftUserId = payload.userId;
+                    const pc = peerConnectionsRef.current.get(leftUserId);
+                    if (pc) {
+                        pc.close();
+                        peerConnectionsRef.current.delete(leftUserId);
+                    }
+                    setParticipants(prev => prev.filter(p => p.id !== leftUserId));
+                });
+
+                // Announce our presence
+                sendGroupSignal('user-joined', { userId: currentUserId });
+
+                // Start timer
+                setInterval(() => {
+                    setDuration(prev => {
+                        durationRef.current = prev + 1;
+                        return prev + 1;
                     });
+                }, 1000);
 
             } catch (err: any) {
                 console.error("Group call media error:", err);
@@ -196,26 +176,19 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
             }
         };
 
-        const createPeerConnection = (remoteId: string, localStream: MediaStream, channel: any) => {
+        const createPeerConnection = (remoteId: string, localStream: MediaStream, sendGroupSignal: (event: string, data: any) => void) => {
             const pc = new RTCPeerConnection(ICE_SERVERS);
 
-            // Add local tracks
             localStream.getTracks().forEach(track => {
                 pc.addTrack(track, localStream);
             });
 
-            // Handle ICE candidates
             pc.onicecandidate = (event) => {
                 if (event.candidate) {
-                    channel.send({
-                        type: "broadcast",
-                        event: "webrtc-signal",
-                        payload: { senderId: currentUserId, targetId: remoteId, type: 'ice-candidate', data: event.candidate }
-                    });
+                    sendGroupSignal('webrtc-signal', { senderId: currentUserId, targetId: remoteId, type: 'ice-candidate', data: event.candidate });
                 }
             };
 
-            // Handle incoming tracks
             pc.ontrack = (event) => {
                 setParticipants(prev => {
                     const existing = prev.find(p => p.id === remoteId);
@@ -225,7 +198,6 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
                     return prev;
                 });
 
-                // Attach to video element
                 setTimeout(() => {
                     const videoEl = remoteVideoRefs.current.get(remoteId);
                     if (videoEl && !videoEl.srcObject) {
@@ -246,9 +218,15 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
                 localStreamRef.current.getTracks().forEach(t => t.stop());
             }
             peerConnectionsRef.current.forEach(pc => pc.close());
-            if (channelRef.current) {
-                channelRef.current.untrack();
-                supabase.removeChannel(channelRef.current);
+            // Announce leaving
+            const client = getApinatorClient();
+            if (client) {
+                fetch('/api/apinator/trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ channel: `group-call-${roomId}`, event: 'user-left', data: { userId: currentUserId } })
+                }).catch(console.error);
+                client.unsubscribe(`group-call-${roomId}`);
             }
         };
     }, [roomId, currentUserId, callType]);
@@ -260,10 +238,14 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
         peerConnectionsRef.current.forEach(pc => pc.close());
         peerConnectionsRef.current.clear();
 
-        if (channelRef.current) {
-            channelRef.current.untrack();
-            supabase.removeChannel(channelRef.current);
-        }
+        // Announce leaving via Apinator
+        fetch('/api/apinator/trigger', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ channel: `group-call-${roomId}`, event: 'user-left', data: { userId: currentUserId } })
+        }).catch(console.error);
+        const client = getApinatorClient();
+        if (client) client.unsubscribe(`group-call-${roomId}`);
 
         onEndCall(durationRef.current);
     };

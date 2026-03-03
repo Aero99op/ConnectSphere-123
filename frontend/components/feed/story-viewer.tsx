@@ -137,18 +137,16 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
                 // 1. DB Record
                 await supabase.from('notifications').insert(notifData);
 
-                // 2. Broadcast Signal
-                const channel = supabase.channel(`user-notifications-${currentStory.user_id}`);
-                channel.subscribe(async (status) => {
-                    if (status === 'SUBSCRIBED') {
-                        await channel.send({
-                            type: 'broadcast',
-                            event: 'notification_ping',
-                            payload: notifData
-                        });
-                        supabase.removeChannel(channel);
-                    }
-                });
+                // 2. Instant Notification via Apinator (UNLIMITED)
+                fetch('/api/apinator/trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        channel: `notifications-${currentStory.user_id}`,
+                        event: 'notification_ping',
+                        data: notifData
+                    })
+                }).catch(console.error);
             }
             toast.success("Loved it! ❤️");
         } else {
@@ -208,17 +206,15 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
             };
             await supabase.from('notifications').insert(notifData);
 
-            const channel = supabase.channel(`user-notifications-${currentStory.user_id}`);
-            channel.subscribe(async (status) => {
-                if (status === 'SUBSCRIBED') {
-                    await channel.send({
-                        type: 'broadcast',
-                        event: 'notification_ping',
-                        payload: notifData
-                    });
-                    supabase.removeChannel(channel);
-                }
-            });
+            fetch('/api/apinator/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channel: `notifications-${currentStory.user_id}`,
+                    event: 'notification_ping',
+                    data: notifData
+                })
+            }).catch(console.error);
 
             toast.success("Reply saved & DM sent! ✉️");
         } catch (error: any) {

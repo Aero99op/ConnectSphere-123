@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { PostCard } from "@/components/feed/post-card";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { useTabSync } from "@/hooks/use-tab-sync";
+import { getApinatorClient } from "@/lib/apinator";
 
 function ProfilePageContent() {
     const { user: authUser, supabase, signOut } = useAuth();
@@ -176,56 +176,29 @@ function ProfilePageContent() {
         }
     };
 
-    const { isLeader } = useTabSync();
-
+    // Apinator-based follow count updates (UNLIMITED)
     useEffect(() => {
-        let followChannel: any;
+        if (!authUser) return;
 
-        const initRealtime = async () => {
-            if (!authUser || !isLeader) return;
+        const client = getApinatorClient();
+        if (!client) return;
 
-            followChannel = supabase
-                .channel(`profile-follows-${authUser.id}`)
-                .on(
-                    'broadcast',
-                    { event: 'follow_ping' },
-                    async () => {
-                        console.log("[Profile] Follow broadcast received! Refreshing counts...");
-                        const [folCount, fingCount] = await Promise.all([
-                            supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', authUser.id),
-                            supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', authUser.id)
-                        ]);
-                        setFollowersCount(folCount.count || 0);
-                        setFollowingCount(fingCount.count || 0);
-                    }
-                )
-                .on('postgres_changes', {
-                    event: '*',
-                    schema: 'public',
-                    table: 'follows',
-                }, async (payload: any) => {
-                    // Refresh counts if any follow change involves this user
-                    if (payload.new?.follower_id === authUser.id || payload.old?.follower_id === authUser.id ||
-                        payload.new?.following_id === authUser.id || payload.old?.following_id === authUser.id) {
+        const channel = client.subscribe(`follows-${authUser.id}`);
 
-                        const [folCount, fingCount] = await Promise.all([
-                            supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', authUser.id),
-                            supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', authUser.id)
-                        ]);
-
-                        setFollowersCount(folCount.count || 0);
-                        setFollowingCount(fingCount.count || 0);
-                    }
-                })
-                .subscribe();
-        };
-
-        initRealtime();
+        channel.bind('follow_update', async () => {
+            console.log("[Profile] Apinator follow update received! Refreshing counts...");
+            const [folCount, fingCount] = await Promise.all([
+                supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', authUser.id),
+                supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', authUser.id)
+            ]);
+            setFollowersCount(folCount.count || 0);
+            setFollowingCount(fingCount.count || 0);
+        });
 
         return () => {
-            if (followChannel) supabase.removeChannel(followChannel);
+            client.unsubscribe(`follows-${authUser.id}`);
         };
-    }, [authUser, supabase, isLeader]);
+    }, [authUser, supabase]);
 
 
     if (loading) {

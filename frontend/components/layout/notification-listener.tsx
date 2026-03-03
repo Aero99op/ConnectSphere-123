@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
-import { useTabSync } from "@/hooks/use-tab-sync";
+import { getApinatorClient } from "@/lib/apinator";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -10,78 +10,35 @@ export function NotificationListener() {
     const { user, supabase } = useAuth();
     const userId = user?.id || null;
 
-    const { isLeader } = useTabSync();
-
-    // 2. Manage Realtime Channel
+    // Apinator-based Realtime (UNLIMITED connections, ZERO Supabase load)
     useEffect(() => {
-        if (!userId || !isLeader) return;
-        let isMounted = true;
-        let channel: any;
-        let heartbeat: NodeJS.Timeout;
+        if (!userId) return;
 
-        const setupSubscription = () => {
-            channel = supabase
-                .channel(`user-notifications-${userId}`)
-                .on(
-                    'broadcast',
-                    { event: 'notification_ping' },
-                    async ({ payload }: { payload: any }) => {
-                        console.log("[NotificationListener] Broadcast received:", payload);
-                        const { data: actor } = await supabase
-                            .from('profiles')
-                            .select('username, avatar_url')
-                            .eq('id', payload.actor_id)
-                            .single();
-                        if (actor && isMounted) showNotificationToast(actor, payload);
-                    }
-                )
-                .on(
-                    'postgres_changes',
-                    {
-                        event: 'INSERT',
-                        schema: 'public',
-                        table: 'notifications',
-                        filter: `recipient_id=eq.${userId}`
-                    },
-                    async (payload) => {
-                        const notification = payload.new;
+        const client = getApinatorClient();
+        if (!client) return;
 
-                        // Fetch actor info
-                        const { data: actor } = await supabase
-                            .from('profiles')
-                            .select('username, avatar_url')
-                            .eq('id', notification.actor_id)
-                            .single();
+        const channel = client.subscribe(`notifications-${userId}`);
 
-                        if (actor && isMounted) {
-                            showNotificationToast(actor, notification);
-                        }
-                    }
-                )
-                .subscribe((status: string, err: any) => {
-                    if (err) console.error("[NotificationListener] Subscribe error:", err);
-                    console.log(`[NotificationListener] Channel status for ${userId}:`, status);
-                });
+        channel.bind('notification_ping', async (data: any) => {
+            console.log("[NotificationListener] Apinator notification received:", data);
+            const payload = typeof data === 'string' ? JSON.parse(data) : data;
 
-            // Heartbeat for mobile
-            heartbeat = setInterval(() => {
-                if (channel?.state === 'joined') {
-                    channel.send({ type: "broadcast", event: "heartbeat", payload: { userId } });
-                }
-            }, 30000);
-        };
+            const { data: actor } = await supabase
+                .from('profiles')
+                .select('username, avatar_url')
+                .eq('id', payload.actor_id)
+                .single();
 
-        setupSubscription();
+            if (actor) showNotificationToast(actor, payload);
+        });
+
+        console.log(`[NotificationListener] Subscribed to Apinator channel: notifications-${userId}`);
 
         return () => {
-            isMounted = false;
-            if (heartbeat) clearInterval(heartbeat);
-            if (channel) {
-                console.log(`[NotificationListener] Cleaning up channel for ${userId}`);
-                supabase.removeChannel(channel);
-            }
+            client.unsubscribe(`notifications-${userId}`);
+            console.log(`[NotificationListener] Unsubscribed from Apinator channel: notifications-${userId}`);
         };
-    }, [userId, isLeader]);
+    }, [userId]);
 
     const showNotificationToast = (actor: any, notification: any) => {
         let actionLabel = "";
@@ -121,5 +78,5 @@ export function NotificationListener() {
         });
     };
 
-    return null; // This component doesn't render anything visible
+    return null;
 }

@@ -144,17 +144,21 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
             return;
         }
 
-        const channel = supabase.channel(`user:${recipientId}`);
-        await channel.send({
-            type: "broadcast",
-            event: "incoming-call",
-            payload: {
-                roomId: conversationId,
-                callerId: currentUserId,
-                callerName: "You",
-                callerAvatar: "https://github.com/shadcn.png"
-            }
-        });
+        // Send call notification via Apinator (UNLIMITED)
+        fetch('/api/apinator/trigger', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                channel: `call-${recipientId}`,
+                event: 'incoming-call',
+                data: {
+                    roomId: conversationId,
+                    callerId: currentUserId,
+                    callerName: "You",
+                    callerAvatar: "https://github.com/shadcn.png"
+                }
+            })
+        }).catch(console.error);
 
         toast.success("Calling...");
     };
