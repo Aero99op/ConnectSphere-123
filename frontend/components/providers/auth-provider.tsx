@@ -1,7 +1,7 @@
 "use client";
 
 import { SessionProvider, useSession, signOut as nextAuthSignOut } from 'next-auth/react';
-import { createContext, useContext, useMemo, useState, useEffect } from 'react';
+import { createContext, useContext, useMemo } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -27,8 +27,14 @@ interface AuthContextType {
     signOut: () => Promise<void>;
 }
 
-// Anon client for unauthenticated state
-const anonSupabase = createClient(supabaseUrl, supabaseAnonKey);
+// Anon client for unauthenticated state — persistSession off since NextAuth manages sessions
+const anonSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+    }
+});
 
 const AuthContext = createContext<AuthContextType>({
     user: null,
@@ -41,36 +47,7 @@ const AuthContext = createContext<AuthContextType>({
 function AuthContextProvider({ children }: { children: React.ReactNode }) {
     const { data: nextAuthSession, status: nextAuthStatus } = useSession();
 
-    const [nativeSession, setNativeSession] = useState<any>(null);
-    const [isNativeLoading, setIsNativeLoading] = useState(true);
-
-    // Listen to native Supabase Auth changes (for our "failover" login button)
-    useEffect(() => {
-        let mounted = true;
-
-        const getSession = async () => {
-            const { data } = await anonSupabase.auth.getSession();
-            if (mounted) {
-                setNativeSession(data.session);
-                setIsNativeLoading(false);
-            }
-        };
-
-        getSession();
-
-        const { data: { subscription } } = anonSupabase.auth.onAuthStateChange((_event, session) => {
-            if (mounted) {
-                setNativeSession(session);
-            }
-        });
-
-        return () => {
-            mounted = false;
-            subscription.unsubscribe();
-        };
-    }, []);
-
-    const loading = nextAuthStatus === 'loading' || isNativeLoading;
+    const loading = nextAuthStatus === 'loading';
 
     const supabaseContextClient = useMemo(() => {
         // If NextAuth has a session, use its injected token
@@ -105,16 +82,9 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
                 name: nextAuthSession.user.name as string,
                 image: nextAuthSession.user.image as string | undefined,
             };
-        } else if (nativeSession?.user) {
-            return {
-                id: nativeSession.user.id,
-                email: nativeSession.user.email || '',
-                name: nativeSession.user.user_metadata?.full_name || nativeSession.user.email?.split('@')[0] || 'User',
-                image: nativeSession.user.user_metadata?.avatar_url,
-            };
         }
         return null;
-    }, [nextAuthSession?.user, nativeSession?.user]);
+    }, [nextAuthSession?.user]);
 
     const handleSignOut = async () => {
         // Sign out of both systems to be safe

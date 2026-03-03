@@ -26,23 +26,33 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
                     .from('profiles')
                     .select('is_onboarded')
                     .eq('id', user.id)
-                    .single();
+                    .maybeSingle();
 
                 if (error) {
-                    console.warn("Onboarding check skipped. Did you run the SQL migration? ", error.message);
+                    console.warn("Onboarding check error:", error.message);
+                    // If the column doesn't exist yet, just let user through
                     setChecking(false);
                     return;
                 }
 
-                if (data) {
-                    setIsOnboarded(data.is_onboarded);
-                    const isNewUser = data.is_onboarded === false;
-
-                    if (isNewUser && pathname !== '/onboarding') {
+                // No profile found at all — treat as new user
+                if (!data) {
+                    setIsOnboarded(false);
+                    if (pathname !== '/onboarding') {
                         router.replace('/onboarding');
-                    } else if (data.is_onboarded && pathname === '/onboarding') {
-                        router.replace('/');
                     }
+                    setChecking(false);
+                    return;
+                }
+
+                // Profile found — check is_onboarded
+                setIsOnboarded(data.is_onboarded ?? true);
+                const isNewUser = data.is_onboarded === false;
+
+                if (isNewUser && pathname !== '/onboarding') {
+                    router.replace('/onboarding');
+                } else if (data.is_onboarded && pathname === '/onboarding') {
+                    router.replace('/');
                 }
             } catch (error) {
                 console.error("Error checking onboarding status", error);
