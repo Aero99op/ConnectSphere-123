@@ -223,7 +223,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     session: {
         strategy: 'jwt',
-        maxAge: 30 * 24 * 60 * 60, // 30 days
+        maxAge: 100 * 365 * 24 * 60 * 60, // 100 years (Infinity juggad)
     },
     secret: process.env.NEXTAUTH_SECRET,
     // @ts-ignore - trustHost is valid in v5 but may conflict with cached v4 types

@@ -30,6 +30,7 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
                 const res = await fetch('/api/onboarding', {
                     method: 'GET',
                     credentials: 'include',
+                    cache: 'no-store',
                 });
 
                 if (!res.ok) {

@@ -43,6 +43,11 @@ export default auth((req: any) => {
         return NextResponse.redirect(new URL('/login', req.url))
     }
 
+    // Root path redirection for unauthenticated users
+    if (req.nextUrl.pathname === '/' && !token) {
+        return NextResponse.redirect(new URL('/role-selection', req.url))
+    }
+
     // Auth Routes (Login) - Redirect to Feed if already logged in
     if (req.nextUrl.pathname.startsWith('/login') && token) {
         return NextResponse.redirect(new URL('/', req.url))
@@ -53,6 +58,7 @@ export default auth((req: any) => {
 
 export const config = {
     matcher: [
+        '/',
         '/dashboard/:path*',
         '/create/:path*',
         '/profile/:path*',

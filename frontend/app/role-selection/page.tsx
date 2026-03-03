@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { User, Building2, ArrowRight } from "lucide-react";
@@ -8,9 +8,15 @@ import { toast } from "sonner";
 import { useAuth } from "@/components/providers/auth-provider";
 
 export default function RoleSelectionPage() {
-    const { signOut } = useAuth();
+    const { signOut, isAuthenticated } = useAuth();
     const router = useRouter();
 
+    // If already authenticated, go to homefeed
+    useEffect(() => {
+        if (isAuthenticated) {
+            router.replace("/");
+        }
+    }, [isAuthenticated, router]);
 
     return (
         <div className="min-h-screen bg-zinc-950 text-white flex flex-col items-center justify-center p-4">
