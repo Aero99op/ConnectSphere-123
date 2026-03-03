@@ -61,8 +61,8 @@ function HomeFeedContent() {
         // If no real stories exist, throw in some mocks so the UI doesn't look empty for the demo
         if (formattedStories.length === 0) {
             formattedStories = [
-                { id: 'mock-2', username: 'Riya', avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Riya', file_urls: ["https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=800&q=80"], caption: "Selfie time! 📸" },
-                { id: 'mock-3', username: 'Amit', avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Amit', file_urls: ["https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&q=80"], caption: "Nature is healing 🌿" }
+                { id: 'mock-2', username: 'Riya', avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Riya', media_urls: ["https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=800&q=80"], caption: "Selfie time! 📸" },
+                { id: 'mock-3', username: 'Amit', avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Amit', media_urls: ["https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&q=80"], caption: "Nature is healing 🌿" }
             ];
         }
 
@@ -96,7 +96,7 @@ function HomeFeedContent() {
                     username: "ConnectSphere Official",
                     avatar_url: "/logo.svg",
                     caption: "Welcome to ConnectSphere! 🇮🇳\nThis is India's Premiere Social Media platform. Keep in touch with your community, share stories, and report civic issues directly to the authorities.",
-                    file_urls: ["https://images.unsplash.com/photo-1514222134-b57cbb8ce073?w=800&q=80"],
+                    media_urls: ["https://images.unsplash.com/photo-1514222134-b57cbb8ce073?w=800&q=80"],
                     thumbnail_url: "",
                     media_type: "image",
                     likes_count: 5420,
@@ -108,7 +108,7 @@ function HomeFeedContent() {
                     username: "Rahul Kumar",
                     avatar_url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Rahul",
                     caption: "Just used the new 'Civic Reports' feature to complain about the massive pothole near Brigade Road. The interface is super clean and it even auto-detected my location! 🛣️📍 Hope the BMC fixes it soon.",
-                    file_urls: ["https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=800&q=80"],
+                    media_urls: ["https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=800&q=80"],
                     thumbnail_url: "",
                     media_type: "image",
                     likes_count: 850,
@@ -120,7 +120,7 @@ function HomeFeedContent() {
                     username: "Priya Sharma",
                     avatar_url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Priya",
                     caption: "Beautiful sunset at Marine Drive today! 🌅 The vibes here are just unmatched. Who else is enjoying the weekend?",
-                    file_urls: ["https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=800&q=80"],
+                    media_urls: ["https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=800&q=80"],
                     thumbnail_url: "",
                     media_type: "image",
                     likes_count: 1205,
