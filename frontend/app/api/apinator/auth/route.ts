@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
         }
 
         const server = getApinatorServer();
-        const auth = server.authenticateChannel(socket_id, channel_name);
+        const auth = await server.authenticateChannel(socket_id, channel_name);
 
         return NextResponse.json(auth);
     } catch (error) {
