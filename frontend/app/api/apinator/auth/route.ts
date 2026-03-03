@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApinatorServer } from '@/lib/apinator-server';
 
+export const runtime = 'edge';
+
 // POST /api/apinator/auth
 // Authenticates private and presence channel subscriptions
 export async function POST(req: NextRequest) {

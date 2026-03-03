@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApinatorServer } from '@/lib/apinator-server';
 
+export const runtime = 'edge';
+
 // POST /api/apinator/trigger
 // Trigger an event on an Apinator channel from the server side
 export async function POST(req: NextRequest) {
