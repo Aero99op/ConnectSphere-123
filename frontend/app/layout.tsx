@@ -13,9 +13,29 @@ import { OnboardingGuard } from '@/components/providers/onboarding-guard'
 const interfaceFont = Inter({ subsets: ['latin'], variable: '--font-inter' })
 const displayFont = Outfit({ subsets: ['latin'], variable: '--font-outfit' })
 
+const siteConfig = {
+    name: 'Connect',
+    description: 'India\'s Premiere Social Media Platform',
+    url: 'https://connectsphere.app', // Internal domain stays same
+    ogImage: '/og-image.png',
+}
+
 export const metadata: Metadata = {
-    title: 'ConnectSphere | India\'s Premiere Social Media',
-    description: 'Join the revolution. Share stories, report issues, and connect with your community.',
+    title: 'Connect | India\'s Premiere Social Media',
+    description: 'Connect with your community, share stories, and report civic issues directly to authorities.',
+    keywords: ['social media', 'india', 'civic reporting', 'connect'],
+    authors: [{ name: 'Team 900B' }],
+    creator: 'Team 900B',
+    publisher: 'Team 900B',
+    formatDetection: {
+        email: false,
+        address: false,
+        telephone: false,
+    },
+    metadataBase: new URL(siteConfig.url),
+    alternates: {
+        canonical: '/',
+    },
     manifest: '/manifest.json',
     icons: {
         icon: '/logo.svg',
@@ -23,19 +43,20 @@ export const metadata: Metadata = {
         apple: '/logo.svg',
     },
     openGraph: {
-        title: 'ConnectSphere | India\'s Premiere Social Media',
-        description: 'Join the revolution. Share stories, report issues, and connect with your community.',
-        url: 'https://connectsphere.app',
-        siteName: 'ConnectSphere',
+        type: 'website',
+        locale: 'en_IN',
+        url: siteConfig.url,
+        title: 'Connect | India\'s Premiere Social Media',
+        description: 'India\'s first hyper-local civic-social network.',
+        siteName: 'Connect',
         images: [
             {
-                url: '/og-image.png', // Needs to be added to public
+                url: siteConfig.ogImage,
                 width: 1200,
                 height: 630,
+                alt: 'Connect',
             },
         ],
-        locale: 'en_IN',
-        type: 'website',
     },
 }
 

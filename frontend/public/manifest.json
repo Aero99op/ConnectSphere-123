@@ -1,6 +1,6 @@
 {
-    "name": "ConnectSphere",
-    "short_name": "ConnectSphere",
+    "name": "Connect",
+    "short_name": "Connect",
     "description": "India Ka Apna Social Media",
     "start_url": "/",
     "display": "standalone",

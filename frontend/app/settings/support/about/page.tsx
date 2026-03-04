@@ -16,7 +16,7 @@ export default function AboutSettingsPage() {
                         <ChevronLeft className="w-6 h-6 text-zinc-400" />
                     </Link>
                     <div>
-                        <h1 className="text-2xl font-display font-black text-white tracking-tight">About ConnectSphere</h1>
+                        <h1 className="text-2xl font-display font-black text-white tracking-tight">About Connect</h1>
                         <p className="text-zinc-500 text-xs mt-1">App ki jaankari.</p>
                     </div>
                 </div>
@@ -29,7 +29,7 @@ export default function AboutSettingsPage() {
                         <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-primary to-orange-400 flex items-center justify-center shadow-premium-xl mb-4">
                             <span className="text-black font-display font-black text-3xl">CS</span>
                         </div>
-                        <h2 className="text-xl font-display font-black text-white tracking-tight">ConnectSphere</h2>
+                        <h2 className="text-xl font-display font-black text-white tracking-tight">Connect</h2>
                         <p className="text-zinc-500 text-xs mt-1">Version 1.0 (Beta Release)</p>
                         <span className="mt-3 text-[10px] font-bold text-primary bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
                             Up to date
@@ -68,9 +68,7 @@ export default function AboutSettingsPage() {
 
                     {/* Team Info */}
                     <div className="text-center">
-                        <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">
-                            Made with 🔥 by Team 900B
-                        </p>
+                        <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">© 2026 Connect by Team 900B</p>
                     </div>
 
                 </div>

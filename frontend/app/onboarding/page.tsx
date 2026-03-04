@@ -94,7 +94,7 @@ export default function OnboardingPage() {
                         <Sparkles className="w-8 h-8 text-white" />
                     </div>
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-pink-500 bg-clip-text text-transparent">
-                        Welcome to ConnectSphere
+                        Welcome to Connect
                     </h1>
                     <p className="text-zinc-400 mt-2 text-sm">
                         Just a few details to personalize your feed before we jump in!

@@ -72,7 +72,7 @@ function LoginContent() {
                     return;
                 }
 
-                toast.success("Account created! 🌟 Welcome to ConnectSphere!");
+                toast.success("Account created! 🌟 Welcome to Connect!");
                 router.push(isOfficial ? "/dashboard" : "/");
             }
         } catch (error: any) {
@@ -113,7 +113,7 @@ function LoginContent() {
                     </span>
                 </motion.div>
                 <h2 className="text-2xl font-bold text-white">
-                    {mode === "login" ? "Welcome Back" : "Join ConnectSphere"}
+                    {mode === "login" ? "Welcome Back" : "Join Connect"}
                 </h2>
                 <p className="text-zinc-500 text-sm mt-1">
                     {mode === "login" ? "Login to your account" : "Create a new account for free"}
@@ -245,7 +245,7 @@ function LoginContent() {
 
             {/* Free Notice */}
             <p className="mt-6 text-[10px] text-zinc-600 text-center uppercase tracking-widest">
-                Unlimited Auth • Free Forever • ConnectSphere
+                Unlimited Auth • Free Forever • Connect
             </p>
         </motion.div>
     );

@@ -94,14 +94,15 @@ function HomeFeedContent() {
                 {
                     id: "dummy-1",
                     user_id: "system-1",
-                    username: "ConnectSphere Official",
+                    username: "Connect Official",
+                    display_name: "Team Connect",
                     avatar_url: "/logo.svg",
-                    caption: "Welcome to ConnectSphere! 🇮🇳\nThis is India's Premiere Social Media platform. Keep in touch with your community, share stories, and report civic issues directly to the authorities.",
+                    caption: "Welcome to Connect! 🇮🇳\nThis is India's Premiere Social Media platform. Keep in touch with your community, share stories, and report civic issues directly to the authorities.",
                     media_urls: ["https://images.unsplash.com/photo-1514222134-b57cbb8ce073?w=800&q=80"],
                     thumbnail_url: "",
                     media_type: "image",
                     likes_count: 5420,
-                    profiles: { full_name: "Team ConnectSphere" }
+                    profiles: { full_name: "Team Connect" }
                 },
                 {
                     id: "dummy-2",
@@ -222,7 +223,7 @@ function HomeFeedContent() {
                     {/* Top Header for Feed */}
                     <div className="flex items-center justify-between">
                         <h1 className="text-3xl font-display font-black text-gradient tracking-tightest">
-                            ConnectSphere
+                            Connect
                         </h1>
                         <div className="flex items-center gap-3">
                             <Link href="/notifications" className="relative p-2.5 rounded-2xl glass border-premium hover:bg-white/10 transition-all group active:scale-95 shadow-premium-sm">

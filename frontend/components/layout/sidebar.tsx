@@ -39,7 +39,7 @@ export function Sidebar() {
             <div className="mb-8 px-2 py-4">
                 <Link href="/" className="block">
                     <h1 className="text-2xl font-bold font-outfit tracking-tight bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 bg-clip-text text-transparent italic hover:opacity-80 transition-opacity">
-                        ConnectSphere
+                        Connect
                     </h1>
                 </Link>
             </div>
