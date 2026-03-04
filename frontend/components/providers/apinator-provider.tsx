@@ -64,10 +64,23 @@ export function ApinatorProvider({ children }: { children: React.ReactNode }) {
 
         window.addEventListener('visibilitychange', handleVisibilityChange);
 
+        // AGGRESSIVE HEARTBEAT for Idle Tabs
+        // Browsers sleep WebSockets when tabs are backgrounded. This ensures we wake it up.
+        const heartbeatInterval = setInterval(() => {
+            if (apinatorClient) {
+                const s = apinatorClient.state;
+                if (s === 'disconnected' || s === 'unavailable' || s === 'failed') {
+                    console.warn(`[ApinatorProvider] 🫀 Heartbeat detected drop (state: ${s}). Reconnecting...`);
+                    apinatorClient.connect();
+                }
+            }
+        }, 30000); // Check every 30 seconds
+
         return () => {
             // In a global provider, we NEVER disconnect on unmount unless the whole app is closing.
             apinatorClient.unbind('state_change', handleStateChange);
             window.removeEventListener('visibilitychange', handleVisibilityChange);
+            clearInterval(heartbeatInterval);
             // Deliberately omitting apinatorClient.disconnect()
         };
     }, [user]); // Re-evaluate if user changes (log in/out)
