@@ -20,21 +20,17 @@ export function ApinatorProvider({ children }: { children: React.ReactNode }) {
     const { user } = useAuth();
     const [client, setClient] = useState<any>(null);
     const [isConnected, setIsConnected] = useState(false);
-    const initializedRef = useRef(false);
 
     useEffect(() => {
-        // Only initialize once
-        if (initializedRef.current) return;
 
         const apinatorClient = getApinatorClient();
         if (!apinatorClient) return;
 
         setClient(apinatorClient);
-        initializedRef.current = true;
 
         // Force a connection attempt if not already connected
         if (apinatorClient.state !== 'connected' && apinatorClient.state !== 'connecting') {
-            console.log("[ApinatorProvider] 🚀 Initializing App-Level Global Connection");
+            console.log("[ApinatorProvider] 🚀 Submitting Global Connect Request");
             apinatorClient.connect();
         } else if (apinatorClient.state === 'connected') {
             setIsConnected(true);
@@ -64,17 +60,31 @@ export function ApinatorProvider({ children }: { children: React.ReactNode }) {
 
         window.addEventListener('visibilitychange', handleVisibilityChange);
 
-        // AGGRESSIVE HEARTBEAT for Idle Tabs
-        // Browsers sleep WebSockets when tabs are backgrounded. This ensures we wake it up.
+        // AGGRESSIVE HEARTBEAT & DEADLOCK BREAKER
+        // Browsers sleep WebSockets. This wakes it up and breaks deadlocked 'connecting' states.
+        let connectingTicks = 0;
+
         const heartbeatInterval = setInterval(() => {
             if (apinatorClient) {
                 const s = apinatorClient.state;
                 if (s === 'disconnected' || s === 'unavailable' || s === 'failed') {
                     console.warn(`[ApinatorProvider] 🫀 Heartbeat detected drop (state: ${s}). Reconnecting...`);
                     apinatorClient.connect();
+                    connectingTicks = 0;
+                } else if (s === 'connecting') {
+                    connectingTicks++;
+                    if (connectingTicks >= 2) {
+                        // It's been stuck connecting for >= 20 seconds. Force a recycle.
+                        console.error("[ApinatorProvider] 🚨 Deadlock detected. Forcing socket recycle.");
+                        apinatorClient.disconnect();
+                        setTimeout(() => apinatorClient.connect(), 500);
+                        connectingTicks = 0;
+                    }
+                } else if (s === 'connected') {
+                    connectingTicks = 0;
                 }
             }
-        }, 30000); // Check every 30 seconds
+        }, 10000); // Check every 10 seconds for tighter deadlock resolution
 
         return () => {
             // In a global provider, we NEVER disconnect on unmount unless the whole app is closing.

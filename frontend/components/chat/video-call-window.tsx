@@ -37,8 +37,12 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
 
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
+    const remoteAudioRef = useRef<HTMLAudioElement>(null);
     const peerConnection = useRef<RTCPeerConnection | null>(null);
     const localStream = useRef<MediaStream | null>(null);
+
+    // Gyro Parallax State
+    const [gyro, setGyro] = useState({ x: 0, y: 0 });
 
     // Format Duration MM:SS
     const formatDuration = (seconds: number) => {
@@ -59,6 +63,31 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
         }
         return () => clearInterval(timer);
     }, [connectionStatus]);
+
+    // Device Orientation for Premium Gyro Effect
+    useEffect(() => {
+        const handleOrientation = (event: DeviceOrientationEvent) => {
+            const beta = event.beta || 0;  // X-axis tilt (-180 to 180)
+            const gamma = event.gamma || 0; // Y-axis tilt (-90 to 90)
+
+            // Limit the tilt range for subtle effect (e.g., max 15px shift)
+            const maxTilt = 15;
+            const x = Math.min(Math.max((gamma / 90) * maxTilt, -maxTilt), maxTilt);
+            const y = Math.min(Math.max((beta / 90) * maxTilt, -maxTilt), maxTilt);
+
+            setGyro({ x, y });
+        };
+
+        if (window.DeviceOrientationEvent) {
+            window.addEventListener('deviceorientation', handleOrientation);
+        }
+
+        return () => {
+            if (window.DeviceOrientationEvent) {
+                window.removeEventListener('deviceorientation', handleOrientation);
+            }
+        };
+    }, []);
 
     useEffect(() => {
         let isCleaningUp = false;
@@ -169,8 +198,13 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
             });
 
             peerConnection.current.ontrack = (event) => {
-                if (remoteVideoRef.current && !remoteVideoRef.current.srcObject) {
-                    remoteVideoRef.current.srcObject = event.streams[0] || new MediaStream([event.track]);
+                const stream = event.streams[0] || new MediaStream([event.track]);
+
+                if (callType === 'video' && remoteVideoRef.current && !remoteVideoRef.current.srcObject) {
+                    remoteVideoRef.current.srcObject = stream;
+                    setConnectionStatus("connected");
+                } else if (callType === 'audio' && remoteAudioRef.current && !remoteAudioRef.current.srcObject) {
+                    remoteAudioRef.current.srcObject = stream;
                     setConnectionStatus("connected");
                 }
             };
@@ -395,14 +429,17 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                 ? "bottom-24 right-4 w-40 h-60 rounded-2xl shadow-2xl border border-white/10"
                 : "inset-0 md:inset-4 md:rounded-[2rem] shadow-2xl"
         )}>
-            {/* Background Texture/Gradient */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80 z-0 pointer-events-none" />
+            {/* Background Texture/Gradient Parallax */}
+            <div
+                className="absolute inset-[-50px] bg-gradient-to-b from-black/40 via-[#111b21] to-black z-0 pointer-events-none transition-transform duration-100 ease-out"
+                style={{ transform: `translate3d(${gyro.x * -1}px, ${gyro.y * -1}px, 0)` }}
+            />
 
             {/* Remote Video/Audio Context (Main) */}
-            <div className="relative w-full h-full flex items-center justify-center overflow-hidden z-10">
+            <div className="relative w-full h-full flex items-center justify-center overflow-hidden z-10 perspective-1000">
                 {/* Audio Element for Voice Calls (Hidden but crucial for playback) */}
                 <audio
-                    ref={remoteVideoRef as any} // We treat this as the remote media ref
+                    ref={remoteAudioRef}
                     autoPlay
                     playsInline
                     className={cn(callType === 'video' ? 'hidden' : '')}
@@ -414,7 +451,8 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                         ref={remoteVideoRef}
                         autoPlay
                         playsInline
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transition-transform duration-100 ease-out"
+                        style={{ transform: `translate3d(${gyro.x * 0.5}px, ${gyro.y * 0.5}px, 0)` }}
                     />
                 )}
 
@@ -436,10 +474,13 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                             <div className={cn("absolute w-36 h-36 rounded-full border border-[#00a884]/30", connectionStatus === 'connected' && "animate-[ping_2s_ease-out_infinite]")} />
                             <div className={cn("absolute w-48 h-48 rounded-full border border-[#00a884]/10", connectionStatus === 'connected' && "animate-[ping_2.5s_ease-out_infinite]")} />
 
-                            <Avatar className={cn(
-                                "w-32 h-32 ring-4 shadow-2xl z-20 relative",
-                                connectionStatus === 'connecting' ? "ring-[#00a884]/50 animate-pulse" : "ring-[#00a884] shadow-[#00a884]/20"
-                            )}>
+                            <Avatar
+                                className={cn(
+                                    "w-32 h-32 ring-4 shadow-2xl z-20 relative transition-transform duration-100 ease-out",
+                                    connectionStatus === 'connecting' ? "ring-[#00a884]/50 animate-pulse" : "ring-[#00a884] shadow-[#00a884]/20"
+                                )}
+                                style={{ transform: `translate3d(${gyro.x * 1.5}px, ${gyro.y * 1.5}px, 0)` }}
+                            >
                                 <AvatarImage src={remoteUserProfile?.avatar_url} />
                                 <AvatarFallback className="text-5xl bg-[#202c33] text-white/70">{remoteUserProfile?.username?.[0]}</AvatarFallback>
                             </Avatar>
