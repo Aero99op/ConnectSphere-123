@@ -60,7 +60,7 @@ export function PostCard({ post }: PostProps) {
                     // Check Follow Status if not own post
                     if (post.user_id !== authUser.id) {
                         const { data: followData } = await supabase.from('follows').select('id').eq('follower_id', authUser.id).eq('following_id', post.user_id).maybeSingle();
-                        setIsFollowing(!!followData);
+                        setIsFollowing(followData !== null);
                     }
                 }
             } catch (e) {
@@ -223,12 +223,18 @@ export function PostCard({ post }: PostProps) {
 
         const { error } = await supabase
             .from('follows')
-            .insert({ follower_id: currentUserId, following_id: post.user_id });
+            // Upsert with ignoreDuplicates gracefully handles 409 Conflict from rapid double-clicks
+            .upsert(
+                { follower_id: currentUserId, following_id: post.user_id },
+                { onConflict: 'follower_id,following_id', ignoreDuplicates: true }
+            );
 
         if (!error) {
             setIsFollowing(true);
             toast.success(`Following @${post.username}`);
         } else {
+            console.error("Follow error:", error);
+            // If it's a constraint violation it might still be fine, but we assume failure here if it reaches 'else'
             toast.error("Follow nahi kar paye!");
         }
         setIsFollowingLoading(false);
