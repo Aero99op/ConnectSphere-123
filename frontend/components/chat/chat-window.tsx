@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
-import { usePeer } from "@/hooks/use-peer";
+import { getApinatorClient } from "@/lib/apinator";
 import { Send, Image as ImageIcon, Video, Phone, MoreVertical, X, Laugh, File as FileIcon, Search, UserPlus, Info, Trash2, Loader2, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -27,23 +27,41 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
     const [loading, setLoading] = useState(true);
     const [isUploadingMedia, setIsUploadingMedia] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const { incomingSignal, sendSignal, clearSignal } = usePeer();
 
     useEffect(() => {
         fetchMessages();
-    }, [conversationId]); // Initial load only
 
-    // 📡 Handle Incoming Peer Signals
-    useEffect(() => {
-        if (incomingSignal?.type === 'NEW_MSG') {
-            const { message, conversationId: signalConvId } = incomingSignal.payload;
-            if (signalConvId === conversationId) {
-                setMessages((prev) => [...prev, message]);
-                scrollToBottom();
-            }
-            clearSignal();
+        // 📡 Apinator Real-time Subscription (replaces PeerJS)
+        const client = getApinatorClient();
+        if (!client) {
+            console.warn("[ChatWindow] Apinator client not available! Real-time disabled.");
+            return;
         }
-    }, [incomingSignal, conversationId]);
+
+        const channel = client.subscribe(`chat-${conversationId}`);
+
+        channel.bind('new-message', (data: any) => {
+            const newMsg = typeof data === 'string' ? JSON.parse(data) : data;
+            // Skip own messages (already added optimistically)
+            if (newMsg.sender_id === currentUserId) return;
+            setMessages((prev) => {
+                if (prev.some(m => m.id === newMsg.id)) return prev;
+                return [...prev, newMsg];
+            });
+            scrollToBottom();
+        });
+
+        channel.bind('message-confirmed', (data: any) => {
+            const payload = typeof data === 'string' ? JSON.parse(data) : data;
+            setMessages(prev => prev.map(m => m.id === payload.tempId ? payload.actualMsg : m));
+        });
+
+        console.log(`[ChatWindow] Subscribed to Apinator channel: chat-${conversationId}`);
+
+        return () => {
+            client.unsubscribe(`chat-${conversationId}`);
+        };
+    }, [conversationId]);
 
     useEffect(() => {
         scrollToBottom();
@@ -108,18 +126,27 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
             setMessages((prev) => [...prev, data]);
             scrollToBottom();
 
-            // 📡 Send Signal to Peer (Receiver)
-            if (!isGroup) {
-                sendSignal(recipientId, 'NEW_MSG', { message: data, conversationId });
-            } else {
-                // For groups, we could broadcast to all participants via PeerJS
-                // but for V1 Gareeb-Pro, we'll signal the recipient list from a participants table if needed.
-                // For now, let's at least signal the recipient if it's a DM.
-                sendSignal(recipientId, 'NEW_MSG', { message: data, conversationId });
-            }
+            // 📡 Broadcast via Apinator (replaces PeerJS)
+            fetch('/api/apinator/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channel: `chat-${conversationId}`,
+                    event: 'new-message',
+                    data
+                })
+            }).catch(console.error);
 
-            // Also notify sidebar to refresh
-            sendSignal(recipientId, 'REFRESH_LIST', {});
+            // Notify sidebar for recipient
+            fetch('/api/apinator/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channel: `sidebar-${recipientId}`,
+                    event: 'conversation-update',
+                    data: { conversationId, lastMessage: data }
+                })
+            }).catch(console.error);
         }
     };
 
@@ -145,6 +172,16 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
             return;
         }
 
+        // Fetch REAL caller profile (not hardcoded!)
+        const { data: profile } = await supabase.from('profiles').select('full_name, username, avatar_url').eq('id', currentUserId).single();
+        const callerName = profile?.full_name || profile?.username || "Someone";
+        const callerAvatar = profile?.avatar_url || "https://github.com/shadcn.png";
+
+        // Dispatch local call UI
+        window.dispatchEvent(new CustomEvent('start-outgoing-call', {
+            detail: { roomId: conversationId, remoteUserId: recipientId, callType: 'video' }
+        }));
+
         // Send call notification via Apinator (UNLIMITED)
         fetch('/api/apinator/trigger', {
             method: 'POST',
@@ -155,13 +192,15 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                 data: {
                     roomId: conversationId,
                     callerId: currentUserId,
-                    callerName: "You",
-                    callerAvatar: "https://github.com/shadcn.png"
+                    callerName,
+                    callerAvatar,
+                    callType: 'video',
+                    isGroup: false
                 }
             })
         }).catch(console.error);
 
-        toast.success("Calling...");
+        toast.success("Bula rahe hain...");
     };
 
     return (

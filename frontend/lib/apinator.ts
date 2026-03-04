@@ -11,13 +11,31 @@ export function getApinatorClient() {
     if (typeof window === 'undefined') return null;
 
     if (!apinatorClient) {
+        const appKey = process.env.NEXT_PUBLIC_APINATOR_KEY || '';
+        const cluster = process.env.NEXT_PUBLIC_APINATOR_CLUSTER || 'us';
+
+        if (!appKey) {
+            console.error("[Apinator] ❌ NEXT_PUBLIC_APINATOR_KEY is EMPTY! Real-time features will NOT work.");
+            return null;
+        }
+
         apinatorClient = new Apinator({
-            appKey: process.env.NEXT_PUBLIC_APINATOR_KEY || '',
-            cluster: process.env.NEXT_PUBLIC_APINATOR_CLUSTER || 'us',
+            appKey,
+            cluster,
             authEndpoint: '/api/apinator/auth',
         });
+
+        // Connection state monitoring
+        apinatorClient.bind('state_change', (states: any) => {
+            console.log(`[Apinator] Connection state: ${states?.previous} → ${states?.current}`);
+        });
+
+        apinatorClient.bind('error', (err: any) => {
+            console.error("[Apinator] ❌ Connection error:", err);
+        });
+
         apinatorClient.connect();
-        console.log("[Apinator] Client connected!");
+        console.log(`[Apinator] Client initialized! Key: ${appKey.substring(0, 10)}... Cluster: ${cluster}`);
     }
 
     return apinatorClient;

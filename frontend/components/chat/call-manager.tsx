@@ -28,7 +28,10 @@ export function CallManager() {
 
         const setupSubscription = () => {
             const client = getApinatorClient();
-            if (!client) return null;
+            if (!client) {
+                console.error("[CallManager] ❌ Apinator client is NULL! Calls will NOT work. Check NEXT_PUBLIC_APINATOR_KEY env var.");
+                return null;
+            }
 
             const channel = client.subscribe(`call-${userId}`);
 

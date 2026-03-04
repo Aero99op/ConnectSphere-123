@@ -15,7 +15,10 @@ export function NotificationListener() {
         if (!userId) return;
 
         const client = getApinatorClient();
-        if (!client) return;
+        if (!client) {
+            console.error("[NotificationListener] ❌ Apinator client is NULL! Notifications will NOT work. Check NEXT_PUBLIC_APINATOR_KEY env var.");
+            return;
+        }
 
         const channel = client.subscribe(`notifications-${userId}`);
 
@@ -107,7 +110,7 @@ export function NotificationListener() {
                     <p className="text-sm text-white font-bold leading-tight">
                         @{actor.username} <span className="font-normal text-zinc-400">{actionLabel}</span> {entityLabel}
                     </p>
-                    <p className="text-[10px] text-zinc-500 font-mono mt-1 uppercase tracking-widest">ConnectSphere Real-time</p>
+                    <p className="text-[10px] text-zinc-500 font-mono mt-1 uppercase tracking-widest">Connect Real-time</p>
                 </div>
             </div>
         ), {
