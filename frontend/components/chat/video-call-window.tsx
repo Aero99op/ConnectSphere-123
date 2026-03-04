@@ -387,13 +387,23 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
 
             {/* Remote Video/Audio Context (Main) */}
             <div className="relative w-full h-full flex items-center justify-center overflow-hidden z-10">
-                {/* Always attach the media stream for audio, but only show video if callType is video */}
-                <video
-                    ref={remoteVideoRef}
+                {/* Audio Element for Voice Calls (Hidden but crucial for playback) */}
+                <audio
+                    ref={remoteVideoRef as any} // We treat this as the remote media ref
                     autoPlay
                     playsInline
-                    className={cn("w-full h-full object-cover", callType === 'audio' ? 'opacity-0 absolute' : '')}
+                    className={cn(callType === 'video' ? 'hidden' : '')}
                 />
+
+                {/* Video Element for Video Calls */}
+                {callType === 'video' && (
+                    <video
+                        ref={remoteVideoRef}
+                        autoPlay
+                        playsInline
+                        className="w-full h-full object-cover"
+                    />
+                )}
 
                 {/* If Audio Call or Connecting, show Avatar UI */}
                 {(callType === 'audio' || connectionStatus === 'connecting') && (
