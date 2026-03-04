@@ -20,7 +20,7 @@ export function CallManager() {
     const activeCallRef = useRef<any>(null);
     useEffect(() => { activeCallRef.current = activeCall; }, [activeCall]);
 
-    // Apinator-based Call Signaling (BULLETPROOF V3 — ZERO RACE CONDITIONS)
+    // Apinator-based Call Signaling (BULLETPROOF V4 — SELF-HEALING SUBSCRIPTION)
     useEffect(() => {
         if (!userId) return;
         let isMounted = true;
@@ -31,6 +31,12 @@ export function CallManager() {
         const ensureSubscription = () => {
             const client = getApinatorClient();
             if (!client) return false;
+
+            // If connected, subscribe; if not, it'll auto-subscribe when connected
+            if (client.state !== 'connected') {
+                console.log(`[CallManager] ⏳ Waiting for connection... (state: ${client.state})`);
+                return false;
+            }
 
             // Check if already subscribed
             const existing = client.channel(channelName);
@@ -60,12 +66,28 @@ export function CallManager() {
         // Try initial subscription
         ensureSubscription();
 
+        // SELF-HEALING: Listen for connection state changes and re-subscribe
+        const client = getApinatorClient();
+        const handleStateChange = (states: any) => {
+            if (states.current === 'connected' && isMounted) {
+                console.log("[CallManager] 🔄 Connection recovered, re-subscribing...");
+                ensureSubscription();
+            }
+        };
+
+        if (client) {
+            client.bind('state_change', handleStateChange);
+        }
+
         return () => {
             isMounted = false;
             if (ringTimeout) clearTimeout(ringTimeout);
             // Global provider handles the connection, CallManager just unsubscribes from its channel
-            const client = getApinatorClient();
-            if (client) client.unsubscribe(channelName);
+            const c = getApinatorClient();
+            if (c) {
+                c.unbind('state_change', handleStateChange);
+                c.unsubscribe(channelName);
+            }
         };
     }, [userId]);
 

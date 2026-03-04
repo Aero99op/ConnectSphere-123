@@ -34,8 +34,8 @@ export function getApinatorClient() {
             console.error("[Apinator] ❌ Connection error:", err);
         });
 
-        apinatorClient.connect();
-        console.log(`[Apinator] Client initialized! Key: ${appKey.substring(0, 10)}... Cluster: ${cluster}`);
+        // NOTE: Do NOT call .connect() here. The ApinatorProvider handles connection.
+        console.log(`[Apinator] Client created (not yet connected). Key: ${appKey.substring(0, 10)}... Cluster: ${cluster}`);
     }
 
     return apinatorClient;

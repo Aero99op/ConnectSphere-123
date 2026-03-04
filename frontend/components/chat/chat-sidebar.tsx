@@ -67,12 +67,29 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
         bindSidebarEvents(channel);
         console.log(`[ChatSidebar] ✅ Subscribed to: ${channelName}`);
 
+        // SELF-HEALING: Re-subscribe when connection recovers
+        const handleStateChange = (states: any) => {
+            if (states.current === 'connected' && isMounted) {
+                const existing = client.channel(channelName);
+                if (!existing || !existing.subscribed) {
+                    console.log("[ChatSidebar] 🔄 Re-subscribing after reconnect...");
+                    channel = client.subscribe(channelName);
+                    bindSidebarEvents(channel);
+                }
+                fetchConversations(userId); // Catch up on missed messages
+            }
+        };
+        client.bind('state_change', handleStateChange);
+
         fetchConversations(userId);
 
         return () => {
             isMounted = false;
             const c = getApinatorClient();
-            if (c) c.unsubscribe(channelName);
+            if (c) {
+                c.unbind('state_change', handleStateChange);
+                c.unsubscribe(channelName);
+            }
         };
     }, [userId]);
     const fetchConversations = async (uid: string) => {
