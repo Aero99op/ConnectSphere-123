@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { X, Heart, MessageCircle, Send, MoreHorizontal, ChevronLeft, ChevronRight, Eye, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ interface StoryViewerProps {
 
 export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewerProps) {
     const { user: authUser, supabase } = useAuth();
+    const router = useRouter();
     const [currentIndex, setCurrentIndex] = useState(initialStoryIndex);
     const [progress, setProgress] = useState(0);
     const [paused, setPaused] = useState(false);
@@ -269,13 +271,21 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
 
                 {/* 2. Header (User Info) */}
                 <div className="absolute top-4 left-0 right-0 z-20 p-4 pt-6 flex justify-between items-center text-white bg-gradient-to-b from-black/60 to-transparent">
-                    <div className="flex items-center gap-3">
-                        <Avatar className="w-10 h-10 border-2 border-orange-500 shadow-xl">
+                    <div
+                        className="flex items-center gap-3 cursor-pointer group"
+                        onClick={() => {
+                            onClose();
+                            if (currentStory.user_id) {
+                                router.push(`/profile/${currentStory.user_id}`);
+                            }
+                        }}
+                    >
+                        <Avatar className="w-10 h-10 border-2 border-orange-500 shadow-xl transition-transform group-hover:scale-105">
                             <AvatarImage src={user.avatar} className="object-cover" />
                             <AvatarFallback>{user.username[0]}</AvatarFallback>
                         </Avatar>
                         <div>
-                            <p className="text-sm font-bold drop-shadow-md">{user.username}</p>
+                            <p className="text-sm font-bold drop-shadow-md group-hover:text-primary transition-colors">{user.username}</p>
                             <p className="text-xs text-white/80 drop-shadow-md flex items-center gap-1">
                                 {currentStory.created_at ? new Date(currentStory.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
                             </p>

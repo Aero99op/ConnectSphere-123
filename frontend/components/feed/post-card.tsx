@@ -12,6 +12,7 @@ import { PostOptionsSheet } from "@/components/feed/post-options-sheet";
 import { toast } from "sonner";
 import { useEffect } from "react";
 import { getApinatorClient } from "@/lib/apinator";
+import Link from "next/link";
 
 interface PostProps {
     post: {
@@ -41,6 +42,8 @@ export function PostCard({ post }: PostProps) {
     const [showShareSheet, setShowShareSheet] = useState(false);
     const [isBookmarked, setIsBookmarked] = useState(false);
     const [isDeleted, setIsDeleted] = useState(false);
+    const [isFollowing, setIsFollowing] = useState<boolean | null>(null);
+    const [isFollowingLoading, setIsFollowingLoading] = useState(false);
     const currentUserId = authUser?.id || null;
 
     // Initial checks for bookmark and ownership + Real-time Sync (Apinator)
@@ -53,6 +56,12 @@ export function PostCard({ post }: PostProps) {
 
                     const { data: likeData } = await supabase.from('post_likes').select('id').eq('post_id', post.id).eq('user_id', authUser.id).maybeSingle();
                     if (likeData) setLiked(true);
+
+                    // Check Follow Status if not own post
+                    if (post.user_id !== authUser.id) {
+                        const { data: followData } = await supabase.from('follows').select('id').eq('follower_id', authUser.id).eq('following_id', post.user_id).maybeSingle();
+                        setIsFollowing(!!followData);
+                    }
                 }
             } catch (e) {
                 console.warn("Persistence check failed (Expected if new):", e);
@@ -208,6 +217,23 @@ export function PostCard({ post }: PostProps) {
         }
     };
 
+    const handleFollow = async () => {
+        if (!currentUserId || !post.user_id) return;
+        setIsFollowingLoading(true);
+
+        const { error } = await supabase
+            .from('follows')
+            .insert({ follower_id: currentUserId, following_id: post.user_id });
+
+        if (!error) {
+            setIsFollowing(true);
+            toast.success(`Following @${post.username}`);
+        } else {
+            toast.error("Follow nahi kar paye!");
+        }
+        setIsFollowingLoading(false);
+    };
+
     if (isDeleted) return null;
 
     return (
@@ -220,14 +246,30 @@ export function PostCard({ post }: PostProps) {
                 {/* 1. Post Header */}
                 <div className="flex items-center justify-between p-4 px-5 border-b border-white/[0.05]">
                     <div className="flex items-center gap-3">
-                        <Avatar className="w-11 h-11 border-premium ring-1 ring-white/10">
-                            <AvatarImage src={post.avatar_url || "https://github.com/shadcn.png"} />
-                            <AvatarFallback className="bg-zinc-800 text-zinc-400">{post.username?.[0] || "?"}</AvatarFallback>
-                        </Avatar>
+                        <Link href={`/profile/${post.user_id}`} className="shrink-0">
+                            <Avatar className="w-11 h-11 border-premium ring-1 ring-white/10 hover:scale-105 transition-transform">
+                                <AvatarImage src={post.avatar_url || "https://github.com/shadcn.png"} />
+                                <AvatarFallback className="bg-zinc-800 text-zinc-400">{post.username?.[0] || "?"}</AvatarFallback>
+                            </Avatar>
+                        </Link>
                         <div className="flex flex-col">
-                            <h3 className="font-display font-bold text-[15px] text-white leading-tight tracking-tight group-hover:text-primary transition-colors">
-                                {post.profiles?.full_name || post.username}
-                            </h3>
+                            <div className="flex items-center gap-2">
+                                <Link href={`/profile/${post.user_id}`} className="font-display font-bold text-[15px] text-white leading-tight tracking-tight hover:text-primary transition-colors">
+                                    {post.profiles?.full_name || post.username}
+                                </Link>
+                                {currentUserId && currentUserId !== post.user_id && isFollowing === false && (
+                                    <>
+                                        <span className="text-zinc-500 text-[10px]">•</span>
+                                        <button
+                                            onClick={handleFollow}
+                                            disabled={isFollowingLoading}
+                                            className="text-[12px] font-bold text-primary hover:text-white transition-colors tracking-tight flex items-center"
+                                        >
+                                            {isFollowingLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : "Follow"}
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                             <p className="text-[11px] font-medium text-zinc-500 flex items-center gap-1.5 uppercase tracking-widest mt-0.5">
                                 <span>@{post.username}</span>
                             </p>
