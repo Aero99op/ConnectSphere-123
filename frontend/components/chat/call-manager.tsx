@@ -96,9 +96,7 @@ export function CallManager() {
                 // Verify channel exists (don't blindly unsubscribe!)
                 const existingChannel = c.channel(channelName);
                 if (!existingChannel || !existingChannel.subscribed) {
-                    channel = c.subscribe(channelName);
-                    bindCallEvents(channel);
-                    console.log(`[CallManager] ✅ Re-subscribed on visibility: ${channelName}`);
+                    setupSubscription();
                 }
             }
         };
