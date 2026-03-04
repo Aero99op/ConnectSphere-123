@@ -147,6 +147,7 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
         let isSubscribed = true; // Apinator connects immediately
         let hasCreatedOffer = false; // Prevent multiple offers
         let hasSetAnswer = false; // Prevent multiple answers
+        let readyInterval: NodeJS.Timeout; // For polling readiness
 
         // Helper to send signaling events via API
         const sendSignal = (event: string, data: any) => {
@@ -280,7 +281,6 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
 
             // Signal readiness with RETRY LOOP (fixes race condition!)
             // Both sides keep signaling until connection is established
-            let readyInterval: NodeJS.Timeout;
             let readyAttempts = 0;
             const maxAttempts = 8; // 8 attempts × 2s = 16s window
 
@@ -317,12 +317,20 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
         return () => {
             isCleaningUp = true;
             isSubscribed = false;
+            clearInterval(readyInterval);
             window.removeEventListener("beforeunload", handleBeforeUnload);
+
             if (localStream.current) {
                 localStream.current.getTracks().forEach(track => track.stop());
             }
             if (peerConnection.current) {
                 peerConnection.current.close();
+            }
+
+            // CRITICAL FIX: Explicitly unbind all events from this channel before unsubscribing
+            // so global client doesn't keep zombie listeners around for subsequent calls
+            if (channel) {
+                channel.unbind_all();
             }
             client.unsubscribe(channelName);
         };
