@@ -3,6 +3,7 @@
 import { SessionProvider, useSession, signOut as nextAuthSignOut } from 'next-auth/react';
 import { createContext, useContext, useMemo } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { getSupabase } from '@/lib/supabase';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -28,24 +29,10 @@ interface AuthContextType {
     signOut: () => Promise<void>;
 }
 
-let _anonSupabase: SupabaseClient | null = null;
-const getAnonSupabase = () => {
-    if (!_anonSupabase) {
-        _anonSupabase = createClient(supabaseUrl, supabaseAnonKey, {
-            auth: {
-                persistSession: false,
-                autoRefreshToken: false,
-                detectSessionInUrl: false,
-            }
-        });
-    }
-    return _anonSupabase;
-};
-
 const AuthContext = createContext<AuthContextType>({
     user: null,
     session: null,
-    supabase: getAnonSupabase(),
+    supabase: getSupabase(),
     isAuthenticated: false,
     loading: true,
     signOut: async () => { },
@@ -75,9 +62,8 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         }
 
         // If no NextAuth session but we DO have a native Supabase login, 
-        // the client itself manages the token seamlessly, just return anonSupabase
-        // because auth instance inside it is already aware of the session
-        return getAnonSupabase();
+        // the client itself manages the token seamlessly, just return the singleton
+        return getSupabase();
     }, [(nextAuthSession as any)?.supabaseAccessToken]);
 
     // Construct unified User object (Memoized to prevent infinite re-renders in consumers like OnboardingGuard)
@@ -95,7 +81,7 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
 
     const handleSignOut = async () => {
         // Sign out of both systems to be safe
-        await getAnonSupabase().auth.signOut();
+        await getSupabase().auth.signOut();
         await nextAuthSignOut({ callbackUrl: '/role-selection' });
     };
 
