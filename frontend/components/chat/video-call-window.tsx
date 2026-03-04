@@ -249,6 +249,13 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
 
         startCall();
 
+        // SIGNALING HEARTBEAT (Turbo Call Pulse: 5s)
+        const signalingHeartbeat = setInterval(() => {
+            if (isSubscribed) {
+                sendSignal('ping', { t: Date.now() });
+            }
+        }, 5000);
+
         const handleBeforeUnload = () => {
             handleEndCall(true);
         };
@@ -256,6 +263,8 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
 
         return () => {
             isCleaningUp = true;
+            isSubscribed = false;
+            clearInterval(signalingHeartbeat);
             window.removeEventListener("beforeunload", handleBeforeUnload);
             if (localStream.current) {
                 localStream.current.getTracks().forEach(track => track.stop());

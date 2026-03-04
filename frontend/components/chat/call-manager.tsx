@@ -67,9 +67,9 @@ export function CallManager() {
             }
         };
 
-        // HEARTBEAT (Keep connection hot)
+        // HEARTBEAT (Turbo Call Pulse: 5s)
         const heartbeatInterval = setInterval(() => {
-            if (document.visibilityState === 'visible') {
+            if (document.visibilityState === 'visible' && isMounted) {
                 fetch('/api/apinator/trigger', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -80,7 +80,7 @@ export function CallManager() {
                     })
                 }).catch(() => { });
             }
-        }, 60000);
+        }, 5000); // 5s Ultra-Fast Pulse
 
         window.addEventListener('visibilitychange', handleVisibilityChange);
 

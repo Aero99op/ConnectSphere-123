@@ -52,6 +52,17 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
     useEffect(() => {
         let isCleaningUp = false;
 
+        const channelName = `group-call-${roomId}`;
+
+        // Helper to send signaling events (Moved to effect scope for heartbeat access)
+        const sendGroupSignal = (event: string, data: any) => {
+            fetch('/api/apinator/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channel: channelName, event, data })
+            }).catch(console.error);
+        };
+
         const initCall = async () => {
             try {
                 // 1. Get Local Media
@@ -78,18 +89,8 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
                 const client = getApinatorClient();
                 if (!client) return;
 
-                const channelName = `group-call-${roomId}`;
                 const channel = client.subscribe(channelName);
                 channelRef.current = channel;
-
-                // Helper to send signaling events
-                const sendGroupSignal = (event: string, data: any) => {
-                    fetch('/api/apinator/trigger', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ channel: channelName, event, data })
-                    }).catch(console.error);
-                };
 
                 // Handle incoming signaling messages
                 channel.bind('webrtc-signal', async (rawData: any) => {
@@ -213,8 +214,16 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
 
         initCall();
 
+        // SIGNALING HEARTBEAT (Turbo Call Pulse: 5s)
+        const groupSignalingHeartbeat = setInterval(() => {
+            if (!isCleaningUp) {
+                sendGroupSignal('ping', { userId: currentUserId, t: Date.now() });
+            }
+        }, 5000);
+
         return () => {
             isCleaningUp = true;
+            clearInterval(groupSignalingHeartbeat);
             if (localStreamRef.current) {
                 localStreamRef.current.getTracks().forEach(t => t.stop());
             }
