@@ -60,22 +60,6 @@ export function CallManager() {
         // Try initial subscription
         ensureSubscription();
 
-        // HEALTH MONITOR — checks every 1s, reconnects if needed
-        const monitor = setInterval(() => {
-            if (!isMounted) return;
-            const client = getApinatorClient();
-            if (!client) return;
-
-            // Reconnect WebSocket if dropped
-            if (client.state === 'disconnected' || client.state === 'unavailable') {
-                console.warn("[CallManager] ⚡ Reconnecting WebSocket...");
-                client.connect();
-            }
-
-            // Ensure channel is alive
-            ensureSubscription();
-        }, 1000);
-
         // Tab visibility — instant health check
         const onVisible = () => {
             if (document.visibilityState === 'visible' && isMounted) {
@@ -91,7 +75,6 @@ export function CallManager() {
         return () => {
             isMounted = false;
             if (ringTimeout) clearTimeout(ringTimeout);
-            clearInterval(monitor);
             window.removeEventListener('visibilitychange', onVisible);
             const client = getApinatorClient();
             if (client) client.unsubscribe(channelName);

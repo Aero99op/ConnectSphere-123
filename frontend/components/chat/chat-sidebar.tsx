@@ -67,24 +67,6 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
         bindSidebarEvents(channel);
         console.log(`[ChatSidebar] ✅ Subscribed to: ${channelName}`);
 
-        // 🔥 ULTRA-FAST CONNECTION HEALTH MONITOR (1s)
-        const healthMonitor = setInterval(() => {
-            if (!isMounted) return;
-            const c = getApinatorClient();
-            if (!c) return;
-
-            if (c.state === 'disconnected' || c.state === 'unavailable') {
-                c.connect();
-            }
-
-            const existingChannel = c.channel(channelName);
-            if (!existingChannel || !existingChannel.subscribed) {
-                channel = c.subscribe(channelName);
-                bindSidebarEvents(channel);
-                console.log(`[ChatSidebar] ⚡ Re-subscribed to: ${channelName}`);
-            }
-        }, 1000);
-
         // ON TAB VISIBLE: Quick health check + catch-up fetch
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible' && isMounted) {
@@ -111,7 +93,6 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
 
         return () => {
             isMounted = false;
-            clearInterval(healthMonitor);
             window.removeEventListener('visibilitychange', handleVisibilityChange);
             const c = getApinatorClient();
             if (c) c.unsubscribe(channelName);

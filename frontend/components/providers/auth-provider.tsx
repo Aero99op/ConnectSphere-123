@@ -28,19 +28,24 @@ interface AuthContextType {
     signOut: () => Promise<void>;
 }
 
-// Anon client for unauthenticated state — persistSession off since NextAuth manages sessions
-const anonSupabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
+let _anonSupabase: SupabaseClient | null = null;
+const getAnonSupabase = () => {
+    if (!_anonSupabase) {
+        _anonSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+            auth: {
+                persistSession: false,
+                autoRefreshToken: false,
+                detectSessionInUrl: false,
+            }
+        });
     }
-});
+    return _anonSupabase;
+};
 
 const AuthContext = createContext<AuthContextType>({
     user: null,
     session: null,
-    supabase: anonSupabase,
+    supabase: getAnonSupabase(),
     isAuthenticated: false,
     loading: true,
     signOut: async () => { },
@@ -72,7 +77,7 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         // If no NextAuth session but we DO have a native Supabase login, 
         // the client itself manages the token seamlessly, just return anonSupabase
         // because auth instance inside it is already aware of the session
-        return anonSupabase;
+        return getAnonSupabase();
     }, [(nextAuthSession as any)?.supabaseAccessToken]);
 
     // Construct unified User object (Memoized to prevent infinite re-renders in consumers like OnboardingGuard)
@@ -90,7 +95,7 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
 
     const handleSignOut = async () => {
         // Sign out of both systems to be safe
-        await anonSupabase.auth.signOut();
+        await getAnonSupabase().auth.signOut();
         await nextAuthSignOut({ callbackUrl: '/role-selection' });
     };
 
