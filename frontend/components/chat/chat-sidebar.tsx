@@ -28,18 +28,15 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
         if (authUser) fetchConversations(authUser.id);
     }, [authUser]);
 
-    // Apinator-based sidebar updates (UNLIMITED, no Supabase connection)
+    // Apinator-based sidebar updates (BULLETPROOF — NEVER SLEEPS)
     useEffect(() => {
         if (!userId) return;
         let isMounted = true;
 
-        const setupSubscription = () => {
-            const client = getApinatorClient();
-            if (!client) return null;
+        const channelName = `sidebar-${userId}`;
 
-            const channel = client.subscribe(`sidebar-${userId}`);
-
-            channel.bind('conversation-update', (data: any) => {
+        const bindSidebarEvents = (ch: any) => {
+            ch.bind('conversation-update', (data: any) => {
                 const payload = typeof data === 'string' ? JSON.parse(data) : data;
                 if (payload.lastMessage) {
                     setConversations((prev) => {
@@ -61,40 +58,52 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
                     if (isMounted) fetchConversations(userId);
                 }
             });
-
-            console.log(`[ChatSidebar] Subscribed to Apinator channel: sidebar-${userId}`);
-            return channel;
         };
 
-        let currentChannel = setupSubscription();
+        const client = getApinatorClient();
+        if (!client) return;
 
-        // RE-SYNC ON VISIBILITY
+        let channel = client.subscribe(channelName);
+        bindSidebarEvents(channel);
+        console.log(`[ChatSidebar] ✅ Subscribed to: ${channelName}`);
+
+        // 🔥 ULTRA-FAST CONNECTION HEALTH MONITOR (1s)
+        const healthMonitor = setInterval(() => {
+            if (!isMounted) return;
+            const c = getApinatorClient();
+            if (!c) return;
+
+            if (c.state === 'disconnected' || c.state === 'unavailable') {
+                c.connect();
+            }
+
+            const existingChannel = c.channel(channelName);
+            if (!existingChannel || !existingChannel.subscribed) {
+                channel = c.subscribe(channelName);
+                bindSidebarEvents(channel);
+                console.log(`[ChatSidebar] ⚡ Re-subscribed to: ${channelName}`);
+            }
+        }, 1000);
+
+        // ON TAB VISIBLE: Quick health check + catch-up fetch
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible' && isMounted) {
-                console.log("[ChatSidebar] Tab visible, refreshing sidebar...");
-                const client = getApinatorClient();
-                if (client) {
-                    client.unsubscribe(`sidebar-${userId}`);
-                    currentChannel = setupSubscription();
-                    fetchConversations(userId); // Force catchup
+                const c = getApinatorClient();
+                if (!c) return;
+
+                if (c.state !== 'connected' && c.state !== 'connecting') {
+                    c.connect();
                 }
+
+                const existingChannel = c.channel(channelName);
+                if (!existingChannel || !existingChannel.subscribed) {
+                    channel = c.subscribe(channelName);
+                    bindSidebarEvents(channel);
+                }
+
+                fetchConversations(userId); // Catch up on missed messages
             }
         };
-
-        // HEARTBEAT
-        const heartbeatInterval = setInterval(() => {
-            if (document.visibilityState === 'visible' && isMounted) {
-                fetch('/api/apinator/trigger', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        channel: `sidebar-${userId}`,
-                        event: 'ping',
-                        data: { t: Date.now() }
-                    })
-                }).catch(() => { });
-            }
-        }, 10000); // 10s Fast Pulse
 
         window.addEventListener('visibilitychange', handleVisibilityChange);
 
@@ -102,10 +111,10 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
 
         return () => {
             isMounted = false;
-            clearInterval(heartbeatInterval);
+            clearInterval(healthMonitor);
             window.removeEventListener('visibilitychange', handleVisibilityChange);
-            const client = getApinatorClient();
-            if (client) client.unsubscribe(`sidebar-${userId}`);
+            const c = getApinatorClient();
+            if (c) c.unsubscribe(channelName);
         };
     }, [userId]);
     const fetchConversations = async (uid: string) => {

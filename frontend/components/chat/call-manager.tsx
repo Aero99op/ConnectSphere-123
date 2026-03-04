@@ -20,24 +20,18 @@ export function CallManager() {
     const activeCallRef = useRef<any>(null);
     useEffect(() => { activeCallRef.current = activeCall; }, [activeCall]);
 
-    // Apinator-based Call Signaling (UNLIMITED, ZERO Supabase connections)
+    // Apinator-based Call Signaling (BULLETPROOF — NEVER SLEEPS)
     useEffect(() => {
         if (!userId) return;
         let isMounted = true;
         let ringTimeout: NodeJS.Timeout;
 
-        const setupSubscription = () => {
-            const client = getApinatorClient();
-            if (!client) {
-                console.error("[CallManager] ❌ Apinator client is NULL! Calls will NOT work. Check NEXT_PUBLIC_APINATOR_KEY env var.");
-                return null;
-            }
+        const channelName = `call-${userId}`;
 
-            const channel = client.subscribe(`call-${userId}`);
-
+        const bindCallEvents = (channel: any) => {
             channel.bind('incoming-call', (data: any) => {
                 const payload = typeof data === 'string' ? JSON.parse(data) : data;
-                console.log("[CallManager] Apinator incoming-call:", payload);
+                console.log("[CallManager] 📞 Apinator incoming-call:", payload);
                 if (!activeCallRef.current && isMounted) {
                     setIncomingCall(payload);
 
@@ -51,49 +45,73 @@ export function CallManager() {
                     }, 30000);
                 }
             });
-
-            console.log(`[CallManager] Subscribed to Apinator channel: call-${userId}`);
-            return channel;
         };
 
-        let currentChannel = setupSubscription();
+        // Initial subscription
+        const client = getApinatorClient();
+        if (!client) {
+            console.error("[CallManager] ❌ Apinator client is NULL! Calls will NOT work.");
+            return;
+        }
 
-        // RE-SYNC ON VISIBILITY (Smart Fix for background tabs)
+        let channel = client.subscribe(channelName);
+        bindCallEvents(channel);
+        console.log(`[CallManager] ✅ Subscribed to: ${channelName}`);
+
+        // 🔥 ULTRA-FAST CONNECTION HEALTH MONITOR (1s pulse)
+        // This does NOT make API calls — it just checks WebSocket state in memory
+        const healthMonitor = setInterval(() => {
+            if (!isMounted) return;
+            const c = getApinatorClient();
+            if (!c) return;
+
+            // If WebSocket dropped, force reconnect
+            if (c.state === 'disconnected' || c.state === 'unavailable') {
+                console.warn("[CallManager] ⚡ WebSocket dropped! Forcing reconnect...");
+                c.connect();
+            }
+
+            // Re-subscribe if channel got lost during reconnect
+            const existingChannel = c.channel(channelName);
+            if (!existingChannel || !existingChannel.subscribed) {
+                console.warn("[CallManager] ⚡ Channel lost! Re-subscribing...");
+                channel = c.subscribe(channelName);
+                bindCallEvents(channel);
+                console.log(`[CallManager] ✅ Re-subscribed to: ${channelName}`);
+            }
+        }, 1000); // 1s health check — zero API calls, just memory checks
+
+        // ON TAB VISIBLE: Quick health check (no unsubscribe!)
         const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible' && userId && isMounted) {
-                console.log("[CallManager] Tab visible, refreshing call subscription...");
-                const client = getApinatorClient();
-                if (client) {
-                    client.unsubscribe(`call-${userId}`);
-                    currentChannel = setupSubscription();
+            if (document.visibilityState === 'visible' && isMounted) {
+                const c = getApinatorClient();
+                if (!c) return;
+
+                // Force reconnect if WebSocket is dead
+                if (c.state !== 'connected' && c.state !== 'connecting') {
+                    console.log("[CallManager] 🔄 Tab visible, reconnecting WebSocket...");
+                    c.connect();
+                }
+
+                // Verify channel exists (don't blindly unsubscribe!)
+                const existingChannel = c.channel(channelName);
+                if (!existingChannel || !existingChannel.subscribed) {
+                    channel = c.subscribe(channelName);
+                    bindCallEvents(channel);
+                    console.log(`[CallManager] ✅ Re-subscribed on visibility: ${channelName}`);
                 }
             }
         };
-
-        // HEARTBEAT (Turbo Call Pulse: 5s)
-        const heartbeatInterval = setInterval(() => {
-            if (document.visibilityState === 'visible' && isMounted) {
-                fetch('/api/apinator/trigger', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        channel: `call-${userId}`,
-                        event: 'ping',
-                        data: { t: Date.now() }
-                    })
-                }).catch(() => { });
-            }
-        }, 5000); // 5s Ultra-Fast Pulse
 
         window.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
             isMounted = false;
             if (ringTimeout) clearTimeout(ringTimeout);
-            clearInterval(heartbeatInterval);
+            clearInterval(healthMonitor);
             window.removeEventListener('visibilitychange', handleVisibilityChange);
-            const client = getApinatorClient();
-            if (client) client.unsubscribe(`call-${userId}`);
+            const c = getApinatorClient();
+            if (c) c.unsubscribe(channelName);
         };
     }, [userId]);
 

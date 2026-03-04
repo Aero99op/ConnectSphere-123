@@ -130,29 +130,39 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             });
         }, 3000);
 
-        // HEARTBEAT & PRESENCE (Keep connection super-hot)
-        const heartbeatInterval = setInterval(() => {
-            if (document.visibilityState === 'visible' && isMounted) {
-                fetch('/api/apinator/trigger', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        channel: `chat-${conversationId}`,
-                        event: 'presence',
-                        data: { userId: currentUserId, status: 'active', t: Date.now() }
-                    })
-                }).catch(() => { });
-            }
-        }, 10000); // 10s Fast Pulse
+        const chatChannelName = `chat-${conversationId}`;
 
+        // 🔥 ULTRA-FAST CONNECTION HEALTH MONITOR (1s)
+        const healthMonitor = setInterval(() => {
+            if (!isMounted) return;
+            const c = getApinatorClient();
+            if (!c) return;
+
+            if (c.state === 'disconnected' || c.state === 'unavailable') {
+                c.connect();
+            }
+
+            const existingChannel = c.channel(chatChannelName);
+            if (!existingChannel || !existingChannel.subscribed) {
+                currentChannel = setupSubscription();
+            }
+        }, 1000);
+
+        // ON TAB VISIBLE: Health check + catch-up (NO unsubscribe!)
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible' && isMounted) {
-                const client = getApinatorClient();
-                if (client) {
-                    client.unsubscribe(`chat-${conversationId}`);
-                    currentChannel = setupSubscription();
-                    fetchMessages();
+                const c = getApinatorClient();
+                if (c && c.state !== 'connected' && c.state !== 'connecting') {
+                    c.connect();
                 }
+
+                if (c) {
+                    const existingChannel = c.channel(chatChannelName);
+                    if (!existingChannel || !existingChannel.subscribed) {
+                        currentChannel = setupSubscription();
+                    }
+                }
+                fetchMessages(); // Catch up
             }
         };
 
@@ -168,10 +178,10 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         return () => {
             isMounted = false;
             clearInterval(typingCleanupInterval);
-            clearInterval(heartbeatInterval);
+            clearInterval(healthMonitor);
             window.removeEventListener('visibilitychange', handleVisibilityChange);
-            const client = getApinatorClient();
-            if (client) client.unsubscribe(`chat-${conversationId}`);
+            const c = getApinatorClient();
+            if (c) c.unsubscribe(chatChannelName);
         };
     }, [conversationId, isGroup]);
 
