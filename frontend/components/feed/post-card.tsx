@@ -59,7 +59,7 @@ export function PostCard({ post }: PostProps) {
 
                     // Check Follow Status if not own post
                     if (post.user_id !== authUser.id) {
-                        const { data: followData } = await supabase.from('follows').select('id').eq('follower_id', authUser.id).eq('following_id', post.user_id).maybeSingle();
+                        const { data: followData } = await supabase.from('follows').select('follower_id').eq('follower_id', authUser.id).eq('following_id', post.user_id).maybeSingle();
                         setIsFollowing(followData !== null);
                     }
                 }
