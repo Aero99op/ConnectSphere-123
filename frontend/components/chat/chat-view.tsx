@@ -56,7 +56,8 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             const client = getApinatorClient();
             if (!client) return null;
 
-            const channel = client.subscribe(`chat-${conversationId}`);
+            const chatChannelName = `chat-${conversationId}`;
+            const channel = client.subscribe(chatChannelName);
 
             channel.bind('new-message', async (data: any) => {
                 const newMsg = typeof data === 'string' ? JSON.parse(data) : data;
@@ -103,9 +104,21 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                 }
             });
 
-            channel.bind('presence', (data: any) => {
-                // Future presence logic (e.g., Green Dot sync)
-            });
+            // SELF-HEALING: Re-subscribe if connection recovers
+            const handleStateChange = (states: any) => {
+                if (states.current === 'connected' && isMounted) {
+                    const existing = client.channel(chatChannelName);
+                    if (!existing || !existing.subscribed) {
+                        console.log("[ChatView] 🔄 Re-subscribing after reconnect...");
+                        client.subscribe(chatChannelName);
+                        // Events are already bound to the client/channel object usually, 
+                        // but re-subscribing ensures the server knows we are back.
+                    }
+                    fetchMessages();
+                }
+            };
+            client.bind('state_change', handleStateChange);
+            (channel as any)._stateChangeHandler = handleStateChange; // Store for cleanup
 
             console.log(`[ChatView] Subscribed to Apinator channel: chat-${conversationId}`);
             return channel;
@@ -141,7 +154,12 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             isMounted = false;
             clearInterval(typingCleanupInterval);
             const c = getApinatorClient();
-            if (c) c.unsubscribe(`chat-${conversationId}`);
+            if (c) {
+                if (currentChannel && (currentChannel as any)._stateChangeHandler) {
+                    c.unbind('state_change', (currentChannel as any)._stateChangeHandler);
+                }
+                c.unsubscribe(`chat-${conversationId}`);
+            }
         };
     }, [conversationId, isGroup]);
 
@@ -175,6 +193,10 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     }, [messages, currentUserId]);
 
     const markMessageAsRead = async (msgId: string) => {
+        // Skip temporary optimistic IDs (they are not UUIDs)
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(msgId);
+        if (!isUUID) return;
+
         // Optimistic UI update
         setMessages(prev => prev.map(m => m.id === msgId ? { ...m, is_read: true } : m));
 
