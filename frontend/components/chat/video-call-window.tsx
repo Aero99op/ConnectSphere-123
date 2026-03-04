@@ -328,9 +328,14 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
             }
 
             // CRITICAL FIX: Explicitly unbind all events from this channel before unsubscribing
-            // so global client doesn't keep zombie listeners around for subsequent calls
+            // Apinator SDK doesn't support unbind_all(), so we do it manually.
             if (channel) {
-                channel.unbind_all();
+                channel.unbind('ice-candidate');
+                channel.unbind('call-offer');
+                channel.unbind('call-answer');
+                channel.unbind('end-call');
+                channel.unbind('receiver-ready');
+                channel.unbind('caller-ready');
             }
             client.unsubscribe(channelName);
         };
