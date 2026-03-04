@@ -143,7 +143,10 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
         const channelName = `webrtc-${roomId}`;
         const channel = client.subscribe(channelName);
         let iceCandidateQueue: RTCIceCandidateInit[] = [];
+        let isRemoteDescriptionSet = false;
         let isSubscribed = true; // Apinator connects immediately
+        let hasCreatedOffer = false; // Prevent multiple offers
+        let hasSetAnswer = false; // Prevent multiple answers
 
         // Helper to send signaling events via API
         const sendSignal = (event: string, data: any) => {
@@ -179,25 +182,44 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
 
             // Listen for signaling events from Apinator
             channel.bind('receiver-ready', async () => {
-                if (!isIncoming && peerConnection.current) {
+                if (!isIncoming && peerConnection.current && !hasCreatedOffer) {
                     try {
+                        hasCreatedOffer = true;
                         const offer = await peerConnection.current.createOffer();
                         await peerConnection.current.setLocalDescription(offer);
                         sendSignal('call-offer', { offer });
                     } catch (err) {
                         console.error("Error creating offer:", err);
+                        hasCreatedOffer = false;
                     }
                 }
             });
 
+            const processIceQueue = async () => {
+                if (!peerConnection.current) return;
+                for (const candidate of iceCandidateQueue) {
+                    try {
+                        await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+                    } catch (e) {
+                        console.error("Error adding queued ice candidate", e);
+                    }
+                }
+                iceCandidateQueue = [];
+            };
+
             channel.bind('ice-candidate', async (data: any) => {
                 const payload = typeof data === 'string' ? JSON.parse(data) : data;
                 const isFromMe = !isIncoming ? payload.from === 'caller' : payload.from === 'receiver';
+
                 if (peerConnection.current && !isFromMe) {
-                    try {
-                        await peerConnection.current.addIceCandidate(new RTCIceCandidate(payload.candidate));
-                    } catch (err) {
-                        console.error("Error adding ice candidate", err);
+                    if (!isRemoteDescriptionSet) {
+                        iceCandidateQueue.push(payload.candidate);
+                    } else {
+                        try {
+                            await peerConnection.current.addIceCandidate(new RTCIceCandidate(payload.candidate));
+                        } catch (err) {
+                            console.error("Error adding ice candidate", err);
+                        }
                     }
                 }
             });
@@ -206,7 +228,15 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                 const payload = typeof data === 'string' ? JSON.parse(data) : data;
                 if (isIncoming && peerConnection.current) {
                     try {
+                        // Crucial fix: ensure we are in a state to accept an offer
+                        if (peerConnection.current.signalingState !== 'stable') {
+                            console.warn("Got offer but signalingState is", peerConnection.current.signalingState);
+                            return;
+                        }
                         await peerConnection.current.setRemoteDescription(new RTCSessionDescription(payload.offer));
+                        isRemoteDescriptionSet = true;
+                        processIceQueue();
+
                         const answer = await peerConnection.current.createAnswer();
                         await peerConnection.current.setLocalDescription(answer);
                         sendSignal('call-answer', { answer });
@@ -218,11 +248,22 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
 
             channel.bind('call-answer', async (data: any) => {
                 const payload = typeof data === 'string' ? JSON.parse(data) : data;
-                if (!isIncoming && peerConnection.current) {
+                if (!isIncoming && peerConnection.current && !hasSetAnswer) {
                     try {
+                        // Crucial fix: The core "InvalidStateError" happens when we try to set an answer 
+                        // while the signaling state is 'stable' (already connected/answered)
+                        if (peerConnection.current.signalingState === 'stable') {
+                            console.warn("Got answer but signalingState is already stable. Ignoring.");
+                            return;
+                        }
+
+                        hasSetAnswer = true;
                         await peerConnection.current.setRemoteDescription(new RTCSessionDescription(payload.answer));
+                        isRemoteDescriptionSet = true;
+                        processIceQueue();
                     } catch (err) {
                         console.error("Error handling answer:", err);
+                        hasSetAnswer = false;
                     }
                 }
             });
@@ -268,16 +309,6 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
 
         startCall();
 
-        // Connection health monitor (no wasteful API pings)
-        const healthMonitor = setInterval(() => {
-            if (!isCleaningUp) {
-                const c = getApinatorClient();
-                if (c && (c.state === 'disconnected' || c.state === 'unavailable')) {
-                    c.connect();
-                }
-            }
-        }, 1000);
-
         const handleBeforeUnload = () => {
             handleEndCall(true);
         };
@@ -286,7 +317,6 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
         return () => {
             isCleaningUp = true;
             isSubscribed = false;
-            clearInterval(healthMonitor);
             window.removeEventListener("beforeunload", handleBeforeUnload);
             if (localStream.current) {
                 localStream.current.getTracks().forEach(track => track.stop());

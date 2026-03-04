@@ -67,33 +67,10 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
         bindSidebarEvents(channel);
         console.log(`[ChatSidebar] ✅ Subscribed to: ${channelName}`);
 
-        // ON TAB VISIBLE: Quick health check + catch-up fetch
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible' && isMounted) {
-                const c = getApinatorClient();
-                if (!c) return;
-
-                if (c.state !== 'connected' && c.state !== 'connecting') {
-                    c.connect();
-                }
-
-                const existingChannel = c.channel(channelName);
-                if (!existingChannel || !existingChannel.subscribed) {
-                    channel = c.subscribe(channelName);
-                    bindSidebarEvents(channel);
-                }
-
-                fetchConversations(userId); // Catch up on missed messages
-            }
-        };
-
-        window.addEventListener('visibilitychange', handleVisibilityChange);
-
         fetchConversations(userId);
 
         return () => {
             isMounted = false;
-            window.removeEventListener('visibilitychange', handleVisibilityChange);
             const c = getApinatorClient();
             if (c) c.unsubscribe(channelName);
         };

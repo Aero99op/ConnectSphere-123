@@ -130,28 +130,6 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             });
         }, 3000);
 
-        const chatChannelName = `chat-${conversationId}`;
-
-        // ON TAB VISIBLE: Health check + catch-up (NO unsubscribe!)
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible' && isMounted) {
-                const c = getApinatorClient();
-                if (c && c.state !== 'connected' && c.state !== 'connecting') {
-                    c.connect();
-                }
-
-                if (c) {
-                    const existingChannel = c.channel(chatChannelName);
-                    if (!existingChannel || !existingChannel.subscribed) {
-                        currentChannel = setupSubscription();
-                    }
-                }
-                fetchMessages(); // Catch up
-            }
-        };
-
-        window.addEventListener('visibilitychange', handleVisibilityChange);
-
         if (isGroup) {
             supabase.from('conversation_participants').select('user_id').eq('conversation_id', conversationId)
                 .then(({ data }) => {
@@ -162,9 +140,8 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         return () => {
             isMounted = false;
             clearInterval(typingCleanupInterval);
-            window.removeEventListener('visibilitychange', handleVisibilityChange);
             const c = getApinatorClient();
-            if (c) c.unsubscribe(chatChannelName);
+            if (c) c.unsubscribe(`chat-${conversationId}`);
         };
     }, [conversationId, isGroup]);
 

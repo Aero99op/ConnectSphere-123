@@ -60,22 +60,10 @@ export function CallManager() {
         // Try initial subscription
         ensureSubscription();
 
-        // Tab visibility — instant health check
-        const onVisible = () => {
-            if (document.visibilityState === 'visible' && isMounted) {
-                const client = getApinatorClient();
-                if (client && client.state !== 'connected' && client.state !== 'connecting') {
-                    client.connect();
-                }
-                ensureSubscription();
-            }
-        };
-        window.addEventListener('visibilitychange', onVisible);
-
         return () => {
             isMounted = false;
             if (ringTimeout) clearTimeout(ringTimeout);
-            window.removeEventListener('visibilitychange', onVisible);
+            // Global provider handles the connection, CallManager just unsubscribes from its channel
             const client = getApinatorClient();
             if (client) client.unsubscribe(channelName);
         };
