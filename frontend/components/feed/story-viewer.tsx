@@ -53,15 +53,20 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
 
         async function initStory() {
             // 1. Record View (Silent)
-            supabase.from('story_views').insert({ story_id: currentStory.id, viewer_id: userId }).then();
+            // Skip database if it's a mock story to avoid UUID errors
+            if (currentStory.id && !currentStory.id.toString().startsWith('mock')) {
+                supabase.from('story_views').insert({ story_id: currentStory.id, viewer_id: userId }).then();
+            }
 
             // 2. Check Like Status
-            const { data: likeData } = await supabase.from('story_likes')
-                .select('id')
-                .eq('story_id', currentStory.id)
-                .eq('user_id', userId)
-                .maybeSingle();
-            if (likeData) setLiked(true);
+            if (userId && currentStory.id && !currentStory.id.toString().startsWith('mock')) {
+                const { data: likeData } = await supabase.from('story_likes')
+                    .select('id')
+                    .eq('story_id', currentStory.id)
+                    .eq('user_id', userId)
+                    .maybeSingle();
+                if (likeData) setLiked(true);
+            }
         }
 
         async function loadMedia() {
@@ -118,24 +123,37 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
         const newLikedState = !liked;
         setLiked(newLikedState);
 
+        const isMock = currentStory.id && currentStory.id.toString().startsWith('mock');
+
         if (newLikedState) {
-            const { error } = await supabase.from('story_likes').insert({ story_id: currentStory.id, user_id: userId });
-            if (error) {
-                console.error("Story Like Error:", error);
-                setLiked(false);
-                return toast.error("Like save nahi hua!");
+            // Only insert into DB if it's not a mock story
+            if (!isMock) {
+                const { error } = await supabase.from('story_likes').insert({ story_id: currentStory.id, user_id: userId });
+                if (error) {
+                    console.error("Story Like Error:", error);
+                    setLiked(false);
+                    return toast.error("Like save nahi hua!");
+                }
             }
 
+            // Real-time Notification logic (Works even for mocks for better demo/UX)
             if (currentStory.user_id && currentStory.user_id !== userId) {
+                // Fetch current user profile for "Hyper-Live" notification data
+                const { data: actorProfile } = await supabase.from('profiles').select('username, avatar_url').eq('id', userId).single();
+
                 const notifData = {
                     recipient_id: currentStory.user_id,
                     actor_id: userId,
                     type: 'like',
-                    entity_id: currentStory.id
+                    entity_id: currentStory.id,
+                    // Injecting actor data for instant display without secondary fetch
+                    actor: actorProfile || { username: "Someone", avatar_url: "" }
                 };
 
-                // 1. DB Record
-                await supabase.from('notifications').insert(notifData);
+                // 1. DB Record (Only for real stories)
+                if (!isMock) {
+                    await supabase.from('notifications').insert(notifData);
+                }
 
                 // 2. Instant Notification via Apinator (UNLIMITED)
                 fetch('/api/apinator/trigger', {
@@ -150,7 +168,9 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
             }
             toast.success("Loved it! ❤️");
         } else {
-            await supabase.from('story_likes').delete().eq('story_id', currentStory.id).eq('user_id', userId);
+            if (!isMock) {
+                await supabase.from('story_likes').delete().eq('story_id', currentStory.id).eq('user_id', userId);
+            }
         }
     };
 

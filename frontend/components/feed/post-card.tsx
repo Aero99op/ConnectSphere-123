@@ -11,6 +11,7 @@ import { ShareSheet } from "@/components/feed/share-sheet";
 import { PostOptionsSheet } from "@/components/feed/post-options-sheet";
 import { toast } from "sonner";
 import { useEffect } from "react";
+import { getApinatorClient } from "@/lib/apinator";
 
 interface PostProps {
     post: {
@@ -42,7 +43,7 @@ export function PostCard({ post }: PostProps) {
     const [isDeleted, setIsDeleted] = useState(false);
     const currentUserId = authUser?.id || null;
 
-    // Initial checks for bookmark and ownership
+    // Initial checks for bookmark and ownership + Real-time Sync (Apinator)
     useEffect(() => {
         const init = async () => {
             try {
@@ -58,6 +59,24 @@ export function PostCard({ post }: PostProps) {
             }
         };
         init();
+
+        // 🟢 Real-time Like Sync (Global)
+        const client = getApinatorClient();
+        if (client) {
+            const channel = client.subscribe(`post-${post.id}`);
+
+            channel.bind('like_updated', (data: any) => {
+                const payload = typeof data === 'string' ? JSON.parse(data) : data;
+                // Only update if it wasn't triggered by us (though local sync is good too)
+                if (payload.likes !== undefined) {
+                    setLikes(payload.likes);
+                }
+            });
+
+            return () => {
+                client.unsubscribe(`post-${post.id}`);
+            };
+        }
     }, [post.id, authUser, supabase]);
 
     const handlePlay = async () => {
@@ -153,6 +172,17 @@ export function PostCard({ post }: PostProps) {
             // Remove from persistent post_likes table
             await supabase.from('post_likes').delete().eq('post_id', post.id).eq('user_id', currentUserId);
         }
+
+        // 🔵 Broadcast Global Like Update (Apinator)
+        fetch('/api/apinator/trigger', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                channel: `post-${post.id}`,
+                event: 'like_updated',
+                data: { likes: newLikes, actor_id: currentUserId }
+            })
+        }).catch(console.error);
     };
 
     const handleBookmark = async () => {

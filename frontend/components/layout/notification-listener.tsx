@@ -29,6 +29,13 @@ export function NotificationListener() {
                 return;
             }
 
+            // If we have direct actor data in payload (Hyper-Live mode), use it!
+            if (payload.actor) {
+                showNotificationToast(payload.actor, payload);
+                return;
+            }
+
+            // Fallback for types that don't include actor data (Unlimited scale requires careful fetching)
             const { data: actor } = await supabase
                 .from('profiles')
                 .select('username, avatar_url')
