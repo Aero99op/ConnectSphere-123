@@ -237,24 +237,46 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                 }
             });
 
-            // Signal readiness
-            setTimeout(() => {
+            // Signal readiness with RETRY LOOP (fixes race condition!)
+            // Both sides keep signaling until connection is established
+            let readyInterval: NodeJS.Timeout;
+            let readyAttempts = 0;
+            const maxAttempts = 8; // 8 attempts × 2s = 16s window
+
+            const signalReady = () => {
+                if (readyAttempts >= maxAttempts || !peerConnection.current ||
+                    peerConnection.current.connectionState === 'connected') {
+                    clearInterval(readyInterval);
+                    return;
+                }
+                readyAttempts++;
                 if (isIncoming) {
                     sendSignal('receiver-ready', {});
+                    console.log(`[VideoCall] 📡 Sent receiver-ready (attempt ${readyAttempts})`);
                 } else {
                     sendSignal('caller-ready', {});
+                    console.log(`[VideoCall] 📡 Sent caller-ready (attempt ${readyAttempts})`);
                 }
-            }, 800);
+            };
+
+            // Start immediately, then retry every 2s
+            setTimeout(() => {
+                signalReady();
+                readyInterval = setInterval(signalReady, 2000);
+            }, 500);
         };
 
         startCall();
 
-        // SIGNALING HEARTBEAT (Turbo Call Pulse: 5s)
-        const signalingHeartbeat = setInterval(() => {
-            if (isSubscribed) {
-                sendSignal('ping', { t: Date.now() });
+        // Connection health monitor (no wasteful API pings)
+        const healthMonitor = setInterval(() => {
+            if (!isCleaningUp) {
+                const c = getApinatorClient();
+                if (c && (c.state === 'disconnected' || c.state === 'unavailable')) {
+                    c.connect();
+                }
             }
-        }, 5000);
+        }, 1000);
 
         const handleBeforeUnload = () => {
             handleEndCall(true);
@@ -264,7 +286,7 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
         return () => {
             isCleaningUp = true;
             isSubscribed = false;
-            clearInterval(signalingHeartbeat);
+            clearInterval(healthMonitor);
             window.removeEventListener("beforeunload", handleBeforeUnload);
             if (localStream.current) {
                 localStream.current.getTracks().forEach(track => track.stop());
