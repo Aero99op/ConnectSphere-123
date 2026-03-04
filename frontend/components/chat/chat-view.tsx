@@ -65,7 +65,9 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                     setMessages((prev) => {
                         // Prevent duplicates and handle optimistic replacement
                         if (prev.some(m => m.id === newMsg.id)) return prev;
-                        return [...prev, newMsg];
+                        // Add message and sort chronologically to fix sequence race conditions
+                        const newArray = [...prev, newMsg];
+                        return newArray.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
                     });
                     scrollToBottom();
                 }
@@ -81,14 +83,20 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             channel.bind('message-confirmed', (data: any) => {
                 const payload = typeof data === 'string' ? JSON.parse(data) : data;
                 if (isMounted) {
-                    setMessages(prev => prev.map(m => m.id === payload.tempId ? payload.actualMsg : m));
+                    setMessages(prev => {
+                        const newArray = prev.map(m => m.id === payload.tempId ? payload.actualMsg : m);
+                        return newArray.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+                    });
                 }
             });
 
             channel.bind('update-message', (data: any) => {
                 const updatedMsg = typeof data === 'string' ? JSON.parse(data) : data;
                 if (isMounted) {
-                    setMessages((prev) => prev.map(m => m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m));
+                    setMessages((prev) => {
+                        const newArray = prev.map(m => m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m);
+                        return newArray.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+                    });
                 }
             });
 
@@ -355,6 +363,13 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             is_optimistic: true
         };
 
+        // IMMEDIATE Optimistic UI Update for sender (Strictly Sorted)
+        setMessages(prev => {
+            const newArray = [...prev, optimisticMsg];
+            return newArray.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        });
+        scrollToBottom();
+
         // Parallel trigger 1: Real-time message signal
         fetch('/api/apinator/trigger', {
             method: 'POST',
@@ -392,11 +407,12 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                 })
             }).catch(console.error);
 
-            // Optimistic UI: Add to local state immediately
+            // Optimistic UI: Add to local state immediately and sort
             setMessages(prev => {
                 const filtered = prev.filter(m => m.id !== tempId);
                 if (filtered.some(m => m.id === insertedMsg.id)) return filtered;
-                return [...filtered, insertedMsg];
+                const newArray = [...filtered, insertedMsg];
+                return newArray.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
             });
             scrollToBottom();
 

@@ -79,9 +79,25 @@ export function CallManager() {
             client.bind('state_change', handleStateChange);
         }
 
+        // CHANNEL DEFENSE: Aggressively verify the channel is actually subscribed
+        // Sometimes the connection is alive, but the channel was silently dropped.
+        const channelDefenseInterval = setInterval(() => {
+            if (isMounted) {
+                const c = getApinatorClient();
+                if (c && c.state === 'connected') {
+                    const existing = c.channel(channelName);
+                    if (!existing || !existing.subscribed) {
+                        console.warn(`[CallManager] 🛡️ Channel defense triggered: Re-subscribing to ${channelName}`);
+                        ensureSubscription();
+                    }
+                }
+            }
+        }, 30000);
+
         return () => {
             isMounted = false;
             if (ringTimeout) clearTimeout(ringTimeout);
+            clearInterval(channelDefenseInterval);
             // Global provider handles the connection, CallManager just unsubscribes from its channel
             const c = getApinatorClient();
             if (c) {
