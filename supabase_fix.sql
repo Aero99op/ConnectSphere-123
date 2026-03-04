@@ -68,15 +68,35 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'message_preference') THEN
         ALTER TABLE public.profiles ADD COLUMN message_preference text DEFAULT 'all';
     END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'country') THEN
+        ALTER TABLE public.profiles ADD COLUMN country text;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'age') THEN
+        ALTER TABLE public.profiles ADD COLUMN age integer;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'interests') THEN
+        ALTER TABLE public.profiles ADD COLUMN interests text[] DEFAULT '{}';
+    END IF;
 END $$;
 
 -- 2. Setup Social Tables (Likes, Follows, Blocks)
-CREATE TABLE IF NOT EXISTS public.likes (
+CREATE TABLE IF NOT EXISTS public.post_likes (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
     post_id uuid REFERENCES public.posts(id) ON DELETE CASCADE,
     created_at timestamp with time zone DEFAULT now(),
     UNIQUE(user_id, post_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.story_likes (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+    story_id uuid REFERENCES public.stories(id) ON DELETE CASCADE,
+    created_at timestamp with time zone DEFAULT now(),
+    UNIQUE(user_id, story_id)
 );
 
 CREATE TABLE IF NOT EXISTS public.follows (
@@ -97,7 +117,8 @@ CREATE TABLE IF NOT EXISTS public.blocked_users (
 
 -- 3. Enable RLS on everything
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.likes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.post_likes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.story_likes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.follows ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.blocked_users ENABLE ROW LEVEL SECURITY;
 
@@ -109,11 +130,19 @@ DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
 -- 5. Set up Policies for Likes & Follows
-DROP POLICY IF EXISTS "Likes are viewable by everyone" ON public.likes;
-CREATE POLICY "Likes are viewable by everyone" ON public.likes FOR SELECT USING (true);
+-- Post Likes
+DROP POLICY IF EXISTS "Likes are viewable by everyone" ON public.post_likes;
+CREATE POLICY "Likes are viewable by everyone" ON public.post_likes FOR SELECT USING (true);
 
-DROP POLICY IF EXISTS "Users can manage their own likes" ON public.likes;
-CREATE POLICY "Users can manage their own likes" ON public.likes FOR ALL USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can manage their own likes" ON public.post_likes;
+CREATE POLICY "Users can manage their own likes" ON public.post_likes FOR ALL USING (auth.uid() = user_id);
+
+-- Story Likes
+DROP POLICY IF EXISTS "Story likes are viewable by everyone" ON public.story_likes;
+CREATE POLICY "Story likes are viewable by everyone" ON public.story_likes FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Users can manage their own story likes" ON public.story_likes;
+CREATE POLICY "Users can manage their own story likes" ON public.story_likes FOR ALL USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Follows are viewable by everyone" ON public.follows;
 CREATE POLICY "Follows are viewable by everyone" ON public.follows FOR SELECT USING (true);
@@ -133,7 +162,8 @@ CREATE POLICY "Users can block/unblock" ON public.blocked_users FOR ALL USING (a
 CREATE INDEX IF NOT EXISTS idx_posts_created_at_desc ON public.posts (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_created ON public.messages (conversation_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_recipient_created ON public.notifications (recipient_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_likes_post_id ON public.likes (post_id);
+CREATE INDEX IF NOT EXISTS idx_post_likes_post_id ON public.post_likes (post_id);
+CREATE INDEX IF NOT EXISTS idx_story_likes_story_id ON public.story_likes (story_id);
 CREATE INDEX IF NOT EXISTS idx_follows_following_id ON public.follows (following_id);
 CREATE INDEX IF NOT EXISTS idx_follows_follower_id ON public.follows (follower_id);
 CREATE INDEX IF NOT EXISTS idx_profiles_username_search ON public.profiles USING gin (username gin_trgm_ops); -- Fast username search

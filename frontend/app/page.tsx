@@ -13,6 +13,7 @@ import { StoryViewer } from "@/components/feed/story-viewer";
 import { RightSidebar } from "@/components/layout/right-sidebar";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getApinatorClient } from "@/lib/apinator";
 
 import { FileUpload } from "@/components/ui/file-upload";
 
@@ -171,6 +172,23 @@ function HomeFeedContent() {
             }
         };
     }, [authUser, router]);
+
+    // 🟢 Real-time Profile Sync (Apinator)
+    useEffect(() => {
+        const client = getApinatorClient();
+        if (!client || !authUser) return;
+
+        const channel = client.subscribe(`profiles-${authUser.id}`);
+        channel.bind('profile_updated', async () => {
+            console.log("[Feed] Local profile update received! Syncing header...");
+            const { data } = await supabase.from('profiles').select('*').eq('id', authUser.id).maybeSingle();
+            if (data) setUserProfile(data);
+        });
+
+        return () => {
+            client.unsubscribe(`profiles-${authUser.id}`);
+        };
+    }, [authUser, supabase]);
 
 
     const [storyFileUrls, setStoryFileUrls] = useState<string[]>([]);

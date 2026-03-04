@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,6 +31,7 @@ interface ProfileEditFormProps {
 }
 
 export function ProfileEditForm({ initialData, onSuccess }: ProfileEditFormProps) {
+    const { supabase } = useAuth();
     const [fullName, setFullName] = useState(initialData.full_name || "");
     const [bio, setBio] = useState(initialData.bio || "");
     const [avatarUrl, setAvatarUrl] = useState(initialData.avatar_url || "");
@@ -68,6 +69,17 @@ export function ProfileEditForm({ initialData, onSuccess }: ProfileEditFormProps
                 .eq("id", initialData.id);
 
             if (error) throw error;
+
+            // 🔵 Global Profile Sync Trigger (Apinator)
+            fetch('/api/apinator/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channel: `profiles-${initialData.id}`,
+                    event: 'profile_updated',
+                    data: { id: initialData.id, full_name: fullName, avatar_url: avatarUrl }
+                })
+            }).catch(console.error);
 
             toast.success("Profile Chamak Gaya! ✨ (Updated)");
             if (onSuccess) onSuccess();

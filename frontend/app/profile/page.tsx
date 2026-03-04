@@ -221,6 +221,25 @@ function ProfilePageContent() {
         };
     }, [authUser]);
 
+    // 🟢 Real-time Profile Sync (Apinator)
+    useEffect(() => {
+        if (!authUser) return;
+
+        const client = getApinatorClient();
+        if (!client) return;
+
+        const channel = client.subscribe(`profiles-${authUser.id}`);
+
+        channel.bind('profile_updated', () => {
+            console.log("[Profile] Profile update received! Refetching...");
+            fetchProfile();
+        });
+
+        return () => {
+            client.unsubscribe(`profiles-${authUser.id}`);
+        };
+    }, [authUser, supabase]);
+
 
     if (loading) {
         return (
