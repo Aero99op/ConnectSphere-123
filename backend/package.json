@@ -16,5 +16,8 @@
     "nodemon": "^3.1.0"
   },
   "author": "ConnectSphere",
-  "license": "ISC"
+  "license": "ISC",
+  "overrides": {
+    "minimatch": "^9.0.8"
+  }
 }
