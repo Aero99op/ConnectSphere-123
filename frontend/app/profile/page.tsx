@@ -444,7 +444,7 @@ function ProfilePageContent() {
                             </div>
                         )}
                     </div>
-                ) : (
+                ) : activeTab === 'reports' ? (
                     <div className="space-y-4">
                         {reports.map((report) => (
                             <div key={report.id} className="bg-zinc-900 border border-white/10 rounded-2xl overflow-hidden">
@@ -522,7 +522,7 @@ function ProfilePageContent() {
                             </div>
                         )}
                     </div>
-                ) : (activeTab === "followers" || activeTab === "following") ? (
+                ) : activeTab === "followers" || activeTab === "following" ? (
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-2xl mx-auto space-y-4">
                         <h2 className="text-xl font-display font-black text-white mb-6 uppercase tracking-widest flex items-center gap-2">
                             <Users className="w-5 h-5 text-primary" /> {activeTab === "followers" ? 'Followers' : 'Following'}
