@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { getApinatorClient } from "@/lib/apinator";
 
 function RightSidebarContent() {
     const { user: authUser, supabase } = useAuth();
@@ -63,6 +64,23 @@ function RightSidebarContent() {
         };
 
         fetchSidebarData();
+
+        // 🟢 Real-time Profile Sync (Apinator)
+        const client = getApinatorClient();
+        if (client && authUser) {
+            const channel = client.subscribe(`profiles-${authUser.id}`);
+            channel.bind('profile_updated', async (payload: any) => {
+                if (payload?.data) {
+                    setCurrentUser((prev: any) => ({ ...prev, ...payload.data }));
+                } else {
+                    const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).single();
+                    setCurrentUser(profile);
+                }
+            });
+            return () => {
+                client.unsubscribe(`profiles-${authUser.id}`);
+            };
+        }
     }, [authUser, supabase]);
 
     const handleFollowToggle = async (targetId: string) => {

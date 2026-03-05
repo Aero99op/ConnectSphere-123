@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
+import { getApinatorClient } from "@/lib/apinator";
 
 export function Sidebar() {
     const pathname = usePathname();
@@ -21,6 +22,22 @@ export function Sidebar() {
             }
         };
         getUser();
+
+        // 🟢 Real-time Profile Sync (Apinator)
+        const client = getApinatorClient();
+        if (client && authUser) {
+            const channel = client.subscribe(`profiles-${authUser.id}`);
+            channel.bind('profile_updated', async (payload: any) => {
+                if (payload?.data) {
+                    setUser((prev: any) => ({ ...prev, ...payload.data }));
+                } else {
+                    getUser();
+                }
+            });
+            return () => {
+                client.unsubscribe(`profiles-${authUser.id}`);
+            };
+        }
     }, [authUser, supabase]);
 
     const links = [

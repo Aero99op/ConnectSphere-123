@@ -179,10 +179,36 @@ function HomeFeedContent() {
         if (!client || !authUser) return;
 
         const channel = client.subscribe(`profiles-${authUser.id}`);
-        channel.bind('profile_updated', async () => {
+        channel.bind('profile_updated', async (payload: any) => {
             console.log("[Feed] Local profile update received! Syncing header...");
             const { data } = await supabase.from('profiles').select('*').eq('id', authUser.id).maybeSingle();
-            if (data) setUserProfile(data);
+            if (data) {
+                setUserProfile(data);
+            }
+
+            // Also update posts where this user is the author
+            const newAvatar = payload?.data?.avatar_url || data?.avatar_url;
+            const newName = payload?.data?.full_name || data?.full_name;
+            const newUsername = payload?.data?.username || data?.username;
+
+            if (newAvatar || newName || newUsername) {
+                setPosts(prev => prev.map(p => {
+                    if (p.user_id === authUser.id) {
+                        return {
+                            ...p,
+                            avatar_url: newAvatar || p.avatar_url,
+                            username: newUsername || p.username,
+                            profiles: {
+                                ...p.profiles,
+                                full_name: newName || p.profiles?.full_name,
+                                username: newUsername || p.profiles?.username,
+                                avatar_url: newAvatar || p.profiles?.avatar_url
+                            }
+                        };
+                    }
+                    return p;
+                }));
+            }
         });
 
         return () => {

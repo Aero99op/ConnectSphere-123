@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Play, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/components/providers/auth-provider";
-import { cn } from "@/lib/utils";
+import { cn, formatTimeAgo } from "@/lib/utils";
 import { downloadAndMergeChunks } from "@/lib/utils/chunk-uploader";
 import { CommentSheet } from "@/components/feed/comment-sheet";
 import { ShareSheet } from "@/components/feed/share-sheet";
@@ -364,7 +364,11 @@ export function PostCard({ post }: PostProps) {
                             <span className="font-display font-bold text-white mr-2 tracking-tight">@{post.username}</span>
                             {post.caption}
                         </p>
-                        <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-3 opacity-60">2 hours ago</p>
+                        {post.created_at && (
+                            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-3 opacity-60">
+                                {formatTimeAgo(post.created_at)}
+                            </p>
+                        )}
                     </div>
                 </div>
             </div>
