@@ -14,16 +14,26 @@ import { getApinatorClient } from "@/lib/apinator";
 
 function ProfilePageContent() {
     const { user: authUser, supabase, signOut } = useAuth();
-    const [activeTab, setActiveTab] = useState<'posts' | 'saved' | 'reports'>('posts');
+    const [activeTab, setActiveTab] = useState<'posts' | 'saved' | 'reports' | 'followers' | 'following'>('posts');
     const [profile, setProfile] = useState<any>(null);
     const [posts, setPosts] = useState<any[]>([]);
     const [savedPosts, setSavedPosts] = useState<any[]>([]);
     const [reports, setReports] = useState<any[]>([]);
     const [followersCount, setFollowersCount] = useState(0);
     const [followingCount, setFollowingCount] = useState(0);
+    const [followersList, setFollowersList] = useState<any[]>([]);
+    const [followingList, setFollowingList] = useState<any[]>([]);
+    const [loadingFollowsList, setLoadingFollowsList] = useState(false);
     const [loading, setLoading] = useState(true);
     const currentUserId = authUser?.id || null;
     const router = useRouter();
+
+    // Utility function to determine border color based on role
+    function getRoleBorderColor(role: string) {
+        if (role === 'official') return 'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.5)]';
+        if (role === 'admin') return 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]';
+        return 'border-orange-500 shadow-[0_0_15px_rgba(255,165,0,0.5)]'; // Citizen (Premium Saffron)
+    }
 
     useEffect(() => {
         fetchProfile();
@@ -139,6 +149,36 @@ function ProfilePageContent() {
         } else {
             setSavedPosts([]);
         }
+    };
+
+    const fetchFollowList = async (type: 'followers' | 'following') => {
+        if (!currentUserId) return;
+        setActiveTab(type);
+        setLoadingFollowsList(true);
+
+        if (type === 'followers') {
+            const { data } = await supabase
+                .from('follows')
+                .select(`
+                    follower_id,
+                    profiles!follows_follower_id_fkey(id, username, full_name, avatar_url, role)
+                `)
+                .eq('following_id', currentUserId);
+
+            setFollowersList(data?.map(d => d.profiles) || []);
+        } else {
+            const { data } = await supabase
+                .from('follows')
+                .select(`
+                    following_id,
+                    profiles!follows_following_id_fkey(id, username, full_name, avatar_url, role)
+                `)
+                .eq('follower_id', currentUserId);
+
+            setFollowingList(data?.map(d => d.profiles) || []);
+        }
+
+        setLoadingFollowsList(false);
     };
 
     const handleLogout = async () => {
@@ -308,17 +348,22 @@ function ProfilePageContent() {
 
                         {/* Tactical Stats */}
                         <div className="flex gap-4 p-4 glass rounded-3xl border-premium bg-black/40">
-                            {[
-                                { label: 'Posts', val: posts.length },
-                                { label: 'Followers', val: followersCount },
-                                { label: 'Following', val: followingCount },
-                                { label: 'Karma', val: profile?.karma_points || 0 }
-                            ].map((stat) => (
-                                <div key={stat.label} className="text-center px-4 border-r border-white/5 last:border-0">
-                                    <p className="font-display font-black text-xl tracking-tighter text-white">{stat.val}</p>
-                                    <p className="text-[10px] font-mono font-black uppercase tracking-[0.2em] text-zinc-500 mt-0.5">{stat.label}</p>
-                                </div>
-                            ))}
+                            <div onClick={() => setActiveTab('posts')} className="cursor-pointer hover:bg-white/5 transition-colors rounded-xl px-4 border-r border-white/5 last:border-0 text-center">
+                                <p className="font-display font-black text-xl tracking-tighter text-white">{posts.length}</p>
+                                <p className="text-[10px] font-mono font-black uppercase tracking-[0.2em] text-zinc-500 mt-0.5">Posts</p>
+                            </div>
+                            <div onClick={() => fetchFollowList('followers')} className="cursor-pointer hover:bg-white/5 transition-colors rounded-xl px-4 border-r border-white/5 last:border-0 text-center">
+                                <p className="font-display font-black text-xl tracking-tighter text-white">{followersCount}</p>
+                                <p className="text-[10px] font-mono font-black uppercase tracking-[0.2em] text-zinc-500 mt-0.5">Followers</p>
+                            </div>
+                            <div onClick={() => fetchFollowList('following')} className="cursor-pointer hover:bg-white/5 transition-colors rounded-xl px-4 border-r border-white/5 last:border-0 text-center">
+                                <p className="font-display font-black text-xl tracking-tighter text-white">{followingCount}</p>
+                                <p className="text-[10px] font-mono font-black uppercase tracking-[0.2em] text-zinc-500 mt-0.5">Following</p>
+                            </div>
+                            <div className="px-4 border-r border-white/5 last:border-0 text-center">
+                                <p className="font-display font-black text-xl tracking-tighter text-white">{profile?.karma_points || 0}</p>
+                                <p className="text-[10px] font-mono font-black uppercase tracking-[0.2em] text-zinc-500 mt-0.5">Karma</p>
+                            </div>
                         </div>
                     </div>
 
@@ -477,7 +522,49 @@ function ProfilePageContent() {
                             </div>
                         )}
                     </div>
-                )}
+                ) : (activeTab === "followers" || activeTab === "following") ? (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-2xl mx-auto space-y-4">
+                        <h2 className="text-xl font-display font-black text-white mb-6 uppercase tracking-widest flex items-center gap-2">
+                            <Users className="w-5 h-5 text-primary" /> {activeTab === "followers" ? 'Followers' : 'Following'}
+                        </h2>
+                        {loadingFollowsList ? (
+                            <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+                        ) : (activeTab === "followers" ? followersList : followingList).length > 0 ? (
+                            <div className="grid grid-cols-1 gap-4">
+                                {(activeTab === "followers" ? followersList : followingList).map((user: any) => (
+                                    <button
+                                        key={user.id}
+                                        onClick={() => router.push(`/profile/${user.id}`)}
+                                        className="group relative w-full text-left"
+                                    >
+                                        <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-secondary/20 blur opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl" />
+                                        <div className="relative glass-card border-premium p-4 rounded-[1.5rem] flex items-center gap-4 hover:translate-x-1 transition-all">
+                                            <Avatar className={`w-12 h-12 border-2 border-zinc-900 ring-1 ring-white/10 ${getRoleBorderColor(user.role || 'citizen')}`}>
+                                                <AvatarImage src={user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`} className="object-cover" />
+                                                <AvatarFallback className="bg-zinc-800 text-primary font-display font-black">{user.full_name?.[0]}</AvatarFallback>
+                                            </Avatar>
+                                            <div className="min-w-0">
+                                                <p className="font-display font-black text-white text-lg tracking-tighter group-hover:text-primary transition-colors truncate">
+                                                    {user.full_name || user.username}
+                                                </p>
+                                                <p className="text-[10px] font-mono font-black text-zinc-500 uppercase tracking-widest truncate">
+                                                    @{user.username}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="glass-panel p-16 rounded-[2.5rem] text-center border-premium border-dashed opacity-60">
+                                <h3 className="font-display font-black text-xl uppercase tracking-widest text-zinc-500 italic">404_NOT_FOUND</h3>
+                                <p className="text-sm font-mono text-zinc-700 mt-2 uppercase tracking-widest">
+                                    {activeTab === "followers" ? 'No followers yet.' : 'Not following anyone yet.'}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                ) : null}
             </div>
         </div>
     );
