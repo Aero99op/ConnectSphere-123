@@ -61,92 +61,50 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 action: { label: 'Action', type: 'text' }, // "login" or "signup"
                 fullName: { label: 'Full Name', type: 'text' },
                 role: { label: 'Role', type: 'text' },
-                otp: { label: 'OTP', type: 'text' },
             },
             async authorize(credentials) {
-                if (!credentials?.email || !credentials?.password || !credentials?.otp) {
-                    throw new Error('Missing required fields including OTP.');
-                }
+                if (!credentials?.email || !credentials?.password) return null;
 
                 const email = (credentials.email as string).toLowerCase().trim();
-                const otpInput = (credentials.otp as string).trim();
                 const userId = await emailToUUID(email);
                 const adminSupabase = createAdminSupabaseClient();
 
-                // 1. Validate OTP Fast
-                const { data: otpRecord, error: otpError } = await adminSupabase
-                    .from('auth_otps')
-                    .select('*')
-                    .eq('email', email)
-                    .eq('action', credentials.action)
-                    .single();
+                // Get profile with verified status
+                const { data: profile, error } = await adminSupabase
+                    .from('profiles')
+                    .select('id, email, full_name, avatar_url, password_hash, role, email_verified')
+                    .eq('id', userId)
+                    .maybeSingle();
 
-                if (otpError || !otpRecord || otpRecord.otp !== otpInput) {
-                    throw new Error('Invalid or expired OTP code.');
+                if (error) throw new Error('Database error. Try again.');
+
+                // 1. Check if account exists
+                if (!profile) {
+                    throw new Error('Account nahi mila. Pehle Magic Link mangwao ya Sign Up karo!');
                 }
 
-                if (new Date(otpRecord.expires_at) < new Date()) {
-                    await adminSupabase.from('auth_otps').delete().eq('id', otpRecord.id);
-                    throw new Error('OTP has expired. Please request a new one.');
+                // 2. Check Verification Status
+                if (!profile.email_verified) {
+                    throw new Error('Bhai, pehle email verify kar lo! Mail check karo ya naya Magic Link mango.');
                 }
 
-                // OTP is valid, remove it
-                await adminSupabase.from('auth_otps').delete().eq('id', otpRecord.id);
-
-                if (credentials.action === 'signup') {
-                    const { data: existingUser } = await adminSupabase
-                        .from('profiles')
-                        .select('id')
-                        .eq('id', userId)
-                        .maybeSingle();
-
-                    if (existingUser) {
-                        throw new Error('Account already exists. Please login instead.');
-                    }
-
-                    const hashedPassword = await hashPassword(credentials.password as string);
-
-                    const { error: insertError } = await adminSupabase
-                        .from('profiles')
-                        .insert({
-                            id: userId,
-                            email: email,
-                            username: email.split('@')[0] + Math.floor(Math.random() * 1000),
-                            full_name: credentials.fullName || email.split('@')[0],
-                            role: credentials.role || 'citizen',
-                            password_hash: hashedPassword,
-                            is_onboarded: false,
-                            avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent((credentials.fullName as string) || email)}`,
-                        });
-
-                    if (insertError) throw new Error('Failed to create account: ' + insertError.message);
-
-                    return {
-                        id: userId,
-                        email: email,
-                        name: (credentials.fullName as string) || email.split('@')[0],
-                        image: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent((credentials.fullName as string) || email)}`,
-                    };
-                } else {
-                    const { data: profile, error } = await adminSupabase
-                        .from('profiles')
-                        .select('id, email, full_name, avatar_url, password_hash, role')
-                        .eq('id', userId)
-                        .maybeSingle();
-
-                    if (error || !profile) throw new Error('No account found with this email.');
-                    if (!profile.password_hash) throw new Error('This account uses Google login. Please sign in with Google or reset password.');
-
-                    const inputHash = await hashPassword(credentials.password as string);
-                    if (inputHash !== profile.password_hash) throw new Error('Invalid password.');
-
-                    return {
-                        id: profile.id,
-                        email: profile.email,
-                        name: profile.full_name,
-                        image: profile.avatar_url,
-                    };
+                // 3. Google only accounts
+                if (!profile.password_hash) {
+                    throw new Error('Ye account Google se bana hai. Google login use karo.');
                 }
+
+                // 4. Password match
+                const inputHash = await hashPassword(credentials.password as string);
+                if (inputHash !== profile.password_hash) {
+                    throw new Error('Ghalat password hai bhai!');
+                }
+
+                return {
+                    id: profile.id,
+                    email: profile.email,
+                    name: profile.full_name,
+                    image: profile.avatar_url,
+                };
             },
         }),
     ],
