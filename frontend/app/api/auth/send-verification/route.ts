@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@/lib/auth';
-import crypto from 'crypto';
-
 export const runtime = 'edge';
 
 function generateToken() {
-    return crypto.randomBytes(32).toString('hex');
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 export async function POST(req: Request) {
