@@ -1,12 +1,13 @@
-import NextAuth, { CredentialsSignin } from "next-auth"
+import NextAuth, { AuthError } from "next-auth"
 import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
 import { signSupabaseJWT, createAdminSupabaseClient } from '@/lib/auth';
 
-class CustomAuthError extends CredentialsSignin {
+class CustomAuthError extends AuthError {
     constructor(message: string) {
-        super();
-        this.code = message;
+        super(message);
+        // @ts-ignore
+        this.type = message;
     }
 }
 
