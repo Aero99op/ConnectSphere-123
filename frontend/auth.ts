@@ -61,20 +61,44 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 action: { label: 'Action', type: 'text' }, // "login" or "signup"
                 fullName: { label: 'Full Name', type: 'text' },
                 role: { label: 'Role', type: 'text' },
+                otp: { label: 'OTP', type: 'text' },
             },
             async authorize(credentials) {
-                if (!credentials?.email || !credentials?.password) return null;
+                if (!credentials?.email || !credentials?.password || !credentials?.otp) {
+                    throw new Error('Missing required fields including OTP.');
+                }
 
                 const email = (credentials.email as string).toLowerCase().trim();
+                const otpInput = (credentials.otp as string).trim();
                 const userId = await emailToUUID(email);
                 const adminSupabase = createAdminSupabaseClient();
+
+                // 1. Validate OTP Fast
+                const { data: otpRecord, error: otpError } = await adminSupabase
+                    .from('auth_otps')
+                    .select('*')
+                    .eq('email', email)
+                    .eq('action', credentials.action)
+                    .single();
+
+                if (otpError || !otpRecord || otpRecord.otp !== otpInput) {
+                    throw new Error('Invalid or expired OTP code.');
+                }
+
+                if (new Date(otpRecord.expires_at) < new Date()) {
+                    await adminSupabase.from('auth_otps').delete().eq('id', otpRecord.id);
+                    throw new Error('OTP has expired. Please request a new one.');
+                }
+
+                // OTP is valid, remove it
+                await adminSupabase.from('auth_otps').delete().eq('id', otpRecord.id);
 
                 if (credentials.action === 'signup') {
                     const { data: existingUser } = await adminSupabase
                         .from('profiles')
                         .select('id')
                         .eq('id', userId)
-                        .single();
+                        .maybeSingle();
 
                     if (existingUser) {
                         throw new Error('Account already exists. Please login instead.');
@@ -87,7 +111,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         .insert({
                             id: userId,
                             email: email,
-                            username: email.split('@')[0],
+                            username: email.split('@')[0] + Math.floor(Math.random() * 1000),
                             full_name: credentials.fullName || email.split('@')[0],
                             role: credentials.role || 'citizen',
                             password_hash: hashedPassword,
@@ -108,10 +132,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         .from('profiles')
                         .select('id, email, full_name, avatar_url, password_hash, role')
                         .eq('id', userId)
-                        .single();
+                        .maybeSingle();
 
                     if (error || !profile) throw new Error('No account found with this email.');
-                    if (!profile.password_hash) throw new Error('This account uses Google login. Please sign in with Google.');
+                    if (!profile.password_hash) throw new Error('This account uses Google login. Please sign in with Google or reset password.');
 
                     const inputHash = await hashPassword(credentials.password as string);
                     if (inputHash !== profile.password_hash) throw new Error('Invalid password.');
