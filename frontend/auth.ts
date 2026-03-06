@@ -210,5 +210,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     // NextAuth v5 treats 'secret' as 'AUTH_SECRET' environment variable primarily
     secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "fallback_secret_for_build",
     trustHost: true,
+    // Explicitly define URL if present to prevent auto-detection failures on Cloudflare Edge
+    basePath: "/api/auth",
     debug: process.env.NODE_ENV === 'development',
 });
