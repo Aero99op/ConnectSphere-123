@@ -75,9 +75,24 @@ function LoginContent() {
                 });
 
                 if (result?.error) {
-                    const errorMsg = result.error === 'Configuration'
-                        ? 'Auth Setup incomplete! Check AUTH_SECRET in Cloudflare.'
-                        : result.error;
+                    let errorMsg = result.error;
+
+                    if (result.error === 'Configuration') {
+                        errorMsg = 'Auth Setup incomplete! Check AUTH_SECRET in Cloudflare.';
+                    } else if (result.error === 'DatabaseStatusError') {
+                        errorMsg = 'Database mein kuch gadbad hai bhai, thodi der baad try karna.';
+                    } else if (result.error === 'AccountNotFound') {
+                        errorMsg = 'Account nahi mila. Pehle Magic Link mangwao ya Sign Up karo!';
+                    } else if (result.error === 'EmailNotVerified') {
+                        errorMsg = 'Bhai, pehle email verify kar lo! Mail check karo ya naya Magic Link mango.';
+                    } else if (result.error === 'GoogleAccountOnly') {
+                        errorMsg = 'Ye account Google se bana hai. Google login use karo.';
+                    } else if (result.error === 'IncorrectPassword') {
+                        errorMsg = 'Ghalat password hai bhai!';
+                    } else if (result.error === 'CredentialsSignin') {
+                        errorMsg = 'Email ya Password ghalat hai. (Ya fir verify nahi kiya)';
+                    }
+
                     toast.error(errorMsg);
                     setLoading(false);
                     return;

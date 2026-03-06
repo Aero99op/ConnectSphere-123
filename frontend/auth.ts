@@ -90,29 +90,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     .maybeSingle();
 
                 if (error) {
-                    console.error("Authorize Error - Database:", error);
-                    throw new CustomAuthError('Database error. Try again.');
+                    throw new Error('DatabaseStatusError');
                 }
 
-                // 1. Check if account exists
                 if (!profile) {
-                    throw new CustomAuthError('Account nahi mila. Pehle Magic Link mangwao ya Sign Up karo!');
+                    throw new Error('AccountNotFound');
                 }
 
-                // 2. Check Verification Status
                 if (!profile.email_verified) {
-                    throw new CustomAuthError('Bhai, pehle email verify kar lo! Mail check karo ya naya Magic Link mango.');
+                    throw new Error('EmailNotVerified');
                 }
 
-                // 3. Google only accounts
                 if (!profile.password_hash) {
-                    throw new CustomAuthError('Ye account Google se bana hai. Google login use karo.');
+                    throw new Error('GoogleAccountOnly');
                 }
 
-                // 4. Password match
                 const inputHash = await hashPassword(credentials.password as string);
                 if (inputHash !== profile.password_hash) {
-                    throw new CustomAuthError('Ghalat password hai bhai!');
+                    throw new Error('IncorrectPassword');
                 }
 
                 return {
