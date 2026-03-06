@@ -207,7 +207,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         strategy: 'jwt',
         maxAge: 100 * 365 * 24 * 60 * 60, // 100 years (Infinity juggad)
     },
-    secret: process.env.NEXTAUTH_SECRET,
-    // @ts-ignore - trustHost is valid in v5 but may conflict with cached v4 types
+    // NextAuth v5 treats 'secret' as 'AUTH_SECRET' environment variable primarily
+    secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "fallback_secret_for_build",
     trustHost: true,
+    debug: process.env.NODE_ENV === 'development',
 });

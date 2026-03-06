@@ -75,7 +75,10 @@ function LoginContent() {
                 });
 
                 if (result?.error) {
-                    toast.error(result.error);
+                    const errorMsg = result.error === 'Configuration'
+                        ? 'Auth Setup incomplete! Check AUTH_SECRET in Cloudflare.'
+                        : result.error;
+                    toast.error(errorMsg);
                     setLoading(false);
                     return;
                 }
