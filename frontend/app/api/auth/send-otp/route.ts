@@ -83,7 +83,10 @@ export async function POST(req: Request) {
                 return NextResponse.json({ message: 'OTP stored. Check console for local dev.' });
             }
 
-            return NextResponse.json({ error: 'Failed to send email via MailChannels' }, { status: 500 });
+            return NextResponse.json({
+                error: 'Failed to send email via MailChannels',
+                details: errorText
+            }, { status: 500 });
         }
 
         // For local development, still log it for convenience
@@ -94,7 +97,13 @@ export async function POST(req: Request) {
         return NextResponse.json({ message: 'OTP sent successfully' });
 
     } catch (error: any) {
-        console.error('Send OTP Handler Error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        console.error('Send OTP Handler Error Full:', error);
+
+        // Return raw error strictly for debugging the live environment
+        return NextResponse.json({
+            error: 'Internal server error',
+            details: error?.message || String(error),
+            stack: error?.stack
+        }, { status: 500 });
     }
 }
