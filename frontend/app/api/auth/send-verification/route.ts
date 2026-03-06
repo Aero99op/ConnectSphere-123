@@ -10,7 +10,8 @@ function generateToken() {
 
 export async function POST(req: Request) {
     try {
-        const { email, action, password, fullName, role } = await req.json();
+        let { email, action, password, fullName, role } = await req.json();
+        email = email?.toLowerCase().trim();
 
         if (!email || !action) {
             return NextResponse.json({ error: 'Email and action are required' }, { status: 400 });

@@ -34,30 +34,50 @@ async function hashPassword(password: string): Promise<string> {
 export async function GET(req: Request) {
     try {
         const { searchParams } = new URL(req.url);
-        const token = searchParams.get('token');
-        const email = searchParams.get('email');
+        const token = searchParams.get('token')?.trim();
+        const email = searchParams.get('email')?.toLowerCase().trim();
 
         if (!token || !email) {
-            return NextResponse.redirect(new URL('/login?error=Invalid verification link', req.url));
+            return NextResponse.redirect(new URL('/login?error=Invalid link parameters', req.url));
         }
 
         const adminSupabase = createAdminSupabaseClient();
 
-        // 1. Check if token is valid and not expired
+        // 1. Check if user is ALREADY verified 
+        // (Handles cases where mobile apps background-click the link first)
+        const { data: existingProfile } = await adminSupabase
+            .from('profiles')
+            .select('email_verified')
+            .eq('email', email)
+            .maybeSingle();
+
+        if (existingProfile?.email_verified) {
+            // Token already consumed but user is safe. Just cleanup and redirect.
+            await adminSupabase.from('verification_tokens').delete().eq('identifier', email);
+            return NextResponse.redirect(new URL('/login?success=Email already verified! Please login.', req.url));
+        }
+
+        // 2. Check if token is valid
         const { data: record, error: dbError } = await adminSupabase
             .from('verification_tokens')
             .select('*')
             .eq('identifier', email)
             .eq('token', token)
-            .single();
+            .maybeSingle();
 
         if (dbError || !record) {
-            return NextResponse.redirect(new URL('/login?error=Verification link expired or invalid', req.url));
+            console.error('Verify error or missing record:', dbError);
+            return NextResponse.redirect(new URL('/login?error=Verification link invalid or already used', req.url));
         }
 
-        if (new Date(record.expires) < new Date()) {
+        // 3. Expiry Check with 5-min buffer for clock skew
+        const expiryDate = new Date(record.expires);
+        const now = new Date();
+        const bufferMs = 5 * 60 * 1000; // 5 minute "juggad" buffer
+
+        if (expiryDate.getTime() + bufferMs < now.getTime()) {
             await adminSupabase.from('verification_tokens').delete().eq('token', token);
-            return NextResponse.redirect(new URL('/login?error=Link has expired. Please send a new one.', req.url));
+            return NextResponse.redirect(new URL('/login?error=Link expired. Please request a new one.', req.url));
         }
 
         // 2. Verified! Handle Profile Creation or Update
