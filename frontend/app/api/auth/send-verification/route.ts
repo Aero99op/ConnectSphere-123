@@ -60,12 +60,19 @@ export async function POST(req: Request) {
         }
 
         // 3. Construct Magic Link
-        // Using dynamic origin for local/prod compatibility
-        const origin = req.headers.get('origin') || 'http://localhost:3000';
-        const verifyLink = `${origin}/api/auth/verify?token=${token}&email=${encodeURIComponent(email)}`;
+        // Fetch base URL from env OR fallback to origin header
+        let baseUrl = process.env.NEXTAUTH_URL || req.headers.get('origin');
+
+        // If still no baseUrl (should not happen on CF), fallback to the hardcoded prod URL
+        if (!baseUrl) {
+            baseUrl = 'https://connectsphere-123.pages.dev';
+        }
+
+        if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
+
+        const verifyLink = `${baseUrl}/api/auth/verify?token=${token}&email=${encodeURIComponent(email)}`;
 
         // 4. Send via Google Apps Script Proxy Cluster
-        // Bhai, multiple URLs yaha comma-separated daal dena
         const proxyUrls = (process.env.GOOGLE_SCRIPT_URLS || "").split(',').filter(Boolean);
 
         if (proxyUrls.length === 0 && process.env.NODE_ENV !== 'development') {
@@ -73,13 +80,34 @@ export async function POST(req: Request) {
         }
 
         const emailContent = `
-            <div style="font-family: sans-serif; padding: 20px; text-align: center; background: #000; color: #fff; border-radius: 15px; border: 1px solid #333;">
-                <h2 style="color: #4ade80;">Verify Your ConnectSphere Account</h2>
-                <p style="font-size: 16px; color: #ccc;">Bhai, account verify karne ke liye niche button pe click kar:</p>
-                <div style="margin: 30px 0;">
-                    <a href="${verifyLink}" style="background: #4ade80; color: #000; padding: 12px 25px; text-decoration: none; font-weight: bold; border-radius: 8px; font-size: 16px;">Verify Me 🚀</a>
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #ffffff; color: #1a1a1a; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                <div style="text-align: center; margin-bottom: 32px;">
+                    <h1 style="font-size: 28px; font-weight: 800; background: linear-gradient(to right, #4f46e5, #0891b2); -webkit-background-clip: text; color: #4f46e5; margin: 0; letter-spacing: -0.025em;">ConnectSphere</h1>
                 </div>
-                <p style="font-size: 12px; color: #666;">Ye link 24 ghante mein expire ho jayega. Do not share it.</p>
+                
+                <h2 style="font-size: 20px; font-weight: 600; text-align: center; margin-bottom: 16px; color: #111827;">Email Verification</h2>
+                
+                <p style="font-size: 16px; line-height: 1.6; color: #4b5563; text-align: center; margin-bottom: 32px;">
+                    Welcome to ConnectSphere! Verify your email to start building connections. Just click the button below to complete your setup.
+                </p>
+                
+                <div style="text-align: center; margin-bottom: 32px;">
+                    <a href="${verifyLink}" style="display: inline-block; background-color: #111827; color: #ffffff; padding: 14px 32px; font-weight: 600; text-decoration: none; border-radius: 8px; transition: background-color 0.2s;">
+                        Verify My Account 🚀
+                    </a>
+                </div>
+                
+                <div style="background-color: #f9fafb; padding: 16px; border-radius: 8px; margin-bottom: 32px;">
+                    <p style="font-size: 14px; color: #6b7280; text-align: center; margin: 0;">
+                        Or copy and paste this link in your browser: <br/>
+                        <a href="${verifyLink}" style="color: #4f46e5; word-break: break-all;">${verifyLink}</a>
+                    </p>
+                </div>
+                
+                <p style="font-size: 12px; color: #9ca3af; text-align: center; margin: 0;">
+                    This link will expire in 2 hours for security reasons.<br/>
+                    If you didn't request this email, you can safely ignore it.
+                </p>
             </div>
         `;
 
