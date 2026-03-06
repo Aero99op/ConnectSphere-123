@@ -1,7 +1,14 @@
-import NextAuth from "next-auth"
+import NextAuth, { CredentialsSignin } from "next-auth"
 import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
 import { signSupabaseJWT, createAdminSupabaseClient } from '@/lib/auth';
+
+class CustomAuthError extends CredentialsSignin {
+    constructor(message: string) {
+        super();
+        this.code = message;
+    }
+}
 
 // Edge-compatible UUID v5 implementation using Web Crypto API
 async function emailToUUID(email: string): Promise<string> {
@@ -83,28 +90,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
                 if (error) {
                     console.error("Authorize Error - Database:", error);
-                    throw new Error('Database error. Try again.');
+                    throw new CustomAuthError('Database error. Try again.');
                 }
 
                 // 1. Check if account exists
                 if (!profile) {
-                    throw new Error('Account nahi mila. Pehle Magic Link mangwao ya Sign Up karo!');
+                    throw new CustomAuthError('Account nahi mila. Pehle Magic Link mangwao ya Sign Up karo!');
                 }
 
                 // 2. Check Verification Status
                 if (!profile.email_verified) {
-                    throw new Error('Bhai, pehle email verify kar lo! Mail check karo ya naya Magic Link mango.');
+                    throw new CustomAuthError('Bhai, pehle email verify kar lo! Mail check karo ya naya Magic Link mango.');
                 }
 
                 // 3. Google only accounts
                 if (!profile.password_hash) {
-                    throw new Error('Ye account Google se bana hai. Google login use karo.');
+                    throw new CustomAuthError('Ye account Google se bana hai. Google login use karo.');
                 }
 
                 // 4. Password match
                 const inputHash = await hashPassword(credentials.password as string);
                 if (inputHash !== profile.password_hash) {
-                    throw new Error('Ghalat password hai bhai!');
+                    throw new CustomAuthError('Ghalat password hai bhai!');
                 }
 
                 return {
