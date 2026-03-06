@@ -42,6 +42,11 @@ async function hashPassword(password: string): Promise<string> {
     return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Ensure trust host is globally defined for Edge runtime (Cloudflare NextAuth bug)
+if (!process.env.AUTH_TRUST_HOST) {
+    process.env.AUTH_TRUST_HOST = "true";
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
     providers: [
         Google({
@@ -76,7 +81,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     .eq('id', userId)
                     .maybeSingle();
 
-                if (error) throw new Error('Database error. Try again.');
+                if (error) {
+                    console.error("Authorize Error - Database:", error);
+                    throw new Error('Database error. Try again.');
+                }
 
                 // 1. Check if account exists
                 if (!profile) {
@@ -182,6 +190,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             if (url.startsWith("/")) return `${baseUrl}${url}`;
 
             // Ensure our specific domains with ANY sub URL are explicitly allowed
+            // Added current Cloudflare origin explicitly
             if (
                 url.startsWith("http://localhost:3000") ||
                 url.startsWith("https://connectsphere-123.pages.dev")
