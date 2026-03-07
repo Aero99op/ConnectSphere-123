@@ -7,9 +7,12 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { toast } from "sonner";
 import { sanitizeInput } from "@/lib/utils";
+
+import { PostEditor } from "@/components/create/post-editor";
 
 function CreatePostPageContent() {
     const { user: authUser, supabase } = useAuth();
@@ -17,6 +20,8 @@ function CreatePostPageContent() {
     const [fileUrls, setFileUrls] = useState<string[]>([]);
     const [thumbnailUrl, setThumbnailUrl] = useState<string | undefined>();
     const [loading, setLoading] = useState(false);
+    const [customization, setCustomization] = useState<any>(null);
+    const [showEditor, setShowEditor] = useState(false);
     const userId = authUser?.id || null;
     const router = useRouter();
 
@@ -29,6 +34,7 @@ function CreatePostPageContent() {
     const handleUploadComplete = (urls: string[], thumb?: string) => {
         setFileUrls(urls); // Store the full array of chunk URLs
         if (thumb) setThumbnailUrl(thumb);
+        setShowEditor(true); // Open editor after upload
     };
 
     const searchParams = useSearchParams();
@@ -66,6 +72,7 @@ function CreatePostPageContent() {
                 caption: sanitizedCaption,
                 video_url: fileUrls[0], // Quix is usually one video
                 thumbnail_url: thumbnailUrl,
+                customization: customization || {},
             });
 
             if (error) {
@@ -84,7 +91,8 @@ function CreatePostPageContent() {
             media_urls: fileUrls,
             thumbnail_url: thumbnailUrl,
             media_type: mediaType,
-            likes_count: 0
+            likes_count: 0,
+            customization: customization || {},
         });
 
         if (error) {
@@ -166,26 +174,31 @@ function CreatePostPageContent() {
                                     <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                                     Media Linked
                                 </p>
+                                <Button
+                                    onClick={() => setShowEditor(true)}
+                                    className="mt-4 bg-white/5 border border-white/10 hover:bg-white/10 text-zinc-300 text-[10px] font-bold uppercase tracking-widest px-6"
+                                >
+                                    Edit Media & Effects
+                                </Button>
                             </div>
                         )}
                     </div>
                 </div>
-
-                {/* Placeholder Filter UI (Visual Only for now) */}
-                {fileUrls.length > 0 && (
-                    <div className="glass border-premium rounded-2xl p-4 shadow-premium-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">Filters (Coming Soon)</h3>
-                        <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-                            {['Normal', 'Clarendon', 'Gingham', 'Moon', 'Lark'].map((filter) => (
-                                <div key={filter} className="flex flex-col items-center gap-2 shrink-0 cursor-not-allowed opacity-50">
-                                    <div className="w-16 h-16 rounded-xl bg-zinc-800 border-2 border-transparent hover:border-primary/50 transition-colors" />
-                                    <span className="text-[10px] font-mono text-zinc-500">{filter}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
             </div>
+
+            {/* Post Editor Overlay */}
+            {showEditor && fileUrls.length > 0 && (
+                <PostEditor
+                    mediaUrl={fileUrls[0]}
+                    mediaType={thumbnailUrl ? "video" : "image"}
+                    onCancel={() => setShowEditor(false)}
+                    onComplete={(data) => {
+                        setCustomization(data);
+                        setShowEditor(false);
+                        toast.success("Effects Applied! ✨");
+                    }}
+                />
+            )}
         </div>
     );
 }

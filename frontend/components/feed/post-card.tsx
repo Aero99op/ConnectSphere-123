@@ -321,6 +321,7 @@ export function PostCard({ post }: PostProps) {
                             <img
                                 src={post.media_urls[0]}
                                 alt={post.caption}
+                                style={{ filter: (post as any).customization?.filterStyle || 'none' }}
                                 className="w-full h-full object-cover select-none transition-transform duration-700 group-hover/card:scale-105"
                                 loading="eager"
                                 onDoubleClick={handleLike}
@@ -331,6 +332,7 @@ export function PostCard({ post }: PostProps) {
                                     <>
                                         <img
                                             src={post.thumbnail_url || post.media_urls[0]}
+                                            style={{ filter: (post as any).customization?.filterStyle || 'none' }}
                                             className="w-full h-full object-cover transition-opacity duration-500"
                                             alt="Video Thumbnail"
                                         />
@@ -346,6 +348,7 @@ export function PostCard({ post }: PostProps) {
                                     <video
                                         id={`video-${post.id}`}
                                         src={videoBlobUrl}
+                                        style={{ filter: (post as any).customization?.filterStyle || 'none' }}
                                         autoPlay
                                         loop
                                         muted={isMuted}
@@ -364,11 +367,37 @@ export function PostCard({ post }: PostProps) {
                                 )}
                             </div>
                         )}
+
+                        {/* Stickers Overlay */}
+                        {(post as any).customization?.stickers?.map((sticker: any) => (
+                            <div
+                                key={sticker.id}
+                                className="absolute pointer-events-none select-none z-10"
+                                style={{
+                                    left: `${sticker.x}%`,
+                                    top: `${sticker.y}%`,
+                                    fontSize: `${sticker.size}px`,
+                                    transform: 'translate(-50%, -50%)'
+                                }}
+                            >
+                                {sticker.emoji}
+                            </div>
+                        ))}
                     </div>
                 )}
 
                 {/* 3. Action Buttons & Info */}
                 <div className="p-5 pt-4">
+                    {/* Music Bar if exists */}
+                    {(post as any).customization?.music && (
+                        <div className="mb-4 flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-lg border border-white/5 w-fit">
+                            <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                                {(post as any).customization.music.name} - {(post as any).customization.music.artist}
+                            </span>
+                        </div>
+                    )}
+
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-5">
                             <button onClick={handleLike} className="hover:scale-125 active:scale-95 transition-all duration-300">

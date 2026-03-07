@@ -17,6 +17,7 @@ interface QuixCardProps {
 export function QuixCard({ quix, isActive }: QuixCardProps) {
     const { user, supabase } = useAuth();
     const videoRef = useRef<HTMLVideoElement>(null);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
     const [isMuted, setIsMuted] = useState(true);
     const [isLiked, setIsLiked] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
@@ -26,13 +27,40 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
     const [showShareSheet, setShowShareSheet] = useState(false);
 
     useEffect(() => {
+        if (quix.customization?.music?.url && !audioRef.current) {
+            audioRef.current = new Audio(quix.customization.music.url);
+            audioRef.current.loop = true;
+        }
+
         if (isActive) {
             videoRef.current?.play();
+            if (!isMuted && audioRef.current) {
+                audioRef.current.play().catch(e => console.log("Audio play blocked", e));
+            }
         } else {
             videoRef.current?.pause();
             if (videoRef.current) videoRef.current.currentTime = 0;
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current.currentTime = 0;
+            }
         }
-    }, [isActive]);
+
+        return () => {
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current = null;
+            }
+        };
+    }, [isActive, isMuted, quix.customization?.music?.url]);
+
+    useEffect(() => {
+        if (isMuted) {
+            audioRef.current?.pause();
+        } else if (isActive) {
+            audioRef.current?.play().catch(e => console.log("Audio play blocked", e));
+        }
+    }, [isMuted, isActive]);
 
     useEffect(() => {
         const checkInteractions = async () => {
@@ -111,6 +139,7 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
             <video
                 ref={videoRef}
                 src={quix.video_url}
+                style={{ filter: quix.customization?.filterStyle || 'none' }}
                 className="w-full h-full object-cover"
                 loop
                 muted={isMuted}
@@ -203,9 +232,27 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
                     <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center animate-spin-slow">
                         <div className="w-2 h-2 bg-white rounded-full" />
                     </div>
-                    <span className="text-white/60 text-xs">Original Audio - {quix.profiles?.username}</span>
+                    <span className="text-white/60 text-xs">
+                        {quix.customization?.music ? `${quix.customization.music.name} - ${quix.customization.music.artist}` : `Original Audio - ${quix.profiles?.username}`}
+                    </span>
                 </div>
             </div>
+
+            {/* Stickers Overlay */}
+            {quix.customization?.stickers?.map((sticker: any) => (
+                <div
+                    key={sticker.id}
+                    className="absolute pointer-events-none select-none z-10"
+                    style={{
+                        left: `${sticker.x}%`,
+                        top: `${sticker.y}%`,
+                        fontSize: `${sticker.size}px`,
+                        transform: 'translate(-50%, -50%)'
+                    }}
+                >
+                    {sticker.emoji}
+                </div>
+            ))}
         </div>
     );
 }
