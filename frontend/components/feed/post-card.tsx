@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Play, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -10,7 +10,6 @@ import { CommentSheet } from "@/components/feed/comment-sheet";
 import { ShareSheet } from "@/components/feed/share-sheet";
 import { PostOptionsSheet } from "@/components/feed/post-options-sheet";
 import { toast } from "sonner";
-import { useEffect } from "react";
 import { getApinatorClient } from "@/lib/apinator";
 import Link from "next/link";
 
@@ -45,6 +44,7 @@ export function PostCard({ post }: PostProps) {
     const [isFollowing, setIsFollowing] = useState<boolean | null>(null);
     const [isFollowingLoading, setIsFollowingLoading] = useState(false);
     const currentUserId = authUser?.id || null;
+    const isLikeProcessing = useRef(false);
 
     // Initial checks for bookmark and ownership + Real-time Sync (Apinator)
     useEffect(() => {
@@ -139,12 +139,19 @@ export function PostCard({ post }: PostProps) {
             return;
         }
 
-        const newLikedState = !liked;
-        const optimisticLikes = newLikedState ? likes + 1 : likes - 1;
+        if (isLikeProcessing.current) return;
+        isLikeProcessing.current = true;
 
-        // Optimistic UI Update
-        setLikes(optimisticLikes);
-        setLiked(newLikedState);
+        // Functional updates for safety with rapid clicks
+        let currentLiked: boolean = false;
+        setLiked(prev => {
+            currentLiked = prev;
+            return !prev;
+        });
+
+        const newLikedState = !currentLiked;
+
+        setLikes(prev => newLikedState ? prev + 1 : prev - 1);
 
         if (navigator.vibrate) navigator.vibrate(50);
 
@@ -152,9 +159,13 @@ export function PostCard({ post }: PostProps) {
             if (newLikedState) {
                 // 1. Add to persistent post_likes table
                 const { error: likeError } = await supabase.from('post_likes').insert({ post_id: post.id, user_id: currentUserId });
-                if (likeError) throw likeError;
 
-                // 2. Karma & Notifications (Async/Background)
+                // Handle 23505 (Unique violation) — User already liked it, maybe in another tab
+                if (likeError && (likeError as any).code !== '23505') {
+                    throw likeError;
+                }
+
+                // 2. Karma & Notifications (Background)
                 supabase.rpc('increment_karma', { user_id_param: post.user_id }).then(({ error }) => {
                     if (error) console.error("Karma increment failed:", error);
                 });
@@ -166,11 +177,7 @@ export function PostCard({ post }: PostProps) {
                         type: 'like',
                         entity_id: post.id
                     };
-
-                    // Persistent DB entry
                     supabase.from('notifications').insert(notifData).then();
-
-                    // Instant Notification via Apinator
                     fetch('/api/apinator/trigger', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -187,8 +194,7 @@ export function PostCard({ post }: PostProps) {
                 if (unlikeError) throw unlikeError;
             }
 
-            // 🔵 Broadcast Global Like Update (Apinator) - Let others know
-            // We use fetch here to avoid blocking and ensure it's handled by our edge function
+            // 🔵 Broadcast Global Like Update (Apinator)
             fetch('/api/apinator/trigger', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -196,19 +202,21 @@ export function PostCard({ post }: PostProps) {
                     channel: `post-${post.id}`,
                     event: 'like_updated',
                     data: {
-                        likes: optimisticLikes,
+                        likes: newLikedState ? likes + 1 : likes - 1, // We use stable value for broadcast
                         actor_id: currentUserId,
-                        liked: newLikedState // Sync heart state for other tabs of same user
+                        liked: newLikedState
                     }
                 })
             }).catch(console.error);
 
-        } catch (error) {
-            console.error("Like Action Failed:", error);
-            // Rollback optimistic update on failure
-            setLikes(likes);
-            setLiked(liked);
+        } catch (error: any) {
+            console.error("Like Action Failed:", error?.message || error);
+            // Rollback functional state
+            setLiked(currentLiked);
+            setLikes(prev => newLikedState ? prev - 1 : prev + 1);
             toast.error("Like update nahi hua! Try again.");
+        } finally {
+            isLikeProcessing.current = false;
         }
     };
 
