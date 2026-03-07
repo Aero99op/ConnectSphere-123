@@ -118,7 +118,7 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
         window.addEventListener("touchend", upHandler);
     };
 
-    const handleCropAdjust = (e: React.MouseEvent | React.TouchEvent, type: 'move' | 'resize') => {
+    const handleCropAdjust = (e: React.MouseEvent | React.TouchEvent, type: 'move' | 'tl' | 'tr' | 'bl' | 'br') => {
         if (!containerRef.current) return;
         const rect = containerRef.current.getBoundingClientRect();
 
@@ -130,15 +130,34 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
             const py = ((clientY - rect.top) / rect.height) * 100;
 
             setCrop(prev => {
+                let { x, y, w, h } = prev;
+
                 if (type === 'move') {
-                    const nx = Math.max(0, Math.min(px - prev.w / 2, 100 - prev.w));
-                    const ny = Math.max(0, Math.min(py - prev.h / 2, 100 - prev.h));
-                    return { ...prev, x: nx, y: ny };
-                } else {
-                    const nw = Math.max(10, Math.min(px - prev.x, 100 - prev.x));
-                    const nh = Math.max(10, Math.min(py - prev.y, 100 - prev.y));
-                    return { ...prev, w: nw, h: nh };
+                    x = Math.max(0, Math.min(px - w / 2, 100 - w));
+                    y = Math.max(0, Math.min(py - h / 2, 100 - h));
+                } else if (type === 'tl') {
+                    const nx = Math.max(0, Math.min(px, x + w - 10));
+                    const ny = Math.max(0, Math.min(py, y + h - 10));
+                    w = w + (x - nx);
+                    h = h + (y - ny);
+                    x = nx;
+                    y = ny;
+                } else if (type === 'tr') {
+                    const ny = Math.max(0, Math.min(py, y + h - 10));
+                    w = Math.max(10, Math.min(px - x, 100 - x));
+                    h = h + (y - ny);
+                    y = ny;
+                } else if (type === 'bl') {
+                    const nx = Math.max(0, Math.min(px, x + w - 10));
+                    w = w + (x - nx);
+                    h = Math.max(10, Math.min(py - y, 100 - y));
+                    x = nx;
+                } else if (type === 'br') {
+                    w = Math.max(10, Math.min(px - x, 100 - x));
+                    h = Math.max(10, Math.min(py - y, 100 - y));
                 }
+
+                return { x, y, w, h };
             });
         };
 
@@ -264,11 +283,35 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
                                     <div className="border border-white/40" />
                                 </div>
 
-                                {/* Resize Handle */}
+                                {/* Corner Handles */}
                                 <div
-                                    className="absolute -bottom-3 -right-3 w-8 h-8 bg-white border-4 border-black rounded-full cursor-nwse-resize z-50 flex items-center justify-center shadow-xl"
-                                    onMouseDown={(e) => { e.stopPropagation(); handleCropAdjust(e, 'resize'); }}
-                                    onTouchStart={(e) => { e.stopPropagation(); handleCropAdjust(e, 'resize'); }}
+                                    className="absolute -top-3 -left-3 w-8 h-8 bg-white border-4 border-black rounded-full cursor-nw-resize z-50 flex items-center justify-center shadow-xl hover:scale-110 transition-transform"
+                                    onMouseDown={(e) => { e.stopPropagation(); handleCropAdjust(e, 'tl'); }}
+                                    onTouchStart={(e) => { e.stopPropagation(); handleCropAdjust(e, 'tl'); }}
+                                >
+                                    <div className="w-1 h-1 bg-black rounded-full" />
+                                </div>
+
+                                <div
+                                    className="absolute -top-3 -right-3 w-8 h-8 bg-white border-4 border-black rounded-full cursor-ne-resize z-50 flex items-center justify-center shadow-xl hover:scale-110 transition-transform"
+                                    onMouseDown={(e) => { e.stopPropagation(); handleCropAdjust(e, 'tr'); }}
+                                    onTouchStart={(e) => { e.stopPropagation(); handleCropAdjust(e, 'tr'); }}
+                                >
+                                    <div className="w-1 h-1 bg-black rounded-full" />
+                                </div>
+
+                                <div
+                                    className="absolute -bottom-3 -left-3 w-8 h-8 bg-white border-4 border-black rounded-full cursor-sw-resize z-50 flex items-center justify-center shadow-xl hover:scale-110 transition-transform"
+                                    onMouseDown={(e) => { e.stopPropagation(); handleCropAdjust(e, 'bl'); }}
+                                    onTouchStart={(e) => { e.stopPropagation(); handleCropAdjust(e, 'bl'); }}
+                                >
+                                    <div className="w-1 h-1 bg-black rounded-full" />
+                                </div>
+
+                                <div
+                                    className="absolute -bottom-3 -right-3 w-8 h-8 bg-white border-4 border-black rounded-full cursor-se-resize z-50 flex items-center justify-center shadow-xl hover:scale-110 transition-transform"
+                                    onMouseDown={(e) => { e.stopPropagation(); handleCropAdjust(e, 'br'); }}
+                                    onTouchStart={(e) => { e.stopPropagation(); handleCropAdjust(e, 'br'); }}
                                 >
                                     <div className="w-1.5 h-1.5 bg-black rounded-full" />
                                 </div>
