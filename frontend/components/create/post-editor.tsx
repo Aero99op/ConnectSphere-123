@@ -332,11 +332,27 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
                                 >
                                     <div
                                         className={cn(
-                                            "w-12 h-12 rounded-xl bg-zinc-800 border-2 transition-all",
+                                            "w-12 h-12 rounded-xl bg-zinc-800 border-2 transition-all overflow-hidden flex items-center justify-center",
                                             selectedFilter.name === f.name ? "border-primary scale-110" : "border-transparent group-hover:border-white/20"
                                         )}
-                                        style={{ filter: f.filter }}
-                                    />
+                                    >
+                                        {mediaType === 'video' ? (
+                                            <video
+                                                src={mediaUrl}
+                                                className="w-full h-full object-cover"
+                                                style={{ filter: f.filter }}
+                                                muted
+                                                playsInline
+                                            />
+                                        ) : (
+                                            <img
+                                                src={mediaUrl}
+                                                className="w-full h-full object-cover"
+                                                style={{ filter: f.filter }}
+                                                alt={f.name}
+                                            />
+                                        )}
+                                    </div>
                                     <span className={cn("text-[9px] font-bold", selectedFilter.name === f.name ? "text-primary" : "text-zinc-500")}>
                                         {f.name}
                                     </span>
