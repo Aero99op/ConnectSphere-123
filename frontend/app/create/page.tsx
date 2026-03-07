@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { FileUpload } from "@/components/ui/file-upload";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useState, useEffect, Suspense } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -31,6 +31,10 @@ function CreatePostPageContent() {
         if (thumb) setThumbnailUrl(thumb);
     };
 
+    const searchParams = useSearchParams();
+    const type = searchParams.get("type");
+    const isQuix = type === "quix";
+
     const handlePost = async () => {
         if (!userId) return;
         if (fileUrls.length === 0 && caption.trim() === "") {
@@ -39,7 +43,7 @@ function CreatePostPageContent() {
         }
 
         if (authUser?.email === "guest@connectsphere.com") {
-            toast.error("Oops! Guests can't post to the feed.", {
+            toast.error("Oops! Guests can't post.", {
                 description: "Create a real account to share your thoughts!"
             });
             return;
@@ -50,10 +54,34 @@ function CreatePostPageContent() {
         const mediaType = thumbnailUrl ? 'video' : (fileUrls.length > 0 ? 'image' : 'text');
         const sanitizedCaption = sanitizeInput(caption);
 
+        if (isQuix) {
+            if (!thumbnailUrl) {
+                toast.error("Quix must be a video!");
+                setLoading(false);
+                return;
+            }
+
+            const { error } = await supabase.from("quix").insert({
+                user_id: userId,
+                caption: sanitizedCaption,
+                video_url: fileUrls[0], // Quix is usually one video
+                thumbnail_url: thumbnailUrl,
+            });
+
+            if (error) {
+                console.error(error);
+                toast.error("Failed to upload Quix!");
+                setLoading(false);
+            } else {
+                router.push("/quix");
+            }
+            return;
+        }
+
         const { error } = await supabase.from("posts").insert({
             user_id: userId,
             caption: sanitizedCaption,
-            media_urls: fileUrls, // Standardized column name ✨
+            media_urls: fileUrls,
             thumbnail_url: thumbnailUrl,
             media_type: mediaType,
             likes_count: 0
@@ -90,8 +118,12 @@ function CreatePostPageContent() {
                     <ArrowLeft className="w-6 h-6" />
                 </Link>
                 <div className="flex flex-col items-center">
-                    <h1 className="text-xl font-display font-black text-white tracking-tightest">New Post</h1>
-                    <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Share to Feed</p>
+                    <h1 className="text-xl font-display font-black text-white tracking-tightest">
+                        {isQuix ? "New Quix" : "New Post"}
+                    </h1>
+                    <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
+                        {isQuix ? "Share to Quix Feed" : "Share to Feed"}
+                    </p>
                 </div>
                 <button
                     onClick={handlePost}

@@ -18,7 +18,7 @@ interface User {
 interface ShareSheetProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    entityType: 'story' | 'post' | 'reel';
+    entityType: 'story' | 'post' | 'reel' | 'quix';
     entityId: string;
 }
 
@@ -106,9 +106,10 @@ export function ShareSheet({ open, onOpenChange, entityType, entityId }: ShareSh
                 await supabase.from('messages').insert({
                     conversation_id: convId,
                     sender_id: user.id,
-                    content: entityType === 'post' ? 'Shared a post' : 'Shared a story',
+                    content: entityType === 'post' ? 'Shared a post' : entityType === 'quix' ? 'Shared a Quix' : 'Shared a story',
                     post_id: entityType === 'post' ? entityId : null,
-                    story_id: entityType === 'story' ? entityId : null
+                    story_id: entityType === 'story' ? entityId : null,
+                    quix_id: entityType === 'quix' ? entityId : null
                 });
             }
         });

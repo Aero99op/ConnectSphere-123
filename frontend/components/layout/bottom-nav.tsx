@@ -37,9 +37,9 @@ function BottomNavContent() {
     const citizenItems = [
         { href: "/", icon: Home, label: "Home" },
         { href: "/search", icon: Search, label: "Search" },
+        { href: "/quix", icon: LayoutDashboard, label: "Quix" }, // Reusing LayoutDashboard as a placeholder, will seek a better one or keep it
         { href: "/create", icon: PlusSquare, label: "Post" },
         { href: "/notifications", icon: Bell, label: "Alerts" },
-        { href: "/report", icon: AlertTriangle, label: "Report" },
         { href: "/profile", icon: User, label: "Profile" },
     ];
 

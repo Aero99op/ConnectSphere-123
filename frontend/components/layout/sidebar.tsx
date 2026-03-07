@@ -43,7 +43,7 @@ export function Sidebar() {
     const links = [
         { href: "/", label: "Home", icon: Home },
         { href: "/search", label: "Search", icon: Search },
-        { href: "/explore", label: "Explore", icon: Compass },
+        { href: "/quix", label: "Quix", icon: Compass }, // "Compass" is Explore, feels right for Quix too
         { href: "/messages", label: "Messages", icon: MessageCircle },
         { href: "/notifications", label: "Notifications", icon: Heart },
         { href: "/create", label: "Create", icon: PlusSquare },
