@@ -188,7 +188,7 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
             {/* Media Preview Area */}
             <div
                 ref={containerRef}
-                className="relative w-full flex-1 flex items-center justify-center overflow-hidden bg-zinc-900/50 group px-4"
+                className="relative w-full flex-1 flex items-start justify-center overflow-hidden bg-zinc-900/50 group px-4 pt-12"
             >
                 <div className="relative max-w-full max-h-full flex items-center justify-center">
                     {mediaType === "video" ? (
