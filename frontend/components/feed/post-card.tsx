@@ -133,6 +133,43 @@ export function PostCard({ post }: PostProps) {
         }
     };
 
+    // Background Music Logic for PostCard
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    useEffect(() => {
+        const music = (post as any).customization?.music;
+        if (music?.url && !audioRef.current) {
+            audioRef.current = new Audio(music.url);
+        }
+
+        const audio = audioRef.current;
+        if (!audio) return;
+
+        const startTime = music?.startTime || 0;
+        const endTime = music?.endTime || audio.duration || 999;
+
+        const handleTimeUpdate = () => {
+            if (audio.currentTime >= endTime) {
+                audio.currentTime = startTime;
+            }
+        };
+
+        const isMediaActive = post.media_type === 'image' || isPlaying;
+
+        if (isMediaActive && !isMuted) {
+            audio.currentTime = startTime;
+            audio.play().catch(e => console.log("Post audio blocked", e));
+            audio.addEventListener("timeupdate", handleTimeUpdate);
+        } else {
+            audio.pause();
+            audio.removeEventListener("timeupdate", handleTimeUpdate);
+        }
+
+        return () => {
+            audio.pause();
+            audio.removeEventListener("timeupdate", handleTimeUpdate);
+        };
+    }, [(post as any).customization?.music, isPlaying, isMuted]);
+
     const handleLike = async () => {
         if (!currentUserId) {
             toast.error("Please login to like!");

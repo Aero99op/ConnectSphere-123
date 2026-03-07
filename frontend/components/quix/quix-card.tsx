@@ -27,32 +27,43 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
     const [showShareSheet, setShowShareSheet] = useState(false);
 
     useEffect(() => {
-        if (quix.customization?.music?.url && !audioRef.current) {
-            audioRef.current = new Audio(quix.customization.music.url);
-            audioRef.current.loop = true;
+        const music = quix.customization?.music;
+        if (music?.url && !audioRef.current) {
+            audioRef.current = new Audio(music.url);
         }
+
+        const audio = audioRef.current;
+        if (!audio) return;
+
+        const startTime = music?.startTime || 0;
+        const endTime = music?.endTime || audio.duration || 999;
+
+        const handleTimeUpdate = () => {
+            if (audio.currentTime >= endTime) {
+                audio.currentTime = startTime;
+            }
+        };
 
         if (isActive) {
             videoRef.current?.play();
-            if (!isMuted && audioRef.current) {
-                audioRef.current.play().catch(e => console.log("Audio play blocked", e));
+            if (!isMuted) {
+                audio.currentTime = startTime;
+                audio.play().catch(e => console.log("Audio play blocked", e));
+                audio.addEventListener("timeupdate", handleTimeUpdate);
             }
         } else {
             videoRef.current?.pause();
             if (videoRef.current) videoRef.current.currentTime = 0;
-            if (audioRef.current) {
-                audioRef.current.pause();
-                audioRef.current.currentTime = 0;
-            }
+            audio.pause();
+            audio.currentTime = startTime;
+            audio.removeEventListener("timeupdate", handleTimeUpdate);
         }
 
         return () => {
-            if (audioRef.current) {
-                audioRef.current.pause();
-                audioRef.current = null;
-            }
+            audio.pause();
+            audio.removeEventListener("timeupdate", handleTimeUpdate);
         };
-    }, [isActive, isMuted, quix.customization?.music?.url]);
+    }, [isActive, isMuted, quix.customization?.music?.url, quix.customization?.music?.startTime, quix.customization?.music?.endTime]);
 
     useEffect(() => {
         if (isMuted) {
