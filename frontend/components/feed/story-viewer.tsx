@@ -9,6 +9,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { toast } from "sonner";
 import { ShareSheet } from "./share-sheet";
 import { downloadAndMergeChunks } from "@/lib/utils/chunk-uploader";
+import { getApinatorClient } from "@/lib/apinator";
 
 interface StoryViewerProps {
     initialStoryIndex: number;
@@ -22,16 +23,18 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
     const [currentIndex, setCurrentIndex] = useState(initialStoryIndex);
     const [progress, setProgress] = useState(0);
     const [paused, setPaused] = useState(false);
+    // Safety check
+    if (!stories || stories.length === 0 || !stories[currentIndex]) return null;
+    const currentStory = stories[currentIndex];
+
+    // States that depend on currentStory
+    const [likes, setLikes] = useState(currentStory.likes_count || 0);
     const [liked, setLiked] = useState(false);
     const [comment, setComment] = useState("");
     const [showShareSheet, setShowShareSheet] = useState(false);
     const userId = authUser?.id || null;
     const [mediaBlobUrl, setMediaBlobUrl] = useState<string | null>(null);
     const [isLoadingMedia, setIsLoadingMedia] = useState(false);
-
-    // Safety check
-    if (!stories || stories.length === 0 || !stories[currentIndex]) return null;
-    const currentStory = stories[currentIndex];
 
     // Use currentStory data with deep safety ✨
     const user = {
@@ -46,22 +49,24 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
     useEffect(() => {
         if (!userId || !currentStory.id) return;
 
+        const isMock = currentStory.id && currentStory.id.toString().startsWith('mock');
+
         // Reset state on slide change
         setProgress(0);
         setLiked(false);
+        setLikes(currentStory.likes_count || 0);
         setPaused(false);
         setComment("");
         setMediaBlobUrl(null);
 
         async function initStory() {
             // 1. Record View (Silent)
-            // Skip database if it's a mock story to avoid UUID errors
-            if (currentStory.id && !currentStory.id.toString().startsWith('mock')) {
+            if (!isMock) {
                 supabase.from('story_views').insert({ story_id: currentStory.id, viewer_id: userId }).then();
             }
 
             // 2. Check Like Status
-            if (userId && currentStory.id && !currentStory.id.toString().startsWith('mock')) {
+            if (!isMock) {
                 const { data: likeData } = await supabase.from('story_likes')
                     .select('id')
                     .eq('story_id', currentStory.id)
@@ -92,8 +97,28 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
             }
         }
 
+        // 🟢 Real-time Like Sync (Global)
+        const client = getApinatorClient();
+        let channel: any = null;
+        if (client && !isMock) {
+            channel = client.subscribe(`story-${currentStory.id}`);
+            channel.bind('story_like_updated', (data: any) => {
+                const payload = typeof data === 'string' ? JSON.parse(data) : data;
+                if (payload.likes !== undefined) setLikes(payload.likes);
+
+                // Sync heart state for other tabs of same user
+                if (payload.actor_id === userId && payload.liked !== undefined) {
+                    setLiked(payload.liked);
+                }
+            });
+        }
+
         initStory();
         loadMedia();
+
+        return () => {
+            if (channel) client.unsubscribe(`story-${currentStory.id}`);
+        };
     }, [currentIndex, userId, currentStory?.id]);
 
     useEffect(() => {
@@ -123,56 +148,74 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
         if (!userId) return toast.error("Login to like!");
 
         const newLikedState = !liked;
+        const optimisticLikes = newLikedState ? likes + 1 : likes - 1;
+
         setLiked(newLikedState);
+        setLikes(optimisticLikes);
 
         const isMock = currentStory.id && currentStory.id.toString().startsWith('mock');
 
-        if (newLikedState) {
-            // Only insert into DB if it's not a mock story
-            if (!isMock) {
-                const { error } = await supabase.from('story_likes').insert({ story_id: currentStory.id, user_id: userId });
-                if (error) {
-                    console.error("Story Like Error:", error);
-                    setLiked(false);
-                    return toast.error("Like save nahi hua!");
+        try {
+            if (newLikedState) {
+                // Only insert into DB if it's not a mock story
+                if (!isMock) {
+                    const { error } = await supabase.from('story_likes').insert({ story_id: currentStory.id, user_id: userId });
+                    if (error) throw error;
+                }
+
+                // Real-time Notification logic
+                if (currentStory.user_id && currentStory.user_id !== userId) {
+                    supabase.from('profiles').select('username, avatar_url').eq('id', userId).single().then(({ data: actorProfile }) => {
+                        const notifData = {
+                            recipient_id: currentStory.user_id,
+                            actor_id: userId,
+                            type: 'like',
+                            entity_id: currentStory.id,
+                            actor: actorProfile || { username: "Someone", avatar_url: "" }
+                        };
+
+                        if (!isMock) supabase.from('notifications').insert(notifData).then();
+
+                        fetch('/api/apinator/trigger', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                channel: `notifications-${currentStory.user_id}`,
+                                event: 'notification_ping',
+                                data: notifData
+                            })
+                        }).catch(console.error);
+                    });
+                }
+                toast.success("Loved it! ❤️");
+            } else {
+                if (!isMock) {
+                    const { error } = await supabase.from('story_likes').delete().eq('story_id', currentStory.id).eq('user_id', userId);
+                    if (error) throw error;
                 }
             }
 
-            // Real-time Notification logic (Works even for mocks for better demo/UX)
-            if (currentStory.user_id && currentStory.user_id !== userId) {
-                // Fetch current user profile for "Hyper-Live" notification data
-                const { data: actorProfile } = await supabase.from('profiles').select('username, avatar_url').eq('id', userId).single();
-
-                const notifData = {
-                    recipient_id: currentStory.user_id,
-                    actor_id: userId,
-                    type: 'like',
-                    entity_id: currentStory.id,
-                    // Injecting actor data for instant display without secondary fetch
-                    actor: actorProfile || { username: "Someone", avatar_url: "" }
-                };
-
-                // 1. DB Record (Only for real stories)
-                if (!isMock) {
-                    await supabase.from('notifications').insert(notifData);
-                }
-
-                // 2. Instant Notification via Apinator (UNLIMITED)
+            // 🔵 Broadcast Global Story Like Update
+            if (!isMock) {
                 fetch('/api/apinator/trigger', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        channel: `notifications-${currentStory.user_id}`,
-                        event: 'notification_ping',
-                        data: notifData
+                        channel: `story-${currentStory.id}`,
+                        event: 'story_like_updated',
+                        data: {
+                            likes: optimisticLikes,
+                            actor_id: userId,
+                            liked: newLikedState
+                        }
                     })
                 }).catch(console.error);
             }
-            toast.success("Loved it! ❤️");
-        } else {
-            if (!isMock) {
-                await supabase.from('story_likes').delete().eq('story_id', currentStory.id).eq('user_id', userId);
-            }
+        } catch (error) {
+            console.error("Story Like Failed:", error);
+            setLiked(liked);
+            setLikes(likes);
+            toast.error("Like save nahi hua!");
         }
     };
 
@@ -286,9 +329,11 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
                         </Avatar>
                         <div>
                             <p className="text-sm font-bold drop-shadow-md group-hover:text-primary transition-colors">{user.username}</p>
-                            <p className="text-xs text-white/80 drop-shadow-md flex items-center gap-1">
-                                {currentStory.created_at ? new Date(currentStory.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
-                            </p>
+                            <div className="flex items-center gap-2 text-xs text-white/80 drop-shadow-md">
+                                <span>{currentStory.created_at ? new Date(currentStory.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}</span>
+                                <span className="text-white/40">•</span>
+                                <span className="flex items-center gap-1"><Heart className="w-3 h-3 fill-white/40 text-white/40" /> {likes}</span>
+                            </div>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">

@@ -76,9 +76,15 @@ export function PostCard({ post }: PostProps) {
 
             channel.bind('like_updated', (data: any) => {
                 const payload = typeof data === 'string' ? JSON.parse(data) : data;
-                // Only update if it wasn't triggered by us (though local sync is good too)
+
+                // Update count for everyone
                 if (payload.likes !== undefined) {
                     setLikes(payload.likes);
+                }
+
+                // If WE are the actor in another tab, sync our heart icon too!
+                if (payload.actor_id === authUser?.id && payload.liked !== undefined) {
+                    setLiked(payload.liked);
                 }
             });
 
@@ -134,64 +140,76 @@ export function PostCard({ post }: PostProps) {
         }
 
         const newLikedState = !liked;
-        const newLikes = newLikedState ? likes + 1 : likes - 1;
+        const optimisticLikes = newLikedState ? likes + 1 : likes - 1;
 
-        setLikes(newLikes);
+        // Optimistic UI Update
+        setLikes(optimisticLikes);
         setLiked(newLikedState);
 
         if (navigator.vibrate) navigator.vibrate(50);
 
-        // Update total likes count
-        const { error: countError } = await supabase
-            .from('posts')
-            .update({ likes_count: newLikes })
-            .eq('id', post.id);
+        try {
+            if (newLikedState) {
+                // 1. Add to persistent post_likes table
+                const { error: likeError } = await supabase.from('post_likes').insert({ post_id: post.id, user_id: currentUserId });
+                if (likeError) throw likeError;
 
-        if (countError) return;
+                // 2. Karma & Notifications (Async/Background)
+                supabase.rpc('increment_karma', { user_id_param: post.user_id }).then(({ error }) => {
+                    if (error) console.error("Karma increment failed:", error);
+                });
 
-        if (newLikedState) {
-            // Add to persistent post_likes table
-            await supabase.from('post_likes').insert({ post_id: post.id, user_id: currentUserId });
-            await supabase.rpc('increment_karma', { user_id_param: post.user_id });
+                if (post.user_id !== currentUserId) {
+                    const notifData = {
+                        recipient_id: post.user_id,
+                        actor_id: currentUserId,
+                        type: 'like',
+                        entity_id: post.id
+                    };
 
-            // Trigger Notification + Broadcast Signal (Hyper-Scale)
-            if (post.user_id !== currentUserId) {
-                const notifData = {
-                    recipient_id: post.user_id,
-                    actor_id: currentUserId,
-                    type: 'like',
-                    entity_id: post.id
-                };
+                    // Persistent DB entry
+                    supabase.from('notifications').insert(notifData).then();
 
-                // 1. Persistent DB entry
-                await supabase.from('notifications').insert(notifData);
-
-                // 2. Instant Notification via Apinator (UNLIMITED)
-                fetch('/api/apinator/trigger', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        channel: `notifications-${post.user_id}`,
-                        event: 'notification_ping',
-                        data: notifData
-                    })
-                }).catch(console.error);
+                    // Instant Notification via Apinator
+                    fetch('/api/apinator/trigger', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            channel: `notifications-${post.user_id}`,
+                            event: 'notification_ping',
+                            data: notifData
+                        })
+                    }).catch(console.error);
+                }
+            } else {
+                // Remove from persistent post_likes table
+                const { error: unlikeError } = await supabase.from('post_likes').delete().eq('post_id', post.id).eq('user_id', currentUserId);
+                if (unlikeError) throw unlikeError;
             }
-        } else {
-            // Remove from persistent post_likes table
-            await supabase.from('post_likes').delete().eq('post_id', post.id).eq('user_id', currentUserId);
-        }
 
-        // 🔵 Broadcast Global Like Update (Apinator)
-        fetch('/api/apinator/trigger', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                channel: `post-${post.id}`,
-                event: 'like_updated',
-                data: { likes: newLikes, actor_id: currentUserId }
-            })
-        }).catch(console.error);
+            // 🔵 Broadcast Global Like Update (Apinator) - Let others know
+            // We use fetch here to avoid blocking and ensure it's handled by our edge function
+            fetch('/api/apinator/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channel: `post-${post.id}`,
+                    event: 'like_updated',
+                    data: {
+                        likes: optimisticLikes,
+                        actor_id: currentUserId,
+                        liked: newLikedState // Sync heart state for other tabs of same user
+                    }
+                })
+            }).catch(console.error);
+
+        } catch (error) {
+            console.error("Like Action Failed:", error);
+            // Rollback optimistic update on failure
+            setLikes(likes);
+            setLiked(liked);
+            toast.error("Like update nahi hua! Try again.");
+        }
     };
 
     const handleBookmark = async () => {
