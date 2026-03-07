@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Play, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/components/providers/auth-provider";
-import { cn, formatTimeAgo } from "@/lib/utils";
+import { cn, formatTimeAgo, sanitizeInput } from "@/lib/utils";
 import { downloadAndMergeChunks } from "@/lib/utils/chunk-uploader";
 import { CommentSheet } from "@/components/feed/comment-sheet";
 import { ShareSheet } from "@/components/feed/share-sheet";
@@ -390,7 +390,7 @@ export function PostCard({ post }: PostProps) {
                         <p className="text-[13px] font-bold text-white tracking-tight">{likes.toLocaleString()} likes</p>
                         <p className="text-[14px] leading-relaxed text-zinc-200 font-sans">
                             <span className="font-display font-bold text-white mr-2 tracking-tight">@{post.username}</span>
-                            <span dangerouslySetInnerHTML={{ __html: post.caption }} />
+                            <span dangerouslySetInnerHTML={{ __html: sanitizeInput(post.caption) }} />
                         </p>
                         {post.created_at && (
                             <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-3 opacity-60">

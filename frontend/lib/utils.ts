@@ -30,7 +30,7 @@ export function sanitizeInput(input: string): string {
         .replace(/<object\b[^>]*>([\s\S]*?)<\/object>/gim, "")
         .replace(/<embed\b[^>]*>([\s\S]*?)<\/embed>/gim, "")
         .replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gim, "")
-        .replace(/on\w+="[^"]*"/gim, "") // Strip event handlers like onclick="..."
-        .replace(/on\w+='[^']*'/gim, "")
+        // Strip event handlers like onclick, onerror, onload, etc. more robustly
+        .replace(/\son\w+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)/gim, "")
         .replace(/javascript:[^"']*/gim, ""); // Strip javascript: protocol
 }

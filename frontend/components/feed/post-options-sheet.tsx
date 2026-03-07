@@ -51,6 +51,7 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
         const { error } = await supabase.from('posts').delete().eq('id', post.id);
 
         if (error) {
+            console.error("Delete Error details:", error);
             toast.error("Delete fail ho gaya! Permission check karlo.");
             setDeleting(false);
         } else {
