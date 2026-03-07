@@ -3,6 +3,7 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { createAdminSupabaseClient, emailToUUID } from '@/lib/auth';
+import { sanitizeInput } from '@/lib/utils';
 
 // GET /api/onboarding — Check if user is onboarded
 export async function GET() {
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
         const { error } = await adminSupabase
             .from('profiles')
             .update({
-                country: country.trim(),
+                country: sanitizeInput(country.trim()),
                 age: parseInt(age),
                 interests: interests,
                 is_onboarded: true,

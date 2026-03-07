@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Loader2, Sparkles, MapPin, Calendar, Heart, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
+import { sanitizeInput } from "@/lib/utils";
 
 const INTERESTS_LIST = [
     "Technology", "Sports", "Politics", "Gaming", "Music",
@@ -60,7 +61,7 @@ export default function OnboardingPage() {
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
                 body: JSON.stringify({
-                    country: country.trim(),
+                    country: sanitizeInput(country.trim()),
                     age: ageNum,
                     interests,
                 }),

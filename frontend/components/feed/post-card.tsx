@@ -23,7 +23,7 @@ interface PostProps {
         caption: string;
         media_urls: string[];
         thumbnail_url: string;
-        media_type: 'image' | 'video';
+        media_type: 'image' | 'video' | 'text';
         likes_count: number;
         profiles?: { full_name: string };
         created_at?: string;
@@ -307,55 +307,57 @@ export function PostCard({ post }: PostProps) {
                 </div>
 
                 {/* 2. Media Content */}
-                <div className="relative w-full aspect-square md:aspect-[4/5] bg-black/40 overflow-hidden border-b border-white/5 group-media">
-                    {post.media_type === 'image' ? (
-                        <img
-                            src={post.media_urls[0]}
-                            alt={post.caption}
-                            className="w-full h-full object-cover select-none transition-transform duration-700 group-hover/card:scale-105"
-                            loading="eager"
-                            onDoubleClick={handleLike}
-                        />
-                    ) : (
-                        <div onClick={handlePlay} className="w-full h-full relative cursor-pointer group/video">
-                            {!videoBlobUrl ? (
-                                <>
-                                    <img
-                                        src={post.thumbnail_url || post.media_urls[0]}
-                                        className="w-full h-full object-cover transition-opacity duration-500"
-                                        alt="Video Thumbnail"
-                                    />
-                                    {!loadingVideo && (
-                                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover/video:bg-black/40 transition-colors">
-                                            <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-2xl">
-                                                <Play className="w-8 h-8 text-white fill-white" />
+                {post.media_type !== 'text' && post.media_urls && post.media_urls.length > 0 && post.media_urls[0] && (
+                    <div className="relative w-full aspect-square md:aspect-[4/5] bg-black/40 overflow-hidden border-b border-white/5 group-media">
+                        {post.media_type === 'image' ? (
+                            <img
+                                src={post.media_urls[0]}
+                                alt={post.caption}
+                                className="w-full h-full object-cover select-none transition-transform duration-700 group-hover/card:scale-105"
+                                loading="eager"
+                                onDoubleClick={handleLike}
+                            />
+                        ) : (
+                            <div onClick={handlePlay} className="w-full h-full relative cursor-pointer group/video">
+                                {!videoBlobUrl ? (
+                                    <>
+                                        <img
+                                            src={post.thumbnail_url || post.media_urls[0]}
+                                            className="w-full h-full object-cover transition-opacity duration-500"
+                                            alt="Video Thumbnail"
+                                        />
+                                        {!loadingVideo && (
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover/video:bg-black/40 transition-colors">
+                                                <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-2xl">
+                                                    <Play className="w-8 h-8 text-white fill-white" />
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
-                                </>
-                            ) : (
-                                <video
-                                    id={`video-${post.id}`}
-                                    src={videoBlobUrl}
-                                    autoPlay
-                                    loop
-                                    muted={isMuted}
-                                    className="w-full h-full object-cover animate-in fade-in duration-500"
-                                    playsInline
-                                />
-                            )}
+                                        )}
+                                    </>
+                                ) : (
+                                    <video
+                                        id={`video-${post.id}`}
+                                        src={videoBlobUrl}
+                                        autoPlay
+                                        loop
+                                        muted={isMuted}
+                                        className="w-full h-full object-cover animate-in fade-in duration-500"
+                                        playsInline
+                                    />
+                                )}
 
-                            {loadingVideo && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10 backdrop-blur-sm">
-                                    <div className="flex flex-col items-center gap-3">
-                                        <Loader2 className="w-10 h-10 text-primary animate-spin" />
-                                        <p className="text-[10px] font-black text-white uppercase tracking-[0.2em] animate-pulse">Loading Video...</p>
+                                {loadingVideo && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10 backdrop-blur-sm">
+                                        <div className="flex flex-col items-center gap-3">
+                                            <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                                            <p className="text-[10px] font-black text-white uppercase tracking-[0.2em] animate-pulse">Loading Video...</p>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* 3. Action Buttons & Info */}
                 <div className="p-5 pt-4">
@@ -380,7 +382,7 @@ export function PostCard({ post }: PostProps) {
                         <p className="text-[13px] font-bold text-white tracking-tight">{likes.toLocaleString()} likes</p>
                         <p className="text-[14px] leading-relaxed text-zinc-200 font-sans">
                             <span className="font-display font-bold text-white mr-2 tracking-tight">@{post.username}</span>
-                            {post.caption}
+                            <span dangerouslySetInnerHTML={{ __html: post.caption }} />
                         </p>
                         {post.created_at && (
                             <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-3 opacity-60">

@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { sanitizeInput } from "@/lib/utils";
 
 function CreatePostPageContent() {
     const { user: authUser, supabase } = useAuth();
@@ -47,10 +48,11 @@ function CreatePostPageContent() {
         setLoading(true);
 
         const mediaType = thumbnailUrl ? 'video' : (fileUrls.length > 0 ? 'image' : 'text');
+        const sanitizedCaption = sanitizeInput(caption);
 
         const { error } = await supabase.from("posts").insert({
             user_id: userId,
-            caption: caption,
+            caption: sanitizedCaption,
             media_urls: fileUrls, // Standardized column name ✨
             thumbnail_url: thumbnailUrl,
             media_type: mediaType,

@@ -8,7 +8,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { Loader2, Camera, MapPin, Upload, X, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { uploadToCatbox } from "@/lib/upload";
-import { cn } from "@/lib/utils";
+import { cn, sanitizeInput } from "@/lib/utils";
 
 function ReportIssuePageContent() {
     const { user: authUser, supabase } = useAuth();
@@ -131,12 +131,12 @@ function ReportIssuePageContent() {
             const { error } = await supabase.from('reports').insert({
                 user_id: authUser?.id || null,
                 title: `${type.toUpperCase()} Issue`,
-                description,
+                description: sanitizeInput(description),
                 type,
                 media_urls: uploadedMediaUrls.length > 0 ? uploadedMediaUrls : previewUrls,
                 latitude: location.lat,
                 longitude: location.lng,
-                address,
+                address: sanitizeInput(address),
                 status: 'pending'
             });
 

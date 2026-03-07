@@ -89,7 +89,7 @@ export default auth(async (req: any) => {
         default-src 'self';
         script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com;
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-        img-src 'self' blob: data: https://*.googleusercontent.com https://api.dicebear.com https://*.supabase.co;
+        img-src 'self' blob: data: https://*.googleusercontent.com https://api.dicebear.com https://*.supabase.co https://*.unsplash.com https://*.catbox.moe;
         font-src 'self' https://fonts.gstatic.com;
         connect-src 'self' 
             https://*.supabase.co 
@@ -100,6 +100,7 @@ export default auth(async (req: any) => {
             https://accounts.google.com 
             ${process.env.NEXT_PUBLIC_BACKEND_URL || ''};
         frame-src 'self' https://accounts.google.com;
+        media-src 'self' blob: https://*.supabase.co https://*.catbox.moe;
         object-src 'none';
         base-uri 'self';
         form-action 'self';
