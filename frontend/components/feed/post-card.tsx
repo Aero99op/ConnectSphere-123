@@ -358,7 +358,11 @@ export function PostCard({ post }: PostProps) {
                             <img
                                 src={post.media_urls[0]}
                                 alt={post.caption}
-                                style={{ filter: (post as any).customization?.filterStyle || 'none' }}
+                                style={{
+                                    filter: (post as any).customization?.filterStyle || 'none',
+                                    clipPath: (post as any).customization?.crop ?
+                                        `inset(${(post as any).customization.crop.y}% ${100 - ((post as any).customization.crop.x + (post as any).customization.crop.w)}% ${100 - ((post as any).customization.crop.y + (post as any).customization.crop.h)}% ${(post as any).customization.crop.x}%)` : 'none'
+                                }}
                                 className="w-full h-full object-cover select-none transition-transform duration-700 group-hover/card:scale-105"
                                 loading="eager"
                                 onDoubleClick={handleLike}
@@ -369,7 +373,11 @@ export function PostCard({ post }: PostProps) {
                                     <>
                                         <img
                                             src={post.thumbnail_url || post.media_urls[0]}
-                                            style={{ filter: (post as any).customization?.filterStyle || 'none' }}
+                                            style={{
+                                                filter: (post as any).customization?.filterStyle || 'none',
+                                                clipPath: (post as any).customization?.crop ?
+                                                    `inset(${(post as any).customization.crop.y}% ${100 - ((post as any).customization.crop.x + (post as any).customization.crop.w)}% ${100 - ((post as any).customization.crop.y + (post as any).customization.crop.h)}% ${(post as any).customization.crop.x}%)` : 'none'
+                                            }}
                                             className="w-full h-full object-cover transition-opacity duration-500"
                                             alt="Video Thumbnail"
                                         />
@@ -385,7 +393,11 @@ export function PostCard({ post }: PostProps) {
                                     <video
                                         id={`video-${post.id}`}
                                         src={videoBlobUrl}
-                                        style={{ filter: (post as any).customization?.filterStyle || 'none' }}
+                                        style={{
+                                            filter: (post as any).customization?.filterStyle || 'none',
+                                            clipPath: (post as any).customization?.crop ?
+                                                `inset(${(post as any).customization.crop.y}% ${100 - ((post as any).customization.crop.x + (post as any).customization.crop.w)}% ${100 - ((post as any).customization.crop.y + (post as any).customization.crop.h)}% ${(post as any).customization.crop.x}%)` : 'none'
+                                        }}
                                         autoPlay
                                         loop
                                         muted={isMuted}

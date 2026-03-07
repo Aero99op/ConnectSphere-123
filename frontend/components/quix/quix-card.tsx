@@ -150,12 +150,17 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
             <video
                 ref={videoRef}
                 src={quix.video_url}
-                style={{ filter: quix.customization?.filterStyle || 'none' }}
-                className="w-full h-full object-cover"
+                className="h-full w-full object-cover transition-all duration-700"
+                style={{
+                    filter: quix.customization?.filterStyle || 'none',
+                    clipPath: quix.customization?.crop ?
+                        `inset(${quix.customization.crop.y}% ${100 - (quix.customization.crop.x + quix.customization.crop.w)}% ${100 - (quix.customization.crop.y + quix.customization.crop.h)}% ${quix.customization.crop.x}%)` : 'none'
+                }}
                 loop
                 muted={isMuted}
                 playsInline
                 onClick={() => setIsMuted(!isMuted)}
+                onDoubleClick={handleLike}
             />
 
             {/* Overlay Gradient */}

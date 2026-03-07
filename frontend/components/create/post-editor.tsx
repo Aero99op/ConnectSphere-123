@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { X, Wand2, Music, Smile, ChevronRight, Check, Trash2 } from "lucide-react";
+import { X, Wand2, Music, Smile, ChevronRight, Check, Trash2, Crop } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { EmojiPicker } from "./emoji-picker";
@@ -72,8 +72,9 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
     const [selectedFilter, setSelectedFilter] = useState(FILTERS[0]);
     const [stickers, setStickers] = useState<Sticker[]>([]);
     const [selectedMusic, setSelectedMusic] = useState<any>(null);
-    const [activeTab, setActiveTab] = useState<"filters" | "music" | "stickers">("filters");
+    const [activeTab, setActiveTab] = useState<"filters" | "music" | "stickers" | "crop">("filters");
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [crop, setCrop] = useState({ x: 0, y: 0, w: 100, h: 100 }); // Percentage based
 
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -117,6 +118,43 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
         window.addEventListener("touchend", upHandler);
     };
 
+    const handleCropAdjust = (e: React.MouseEvent | React.TouchEvent, type: 'move' | 'resize') => {
+        if (!containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+
+        const moveHandler = (moveEvent: any) => {
+            const clientX = moveEvent.type.startsWith('touch') ? moveEvent.touches[0].clientX : moveEvent.clientX;
+            const clientY = moveEvent.type.startsWith('touch') ? moveEvent.touches[0].clientY : moveEvent.clientY;
+
+            const px = ((clientX - rect.left) / rect.width) * 100;
+            const py = ((clientY - rect.top) / rect.height) * 100;
+
+            setCrop(prev => {
+                if (type === 'move') {
+                    const nx = Math.max(0, Math.min(px - prev.w / 2, 100 - prev.w));
+                    const ny = Math.max(0, Math.min(py - prev.h / 2, 100 - prev.h));
+                    return { ...prev, x: nx, y: ny };
+                } else {
+                    const nw = Math.max(10, Math.min(px - prev.x, 100 - prev.x));
+                    const nh = Math.max(10, Math.min(py - prev.y, 100 - prev.y));
+                    return { ...prev, w: nw, h: nh };
+                }
+            });
+        };
+
+        const upHandler = () => {
+            window.removeEventListener("mousemove", moveHandler);
+            window.removeEventListener("mouseup", upHandler);
+            window.removeEventListener("touchmove", moveHandler);
+            window.removeEventListener("touchend", upHandler);
+        };
+
+        window.addEventListener("mousemove", moveHandler);
+        window.addEventListener("mouseup", upHandler);
+        window.addEventListener("touchmove", moveHandler);
+        window.addEventListener("touchend", upHandler);
+    };
+
     const removeSticker = (id: string) => {
         setStickers(stickers.filter(s => s.id !== id));
     };
@@ -126,7 +164,8 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
             filter: selectedFilter.name,
             filterStyle: selectedFilter.filter,
             music: selectedMusic,
-            stickers: stickers
+            stickers: stickers,
+            crop: crop
         });
     };
 
@@ -149,45 +188,94 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
             {/* Media Preview Area */}
             <div
                 ref={containerRef}
-                className="relative w-full aspect-[9/16] max-h-[70vh] flex items-center justify-center overflow-hidden bg-zinc-900 group"
+                className="relative w-full flex-1 flex items-center justify-center overflow-hidden bg-zinc-900/50 group px-4"
             >
-                {mediaType === "video" ? (
-                    <video
-                        src={mediaUrl}
-                        style={{ filter: selectedFilter.filter }}
-                        className="w-full h-full object-cover"
-                        loop
-                        autoPlay
-                        muted
-                        playsInline
-                    />
-                ) : (
-                    <img
-                        src={mediaUrl}
-                        style={{ filter: selectedFilter.filter }}
-                        className="w-full h-full object-cover"
-                        alt="Preview"
-                    />
-                )}
+                <div className="relative max-w-full max-h-full flex items-center justify-center">
+                    {mediaType === "video" ? (
+                        <video
+                            src={mediaUrl}
+                            style={{
+                                filter: selectedFilter.filter,
+                                clipPath: activeTab !== 'crop' ? `inset(${crop.y}% ${100 - (crop.x + crop.w)}% ${100 - (crop.y + crop.h)}% ${crop.x}%)` : 'none'
+                            }}
+                            className="max-w-[90%] max-h-[50vh] object-contain rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] border border-white/5 transition-all duration-300"
+                            loop
+                            autoPlay
+                            muted
+                            playsInline
+                        />
+                    ) : (
+                        <img
+                            src={mediaUrl}
+                            style={{
+                                filter: selectedFilter.filter,
+                                clipPath: activeTab !== 'crop' ? `inset(${crop.y}% ${100 - (crop.x + crop.w)}% ${100 - (crop.y + crop.h)}% ${crop.x}%)` : 'none'
+                            }}
+                            className="max-w-[90%] max-h-[50vh] object-contain rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] border border-white/5 transition-all duration-300"
+                            alt="Preview"
+                        />
+                    )}
 
-                {/* Sticker Overlays */}
-                {stickers.map(sticker => (
-                    <div
-                        key={sticker.id}
-                        className="absolute cursor-move select-none group/sticker"
-                        style={{ left: `${sticker.x}%`, top: `${sticker.y}%`, fontSize: `${sticker.size}px`, transform: 'translate(-50%, -50%)' }}
-                        onMouseDown={(e) => handleDragSticker(sticker.id, e)}
-                        onTouchStart={(e) => handleDragSticker(sticker.id, e)}
-                    >
-                        {sticker.emoji}
-                        <button
-                            onClick={(e) => { e.stopPropagation(); removeSticker(sticker.id); }}
-                            className="absolute -top-4 -right-4 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover/sticker:opacity-100 transition-opacity flex items-center justify-center"
+                    {/* Sticker Overlays (Relative to this inner container) */}
+                    {stickers.map(sticker => (
+                        <div
+                            key={sticker.id}
+                            className="absolute cursor-move select-none group/sticker"
+                            style={{ left: `${sticker.x}%`, top: `${sticker.y}%`, fontSize: `${sticker.size}px`, transform: 'translate(-50%, -50%)' }}
+                            onMouseDown={(e) => handleDragSticker(sticker.id, e)}
+                            onTouchStart={(e) => handleDragSticker(sticker.id, e)}
                         >
-                            <Trash2 className="w-3 h-3" />
-                        </button>
-                    </div>
-                ))}
+                            {sticker.emoji}
+                            <button
+                                onClick={(e) => { e.stopPropagation(); removeSticker(sticker.id); }}
+                                className="absolute -top-4 -right-4 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover/sticker:opacity-100 transition-opacity flex items-center justify-center"
+                            >
+                                <Trash2 className="w-3 h-3" />
+                            </button>
+                        </div>
+                    ))}
+
+                    {/* Crop Overlay */}
+                    {activeTab === 'crop' && (
+                        <div className="absolute inset-0 z-20 pointer-events-none">
+                            {/* Dimmed Areas */}
+                            <div className="absolute bg-black/60 pointer-events-auto" style={{ left: 0, top: 0, right: 0, height: `${crop.y}%` }} />
+                            <div className="absolute bg-black/60 pointer-events-auto" style={{ left: 0, top: `${crop.y + crop.h}%`, right: 0, bottom: 0 }} />
+                            <div className="absolute bg-black/60 pointer-events-auto" style={{ left: 0, top: `${crop.y}%`, width: `${crop.x}%`, height: `${crop.h}%` }} />
+                            <div className="absolute bg-black/60 pointer-events-auto" style={{ left: `${crop.x + crop.w}%`, top: `${crop.y}%`, right: 0, height: `${crop.h}%` }} />
+
+                            {/* Selection Box */}
+                            <div
+                                className="absolute border-2 border-white shadow-[0_0_20px_rgba(0,0,0,0.5)] cursor-move pointer-events-auto"
+                                style={{ left: `${crop.x}%`, top: `${crop.y}%`, width: `${crop.w}%`, height: `${crop.h}%` }}
+                                onMouseDown={(e) => handleCropAdjust(e, 'move')}
+                                onTouchStart={(e) => handleCropAdjust(e, 'move')}
+                            >
+                                {/* Grid Lines */}
+                                <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 opacity-30 pointer-events-none">
+                                    <div className="border border-white/20" />
+                                    <div className="border border-white/20" />
+                                    <div className="border border-white/20" />
+                                    <div className="border border-white/20" />
+                                    <div className="border border-white/20" />
+                                    <div className="border border-white/40" />
+                                    <div className="border border-white/40" />
+                                    <div className="border border-white/40" />
+                                    <div className="border border-white/40" />
+                                </div>
+
+                                {/* Resize Handle */}
+                                <div
+                                    className="absolute -bottom-3 -right-3 w-8 h-8 bg-white border-4 border-black rounded-full cursor-nwse-resize z-50 flex items-center justify-center shadow-xl"
+                                    onMouseDown={(e) => { e.stopPropagation(); handleCropAdjust(e, 'resize'); }}
+                                    onTouchStart={(e) => { e.stopPropagation(); handleCropAdjust(e, 'resize'); }}
+                                >
+                                    <div className="w-1.5 h-1.5 bg-black rounded-full" />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
 
                 {/* Music Badge */}
                 {selectedMusic && (
@@ -215,6 +303,13 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
                     >
                         <Music className="w-6 h-6" />
                         <span className="text-[8px] font-bold uppercase tracking-tighter">Music</span>
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("crop")}
+                        className={cn("flex flex-col items-center gap-1 transition-all", activeTab === "crop" ? "text-primary scale-110" : "text-zinc-500")}
+                    >
+                        <Crop className="w-6 h-6" />
+                        <span className="text-[8px] font-bold uppercase tracking-tighter">Crop</span>
                     </button>
                     <button
                         onClick={() => setShowEmojiPicker(!showEmojiPicker)}
