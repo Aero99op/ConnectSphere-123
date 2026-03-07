@@ -18,7 +18,13 @@ import {
     DrawerTitle,
     DrawerTrigger
 } from "@/components/ui/drawer";
-import { cn } from "@/lib/utils";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle
+} from "@/components/ui/dialog";
 import { useAuth } from "@/components/providers/auth-provider";
 import { toast } from "sonner";
 
@@ -32,6 +38,7 @@ interface PostOptionsSheetProps {
 export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostOptionsSheetProps) {
     const { user: authUser, supabase } = useAuth();
     const [open, setOpen] = useState(false);
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [copying, setCopying] = useState(false);
 
@@ -45,8 +52,6 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
     };
 
     const handleDelete = async () => {
-        if (!confirm("Bhai, pakka udaana hai? Wapas nahi aayega! 🚔")) return;
-
         setDeleting(true);
         const { error } = await supabase.from('posts').delete().eq('id', post.id);
 
@@ -57,6 +62,7 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
         } else {
             toast.success("Post koodedaal mein chali gayi! 🧨");
             onDelete?.(post.id);
+            setDeleteConfirmOpen(false);
             setOpen(false);
         }
     };
@@ -150,7 +156,10 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
                     {/* Delete Action (Owner Only) */}
                     {isOwner && (
                         <button
-                            onClick={handleDelete}
+                            onClick={() => {
+                                setOpen(false);
+                                setDeleteConfirmOpen(true);
+                            }}
                             disabled={deleting}
                             className="w-full flex items-center justify-between p-4 glass border-red-500/20 rounded-2xl hover:bg-red-500/10 transition-all group mt-6"
                         >
@@ -172,6 +181,36 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
                     </div>
                 </div>
             </DrawerContent>
+
+            <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                <DialogContent className="bg-zinc-950 border border-red-500/30 text-white sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-red-400 font-display font-black">Delete Post</DialogTitle>
+                        <DialogDescription className="text-zinc-400">
+                            Yeh action permanent hai. Post wapas nahi aayega.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex items-center justify-end gap-3 pt-2">
+                        <button
+                            type="button"
+                            onClick={() => setDeleteConfirmOpen(false)}
+                            disabled={deleting}
+                            className="px-4 py-2 rounded-xl border border-white/15 text-zinc-200 hover:bg-white/5 transition-all disabled:opacity-50"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleDelete}
+                            disabled={deleting}
+                            className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold transition-all disabled:opacity-50 inline-flex items-center gap-2"
+                        >
+                            {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                            Delete
+                        </button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </Drawer>
     );
 }
