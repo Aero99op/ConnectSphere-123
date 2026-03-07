@@ -118,7 +118,7 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
         window.addEventListener("touchend", upHandler);
     };
 
-    const handleCropAdjust = (e: React.MouseEvent | React.TouchEvent, type: 'move' | 'tl' | 'tr' | 'bl' | 'br') => {
+    const handleCropAdjust = (e: React.MouseEvent | React.TouchEvent, type: 'move' | 'tl' | 'tr' | 'bl' | 'br' | 't' | 'b' | 'l' | 'r') => {
         if (!containerRef.current) return;
         const rect = containerRef.current.getBoundingClientRect();
 
@@ -155,6 +155,18 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
                 } else if (type === 'br') {
                     w = Math.max(10, Math.min(px - x, 100 - x));
                     h = Math.max(10, Math.min(py - y, 100 - y));
+                } else if (type === 't') {
+                    const ny = Math.max(0, Math.min(py, y + h - 10));
+                    h = h + (y - ny);
+                    y = ny;
+                } else if (type === 'b') {
+                    h = Math.max(10, Math.min(py - y, 100 - y));
+                } else if (type === 'l') {
+                    const nx = Math.max(0, Math.min(px, x + w - 10));
+                    w = w + (x - nx);
+                    x = nx;
+                } else if (type === 'r') {
+                    w = Math.max(10, Math.min(px - x, 100 - x));
                 }
 
                 return { x, y, w, h };
@@ -289,7 +301,7 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
                                     onMouseDown={(e) => { e.stopPropagation(); handleCropAdjust(e, 'tl'); }}
                                     onTouchStart={(e) => { e.stopPropagation(); handleCropAdjust(e, 'tl'); }}
                                 >
-                                    <div className="w-1 h-1 bg-black rounded-full" />
+                                    <div className="w-1.5 h-1.5 bg-black rounded-full" />
                                 </div>
 
                                 <div
@@ -297,7 +309,7 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
                                     onMouseDown={(e) => { e.stopPropagation(); handleCropAdjust(e, 'tr'); }}
                                     onTouchStart={(e) => { e.stopPropagation(); handleCropAdjust(e, 'tr'); }}
                                 >
-                                    <div className="w-1 h-1 bg-black rounded-full" />
+                                    <div className="w-1.5 h-1.5 bg-black rounded-full" />
                                 </div>
 
                                 <div
@@ -305,7 +317,7 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
                                     onMouseDown={(e) => { e.stopPropagation(); handleCropAdjust(e, 'bl'); }}
                                     onTouchStart={(e) => { e.stopPropagation(); handleCropAdjust(e, 'bl'); }}
                                 >
-                                    <div className="w-1 h-1 bg-black rounded-full" />
+                                    <div className="w-1.5 h-1.5 bg-black rounded-full" />
                                 </div>
 
                                 <div
@@ -314,6 +326,39 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
                                     onTouchStart={(e) => { e.stopPropagation(); handleCropAdjust(e, 'br'); }}
                                 >
                                     <div className="w-1.5 h-1.5 bg-black rounded-full" />
+                                </div>
+
+                                {/* Edge Handles */}
+                                <div
+                                    className="absolute left-1/2 -translate-x-1/2 -top-3 w-8 h-8 bg-white border-4 border-black rounded-full cursor-n-resize z-50 flex items-center justify-center shadow-xl hover:scale-110 transition-transform"
+                                    onMouseDown={(e) => { e.stopPropagation(); handleCropAdjust(e, 't'); }}
+                                    onTouchStart={(e) => { e.stopPropagation(); handleCropAdjust(e, 't'); }}
+                                >
+                                    <div className="w-3 h-1 bg-black rounded-full" />
+                                </div>
+
+                                <div
+                                    className="absolute left-1/2 -translate-x-1/2 -bottom-3 w-8 h-8 bg-white border-4 border-black rounded-full cursor-s-resize z-50 flex items-center justify-center shadow-xl hover:scale-110 transition-transform"
+                                    onMouseDown={(e) => { e.stopPropagation(); handleCropAdjust(e, 'b'); }}
+                                    onTouchStart={(e) => { e.stopPropagation(); handleCropAdjust(e, 'b'); }}
+                                >
+                                    <div className="w-3 h-1 bg-black rounded-full" />
+                                </div>
+
+                                <div
+                                    className="absolute top-1/2 -translate-y-1/2 -left-3 w-8 h-8 bg-white border-4 border-black rounded-full cursor-w-resize z-50 flex items-center justify-center shadow-xl hover:scale-110 transition-transform"
+                                    onMouseDown={(e) => { e.stopPropagation(); handleCropAdjust(e, 'l'); }}
+                                    onTouchStart={(e) => { e.stopPropagation(); handleCropAdjust(e, 'l'); }}
+                                >
+                                    <div className="w-1 h-3 bg-black rounded-full" />
+                                </div>
+
+                                <div
+                                    className="absolute top-1/2 -translate-y-1/2 -right-3 w-8 h-8 bg-white border-4 border-black rounded-full cursor-e-resize z-50 flex items-center justify-center shadow-xl hover:scale-110 transition-transform"
+                                    onMouseDown={(e) => { e.stopPropagation(); handleCropAdjust(e, 'r'); }}
+                                    onTouchStart={(e) => { e.stopPropagation(); handleCropAdjust(e, 'r'); }}
+                                >
+                                    <div className="w-1 h-3 bg-black rounded-full" />
                                 </div>
                             </div>
                         </div>
