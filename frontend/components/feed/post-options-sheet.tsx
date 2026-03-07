@@ -69,8 +69,14 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
             });
 
             if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.error || 'Server-side delete failed');
+                let errorMessage = 'Server-side delete failed';
+                try {
+                    const data = await response.json();
+                    errorMessage = data.error || errorMessage;
+                } catch (e) {
+                    errorMessage = `Error ${response.status}: ${response.statusText}`;
+                }
+                throw new Error(errorMessage);
             }
 
             toast.success("Post koodedaal mein chali gayi! 🧨");
