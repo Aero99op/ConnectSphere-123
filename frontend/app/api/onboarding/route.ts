@@ -2,44 +2,18 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { createAdminSupabaseClient } from '@/lib/auth';
-
-// Edge-compatible UUID v5 implementation using Web Crypto API
-async function emailToUUID(email: string): Promise<string> {
-    const NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
-
-    // Convert namespace UUID string to bytes
-    const nsHex = NAMESPACE.replace(/-/g, '');
-    const nsBytes = new Uint8Array(16);
-    for (let i = 0; i < 16; i++) {
-        nsBytes[i] = parseInt(nsHex.substring(i * 2, i * 2 + 2), 16);
-    }
-
-    const nameBytes = new TextEncoder().encode(email.toLowerCase().trim());
-
-    const combined = new Uint8Array(16 + nameBytes.length);
-    combined.set(nsBytes);
-    combined.set(nameBytes, 16);
-
-    const hashBuffer = await crypto.subtle.digest('SHA-1', combined);
-    const hashBytes = new Uint8Array(hashBuffer);
-
-    hashBytes[6] = (hashBytes[6] & 0x0f) | 0x50;
-    hashBytes[8] = (hashBytes[8] & 0x3f) | 0x80;
-
-    const hex = Array.from(hashBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
-}
+import { createAdminSupabaseClient, emailToUUID } from '@/lib/auth';
 
 // GET /api/onboarding — Check if user is onboarded
 export async function GET() {
     try {
         const session = await auth();
         if (!session?.user?.email) {
-            return NextResponse.json({ isOnboarded: true, profileExists: false }, { status: 200 });
+            return NextResponse.json({ error: 'Not authenticated', isOnboarded: true, profileExists: false }, { status: 401 });
         }
 
-        const userId = await emailToUUID(session.user.email);
+        // Use the ID from the session (already handled salted vs legacy in auth.ts)
+        const userId = (session.user as any).id;
         const adminSupabase = createAdminSupabaseClient();
 
         const { data, error } = await adminSupabase
@@ -75,7 +49,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
         }
 
-        const userId = await emailToUUID(session.user.email);
+        const userId = (session.user as any).id;
         const body = await req.json();
         const { country, age, interests } = body;
 

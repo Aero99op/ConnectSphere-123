@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 7860; // 7860 is default for HuggingFace Spaces
 
 // Middleware
 app.use(cors({
-    origin: '*', // In production, restrict this to your Cloudflare Pages domain
+    origin: ['https://connectsphere-123.pages.dev', 'http://localhost:3000'],
     methods: ['GET', 'POST']
 }));
 app.use(express.json());

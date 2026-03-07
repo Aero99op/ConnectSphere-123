@@ -10,7 +10,7 @@ function generateToken() {
 
 export async function POST(req: Request) {
     try {
-        let { email, action, password, fullName, role } = await req.json();
+        let { email, action, password, fullName } = await req.json();
         email = email?.toLowerCase().trim();
 
         if (!email || !action) {
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
         const metadata = action === 'signup' ? {
             password, // We'll hash it here for security OR just store it if we trust the channel
             fullName,
-            role: role || 'citizen'
+            role: 'citizen' // CRITICAL FIX: Hardcoded to citizen for public signup
         } : null;
 
         // 1. Cleanup old tokens for this email

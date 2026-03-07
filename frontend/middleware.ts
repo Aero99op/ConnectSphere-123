@@ -30,7 +30,7 @@ export default auth(async (req: any) => {
     const forwardedFor = req.headers.get('x-forwarded-for')
     const cfConnectingIp = req.headers.get('cf-connecting-ip')
     const realIp = req.headers.get('x-real-ip')
-    
+
     let ip = cfConnectingIp || realIp || '127.0.0.1'
     if (!ip && forwardedFor) {
         ip = forwardedFor.split(',')[0].trim()
@@ -82,6 +82,38 @@ export default auth(async (req: any) => {
             headers: { 'Content-Type': 'application/json' }
         });
     }
+
+    // 3. Inject Security Headers
+    // --- CSP Configuration ---
+    const cspHeader = `
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        img-src 'self' blob: data: https://*.googleusercontent.com https://api.dicebear.com https://*.supabase.co;
+        font-src 'self' https://fonts.gstatic.com;
+        connect-src 'self' 
+            https://*.supabase.co 
+            wss://*.supabase.co 
+            https://*.pages.dev 
+            https://*.apinator.io 
+            wss://*.apinator.io 
+            https://accounts.google.com 
+            ${process.env.NEXT_PUBLIC_BACKEND_URL || ''};
+        frame-src 'self' https://accounts.google.com;
+        object-src 'none';
+        base-uri 'self';
+        form-action 'self';
+        frame-ancestors 'none';
+        upgrade-insecure-requests;
+    `.replace(/\s{2,}/g, ' ').trim();
+
+    // Application of Headers
+    res.headers.set('Content-Security-Policy', cspHeader);
+    res.headers.set('X-Frame-Options', 'DENY');
+    res.headers.set('X-Content-Type-Options', 'nosniff');
+    res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocations=(self)');
+    res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
 
     return res
 })

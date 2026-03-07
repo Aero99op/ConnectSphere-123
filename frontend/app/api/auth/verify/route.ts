@@ -1,35 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createAdminSupabaseClient } from '@/lib/auth';
+import { createAdminSupabaseClient, emailToUUID, hashPassword } from '@/lib/auth';
 
 export const runtime = 'edge';
-
-// Edge-compatible UUID v5 implementation (Must match auth.ts)
-async function getUUID(email: string): Promise<string> {
-    const NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
-    const nsHex = NAMESPACE.replace(/-/g, '');
-    const nsBytes = new Uint8Array(16);
-    for (let i = 0; i < 16; i++) {
-        nsBytes[i] = parseInt(nsHex.substring(i * 2, i * 2 + 2), 16);
-    }
-    const nameBytes = new TextEncoder().encode(email.toLowerCase().trim());
-    const combined = new Uint8Array(16 + nameBytes.length);
-    combined.set(nsBytes);
-    combined.set(nameBytes, 16);
-    const hashBuffer = await crypto.subtle.digest('SHA-1', combined);
-    const hashBytes = new Uint8Array(hashBuffer);
-    hashBytes[6] = (hashBytes[6] & 0x0f) | 0x50;
-    hashBytes[8] = (hashBytes[8] & 0x3f) | 0x80;
-    const hex = Array.from(hashBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
-}
-
-// Edge-compatible hashing helper (Must match auth.ts)
-async function hashPassword(password: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password + "connectsphere_salt");
-    const hash = await crypto.subtle.digest('SHA-256', data);
-    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
 
 export async function GET(req: Request) {
     try {
@@ -85,7 +57,7 @@ export async function GET(req: Request) {
 
         if (metadata) {
             // SIGNUP FLOW: Create Profile now
-            const userId = await getUUID(email);
+            const userId = await emailToUUID(email);
             const hashedPassword = await hashPassword(metadata.password);
 
             const { error: insertError } = await adminSupabase
