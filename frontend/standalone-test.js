@@ -10,10 +10,10 @@ function signRequest(secret, method, path, body, timestamp) {
     return crypto.createHmac('sha256', secret).update(sigString, 'utf8').digest('hex');
 }
 
-const appId = 'a642bc88-0e01-40ca-bade-0305c9ad42a4';
-const appKey = 'app_2dd04bc7a4e6f4c949dbcb6b3b53659685f04fb5';
-const appSecret = '8aa9fa6a280324ecace4b72248099ffdb0486936530cb9bc0daeb6fe1fe101c5';
-const cluster = 'eu';
+const appId = process.env.APINATOR_APP_ID || 'YOUR_APP_ID';
+const appKey = process.env.APINATOR_KEY || 'YOUR_APP_KEY';
+const appSecret = process.env.APINATOR_SECRET || 'YOUR_APP_SECRET';
+const cluster = process.env.NEXT_PUBLIC_APINATOR_CLUSTER || 'us';
 const host = `https://ws-${cluster}.apinator.io`;
 
 async function testTrigger() {

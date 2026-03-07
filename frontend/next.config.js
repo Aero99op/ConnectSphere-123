@@ -20,44 +20,13 @@ const nextConfig = {
             },
         ],
     },
-    async headers() {
-        return [
-            {
-                source: '/:path*',
-                headers: [
-                    {
-                        key: 'X-DNS-Prefetch-Control',
-                        value: 'on'
-                    },
-                    {
-                        key: 'Strict-Transport-Security',
-                        value: 'max-age=63072000; includeSubDomains; preload'
-                    },
-                    {
-                        key: 'X-Frame-Options',
-                        value: 'SAMEORIGIN'
-                    },
-                    {
-                        key: 'X-Content-Type-Options',
-                        value: 'nosniff'
-                    },
-                    {
-                        key: 'Referrer-Policy',
-                        value: 'origin-when-cross-origin'
-                    },
-                    {
-                        key: 'Content-Security-Policy',
-                        value: "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: wss:; img-src 'self' https: data: blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; connect-src 'self' https: wss:;"
-                    }
-                ]
-            }
-        ];
-    },
+    // Security headers are handled in middleware.ts (Edge Runtime)
+    // next.config.js headers are only a fallback and often lead to conflicts on Cloudflare.
     eslint: {
-        ignoreDuringBuilds: true,
+        ignoreDuringBuilds: false,
     },
     typescript: {
-        ignoreBuildErrors: true,
+        ignoreBuildErrors: false,
     },
     experimental: {
         workerThreads: false,

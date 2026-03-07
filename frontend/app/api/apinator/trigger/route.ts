@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApinatorServer } from '@/lib/apinator-server';
+import { auth } from '@/auth';
 
 export const runtime = 'edge';
 
@@ -7,6 +8,11 @@ export const runtime = 'edge';
 // Trigger an event on an Apinator channel from the server side
 export async function POST(req: NextRequest) {
     try {
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ error: 'Unauthorized: User must be logged in' }, { status: 401 });
+        }
+
         const body = await req.json();
         const { channel, event, data } = body;
 

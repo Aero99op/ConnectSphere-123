@@ -84,12 +84,19 @@ export default auth(async (req: any) => {
     }
 
     // 3. Inject Security Headers
-    // --- CSP Configuration ---
+    // --- CSP Configuration (Consolidated & Hardened) ---
     const cspHeader = `
         default-src 'self';
         script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com;
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-        img-src 'self' blob: data: https://*.googleusercontent.com https://api.dicebear.com https://*.supabase.co https://*.unsplash.com https://*.catbox.moe;
+        img-src 'self' blob: data: 
+            https://*.googleusercontent.com 
+            https://api.dicebear.com 
+            https://*.supabase.co 
+            https://*.unsplash.com 
+            https://*.catbox.moe
+            https://files.catbox.moe
+            https://i.imgur.com;
         font-src 'self' https://fonts.gstatic.com;
         connect-src 'self' 
             https://*.supabase.co 
@@ -98,9 +105,11 @@ export default auth(async (req: any) => {
             https://*.apinator.io 
             wss://*.apinator.io 
             https://accounts.google.com 
+            https://api.telegram.org
+            https://ipapi.co
             ${process.env.NEXT_PUBLIC_BACKEND_URL || ''};
         frame-src 'self' https://accounts.google.com;
-        media-src 'self' blob: https://*.supabase.co https://*.catbox.moe;
+        media-src 'self' blob: https://*.supabase.co https://*.catbox.moe https://files.catbox.moe;
         object-src 'none';
         base-uri 'self';
         form-action 'self';
@@ -108,13 +117,14 @@ export default auth(async (req: any) => {
         upgrade-insecure-requests;
     `.replace(/\s{2,}/g, ' ').trim();
 
-    // Application of Headers
+    // Standard Security Headers
     res.headers.set('Content-Security-Policy', cspHeader);
     res.headers.set('X-Frame-Options', 'DENY');
     res.headers.set('X-Content-Type-Options', 'nosniff');
     res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-    res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocations=(self)');
-    res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+    res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
+    res.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+    res.headers.set('X-DNS-Prefetch-Control', 'on');
 
     return res
 })

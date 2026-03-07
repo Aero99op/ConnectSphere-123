@@ -42,28 +42,46 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
     const [deleting, setDeleting] = useState(false);
     const [copying, setCopying] = useState(false);
 
-    const handleCopyLink = () => {
+    const handleCopyLink = async () => {
         setCopying(true);
         const url = `${window.location.origin}/post/${post.id}`;
-        navigator.clipboard.writeText(url);
-        toast.success("Link copy ho gaya! 🔗");
-        setTimeout(() => setCopying(false), 2000);
-        setOpen(false);
+        try {
+            await navigator.clipboard.writeText(url);
+            toast.success("Link copy ho gaya! 🔗");
+        } catch {
+            toast.error("Copy failed. Manual copy required.");
+        } finally {
+            setTimeout(() => setCopying(false), 2000);
+            setOpen(false);
+        }
     };
 
     const handleDelete = async () => {
+        if (!authUser || authUser.id !== post.user_id) {
+            toast.error("Unauthorized delete attempt blocked.");
+            return;
+        }
         setDeleting(true);
-        const { error } = await supabase.from('posts').delete().eq('id', post.id);
 
-        if (error) {
-            console.error("Delete Error details:", error);
-            toast.error("Delete fail ho gaya! Permission check karlo.");
-            setDeleting(false);
-        } else {
+        try {
+            const response = await fetch(`/api/posts/${post.id}`, {
+                method: 'DELETE',
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || 'Server-side delete failed');
+            }
+
             toast.success("Post koodedaal mein chali gayi! 🧨");
             onDelete?.(post.id);
             setDeleteConfirmOpen(false);
             setOpen(false);
+        } catch (error: any) {
+            console.error("Delete Error details:", error);
+            toast.error("Delete fail ho gaya: " + error.message);
+        } finally {
+            setDeleting(false);
         }
     };
 
