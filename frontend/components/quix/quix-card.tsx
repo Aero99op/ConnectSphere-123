@@ -3,11 +3,13 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Heart, MessageCircle, Share2, Bookmark, Repeat, Volume2, VolumeX, Plus } from "lucide-react";
+import { Heart, MessageCircle, Share2, Bookmark, Repeat, Volume2, VolumeX, Plus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ShareSheet } from "@/components/feed/share-sheet";
+import { CommentSheet } from "@/components/feed/comment-sheet";
 import { toast } from "sonner";
+import Link from "next/link";
 
 interface QuixCardProps {
     quix: any;
@@ -25,9 +27,12 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
     const [likesCount, setLikesCount] = useState(quix.likes_count || 0);
     const [repostsCount, setRepostsCount] = useState(quix.reposts_count || 0);
     const [showShareSheet, setShowShareSheet] = useState(false);
+    const [showComments, setShowComments] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
+    const [isFollowing, setIsFollowing] = useState(false);
+    const [followLoading, setFollowLoading] = useState(false);
 
     useEffect(() => {
         const music = quix.customization?.music;
@@ -87,9 +92,12 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
 
             const { data: repost } = await supabase.from('quix_reposts').select('*').eq('quix_id', quix.id).eq('user_id', user.id).maybeSingle();
             setIsReposted(!!repost);
+
+            const { data: follow } = await supabase.from('follows').select('*').eq('follower_id', user.id).eq('following_id', quix.user_id).maybeSingle();
+            setIsFollowing(!!follow);
         };
         checkInteractions();
-    }, [user, quix.id, supabase]);
+    }, [user, quix.id, quix.user_id, supabase]);
 
     const handleLike = async () => {
         if (!user) return toast.error("Login to like!");
@@ -129,6 +137,27 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
             await supabase.from('quix_reposts').insert({ quix_id: quix.id, user_id: user.id });
             toast.success("Aapki profile pe dikhayega! 🔄");
         }
+    };
+
+    const handleFollowToggle = async () => {
+        if (!user) return toast.error("Pehle login karle bhai!");
+        if (user.id === quix.user_id) return toast.error("Khud ko follow karega? 😂");
+
+        setFollowLoading(true);
+        if (isFollowing) {
+            const { error } = await supabase.from('follows').delete().match({ follower_id: user.id, following_id: quix.user_id });
+            if (!error) {
+                setIsFollowing(false);
+                toast.success("Unfollow kar diya! 💔");
+            }
+        } else {
+            const { error } = await supabase.from('follows').insert({ follower_id: user.id, following_id: quix.user_id });
+            if (!error) {
+                setIsFollowing(true);
+                toast.success("Followed! 🚀");
+            }
+        }
+        setFollowLoading(false);
     };
 
     const handleAddToStory = async () => {
@@ -183,11 +212,32 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
                 muted={isMuted}
                 playsInline
                 autoPlay
-                onClick={() => setIsMuted(!isMuted)}
                 onDoubleClick={handleLike}
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
             />
+
+            {/* Click Hitboxes */}
+            <div className="absolute inset-0 flex z-10">
+                {/* Center - Play/Pause */}
+                <div
+                    className="flex-[3] h-full cursor-pointer"
+                    onClick={() => {
+                        if (videoRef.current?.paused) {
+                            videoRef.current.play();
+                            audioRef.current?.play().catch(() => { });
+                        } else {
+                            videoRef.current?.pause();
+                            audioRef.current?.pause();
+                        }
+                    }}
+                />
+                {/* Right - Mute Toggle */}
+                <div
+                    className="flex-1 h-full cursor-pointer"
+                    onClick={() => setIsMuted(!isMuted)}
+                />
+            </div>
 
             {/* Overlay Gradient */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60 pointer-events-none" />
@@ -210,7 +260,10 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
                 </div>
 
                 <div className="flex flex-col items-center gap-1">
-                    <button className="p-3 rounded-full bg-black/20 backdrop-blur-md border border-white/10 text-white transition-all active:scale-75">
+                    <button
+                        onClick={() => setShowComments(true)}
+                        className="p-3 rounded-full bg-black/20 backdrop-blur-md border border-white/10 text-white transition-all active:scale-75"
+                    >
                         <MessageCircle className="w-7 h-7" />
                     </button>
                     <span className="text-white text-xs font-bold shadow-sm">{quix.comments_count || 0}</span>
@@ -255,17 +308,33 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
                 entityId={quix.id}
             />
 
+            <CommentSheet
+                quixId={quix.id}
+                open={showComments}
+                onOpenChange={setShowComments}
+            />
+
             {/* Bottom Info Bar */}
             <div className="absolute bottom-6 left-4 right-16 z-20">
                 <div className="flex items-center gap-3 mb-3">
-                    <Avatar className="w-10 h-10 border-2 border-white/20">
-                        <AvatarImage src={quix.profiles?.avatar_url} />
-                        <AvatarFallback className="bg-zinc-800 text-white">{quix.profiles?.username?.[0]}</AvatarFallback>
-                    </Avatar>
-                    <span className="text-white font-bold tracking-tight">@{quix.profiles?.username}</span>
-                    <Button variant="outline" size="sm" className="h-7 px-3 rounded-full bg-white/10 border-white/20 text-white text-[11px] font-bold hover:bg-white/20">
-                        Follow
-                    </Button>
+                    <Link href={`/profile/${quix.user_id}`} className="flex items-center gap-3">
+                        <Avatar className="w-10 h-10 border-2 border-white/20">
+                            <AvatarImage src={quix.profiles?.avatar_url} />
+                            <AvatarFallback className="bg-zinc-800 text-white">{quix.profiles?.username?.[0]}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-white font-bold tracking-tight">@{quix.profiles?.username}</span>
+                    </Link>
+                    {user?.id !== quix.user_id && !isFollowing && (
+                        <Button
+                            onClick={handleFollowToggle}
+                            disabled={followLoading}
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-3 rounded-full bg-white/10 border-white/20 text-white text-[11px] font-bold hover:bg-white/20"
+                        >
+                            {followLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : "Follow"}
+                        </Button>
+                    )}
                 </div>
                 <p className="text-white/90 text-[13px] line-clamp-2 leading-relaxed">
                     {quix.caption}

@@ -8,12 +8,13 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { MessageCircle } from "lucide-react";
 
 interface CommentSheetProps {
-    postId: string;
+    postId?: string;
+    quixId?: string;
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }
 
-export function CommentSheet({ postId, open, onOpenChange }: CommentSheetProps) {
+export function CommentSheet({ postId, quixId, open, onOpenChange }: CommentSheetProps) {
     const { user, supabase } = useAuth();
     const [comments, setComments] = useState<any[]>([]);
     const [newComment, setNewComment] = useState("");
@@ -27,14 +28,23 @@ export function CommentSheet({ postId, open, onOpenChange }: CommentSheetProps) 
 
     const fetchComments = async () => {
         setLoading(true);
-        const { data, error } = await supabase
+        const query = supabase
             .from("comments")
             .select(`
-        *,
-        profiles (username, avatar_url)
-      `)
-            .eq("post_id", postId)
-            .order("created_at", { ascending: true });
+                *,
+                profiles (username, avatar_url)
+            `);
+
+        if (quixId) {
+            query.eq("quix_id", quixId);
+        } else if (postId) {
+            query.eq("post_id", postId);
+        } else {
+            setLoading(false);
+            return;
+        }
+
+        const { data, error } = await query.order("created_at", { ascending: true });
 
         if (error) {
             console.error("Error fetching comments:", error);
@@ -56,7 +66,8 @@ export function CommentSheet({ postId, open, onOpenChange }: CommentSheetProps) 
             if (!user) return alert("Login toh karlo!");
 
             const { error } = await supabase.from("comments").insert({
-                post_id: postId,
+                post_id: postId || null,
+                quix_id: quixId || null,
                 user_id: user.id,
                 content: newComment
             });
