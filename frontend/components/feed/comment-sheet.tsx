@@ -90,34 +90,39 @@ export function CommentSheet({ postId, quixId, open, onOpenChange }: CommentShee
             }
 
             // Trigger Notification + Broadcast Signal (Hyper-Scale)
-            supabase.from('posts')
-                .select('user_id')
-                .eq('id', postId)
-                .maybeSingle()
-                .then(async ({ data: postData }) => {
-                    if (postData && postData.user_id !== user.id) {
-                        const notifData = {
-                            recipient_id: postData.user_id,
-                            actor_id: user.id,
-                            type: 'comment',
-                            entity_id: postId
-                        };
+            const entityTable = quixId ? 'quix' : 'posts';
+            const entityId = quixId || postId;
 
-                        // 1. DB Record
-                        await supabase.from('notifications').insert(notifData);
+            if (entityId) {
+                const { data: entityData } = await supabase
+                    .from(entityTable)
+                    .select('user_id')
+                    .eq('id', entityId)
+                    .maybeSingle();
 
-                        // 2. Instant Notification via Apinator (UNLIMITED)
-                        fetch('/api/apinator/trigger', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                channel: `notifications-${postData.user_id}`,
-                                event: 'notification_ping',
-                                data: notifData
-                            })
-                        }).catch(console.error);
-                    }
-                });
+                if (entityData && entityData.user_id !== user.id) {
+                    const notifData = {
+                        recipient_id: entityData.user_id,
+                        actor_id: user.id,
+                        type: 'comment',
+                        entity_id: entityId
+                    };
+
+                    // 1. DB Record
+                    await supabase.from('notifications').insert(notifData);
+
+                    // 2. Instant Notification via Apinator (UNLIMITED)
+                    fetch('/api/apinator/trigger', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            channel: `notifications-${entityData.user_id}`,
+                            event: 'notification_ping',
+                            data: notifData
+                        })
+                    }).catch(console.error);
+                }
+            }
 
             setNewComment("");
             fetchComments(); // Refresh

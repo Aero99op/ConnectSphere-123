@@ -71,11 +71,15 @@ create table if not exists public.posts (
 -- 6. Comments (Baatcheet)
 create table if not exists public.comments (
   id uuid default gen_random_uuid() primary key,
-  post_id uuid references public.posts(id) on delete cascade not null,
+  post_id uuid references public.posts(id) on delete cascade, -- Nullable to support Quix
+  quix_id uuid references public.quix(id) on delete cascade, -- Support for short videos
   user_id uuid references public.profiles(id) on delete cascade not null,
   content text not null,
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
+
+create index if not exists idx_comments_post_id on public.comments(post_id);
+create index if not exists idx_comments_quix_id on public.comments(quix_id);
 
 -- ... (Existing stories, reports, audit_logs tables)
 
