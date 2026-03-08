@@ -56,6 +56,14 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         let isMounted = true;
         fetchMessages();
 
+        // Trigger read when user enters chat OR window is focused
+        const handleFocus = () => {
+            if (isMounted) markMessagesAsRead();
+        };
+
+        window.addEventListener('focus', handleFocus);
+        if (document.hasFocus()) markMessagesAsRead();
+
         const setupSubscription = () => {
             const client = getApinatorClient();
             if (!client) return null;

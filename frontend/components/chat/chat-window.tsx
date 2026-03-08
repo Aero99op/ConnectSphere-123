@@ -35,6 +35,14 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
     useEffect(() => {
         fetchMessages();
 
+        // Trigger read when user enters chat OR window is focused
+        const handleFocus = () => {
+            markMessagesAsRead();
+        };
+
+        window.addEventListener('focus', handleFocus);
+        if (document.hasFocus()) markMessagesAsRead();
+
         // 📡 Apinator Real-time Subscription (replaces PeerJS)
         const client = getApinatorClient();
         if (!client) {
@@ -88,10 +96,11 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
             .subscribe();
 
         return () => {
+            window.removeEventListener('focus', handleFocus);
             client.unsubscribe(`chat-${conversationId}`);
             supabase.removeChannel(profileChannel);
         };
-    }, [conversationId, recipientId]);
+    }, [conversationId, recipientId, supabase]);
 
     useEffect(() => {
         scrollToBottom();
