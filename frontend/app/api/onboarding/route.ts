@@ -4,7 +4,17 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { createAdminSupabaseClient, emailToUUID } from '@/lib/auth';
-import { sanitizeInput } from '@/lib/utils';
+
+// Edge-compatible sanitizer (DOMPurify crashes in Edge Runtime — no DOM)
+function edgeSanitize(input: string): string {
+    if (!input) return "";
+    return input
+        .replace(/[<>]/g, '') // Strip angle brackets
+        .replace(/javascript:/gi, '')
+        .replace(/on\w+\s*=/gi, '')
+        .trim()
+        .slice(0, 500); // Length limit
+}
 
 // GET /api/onboarding — Check if user is onboarded
 export async function GET() {
@@ -64,7 +74,7 @@ export async function POST(req: NextRequest) {
         const { error } = await adminSupabase
             .from('profiles')
             .update({
-                country: sanitizeInput(country.trim()),
+                country: edgeSanitize(country.trim()),
                 age: parseInt(age),
                 interests: interests,
                 is_onboarded: true,
