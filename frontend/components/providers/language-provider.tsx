@@ -22,21 +22,17 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
     const loadDictionary = async (lang: string) => {
         try {
-            // Mapping for Hinglish and other keys
-            const fileMap: { [key: string]: string } = {
-                'en': 'en',
-                'hi_desi': 'hi_desi',
-                'hi': 'hi',
-                // Fallback for others to English until translated
-            };
-            const fileName = fileMap[lang] || 'en';
-            const dict = await import(`../../dictionaries/${fileName}.json`);
+            // Dynamically import the dictionary file
+            const dict = await import(`../../dictionaries/${lang}.json`);
             setDictionary(dict.default || dict);
         } catch (error) {
-            console.error(`Failed to load dictionary for ${lang}`, error);
-            // Fallback to English
-            const dict = await import(`../../dictionaries/en.json`);
-            setDictionary(dict.default || dict);
+            console.error(`Failed to load dictionary for ${lang}, falling back to 'en'`, error);
+            try {
+                const dict = await import(`../../dictionaries/en.json`);
+                setDictionary(dict.default || dict);
+            } catch (fallbackError) {
+                console.error("Critical: Failed to load fallback English dictionary", fallbackError);
+            }
         }
     };
 
@@ -53,7 +49,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
                 setLanguageState(pref);
                 await loadDictionary(pref);
             } else {
-                await loadDictionary('en');
+                const browserLang = typeof window !== 'undefined' ? window.navigator.language.split('-')[0] : 'en';
+                const initialLang = browserLang === 'hi' ? 'hi' : 'en';
+                await loadDictionary(initialLang);
             }
             setIsLoading(false);
         }
@@ -74,7 +72,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
             if (result && result[key]) {
                 result = result[key];
             } else {
-                return path; // Return key if not found
+                return path;
             }
         }
         return typeof result === 'string' ? result : path;

@@ -1,0 +1,30 @@
+{
+    "common": {
+        "loading": "Cargando...",
+        "error": "¡Error!",
+        "save": "Guardar",
+        "done": "Hecho",
+        "cancel": "Cancelar",
+        "delete": "Eliminar",
+        "confirm": "Confirmar",
+        "success": "¡Éxito!"
+    },
+    "nav": {
+        "home": "Inicio",
+        "explore": "Explorar",
+        "create": "Crear",
+        "quix": "Quix",
+        "messages": "Mensajes",
+        "notifications": "Notificaciones",
+        "profile": "Perfil",
+        "settings": "Ajustes"
+    },
+    "settings": {
+        "title": "Ajustes",
+        "header_desc": "Administra tu cuenta y preferencias de la aplicación.",
+        "account_title": "Cuenta y Metadatos",
+        "edit_profile": "Editar información del perfil",
+        "language": "Idioma",
+        "language_desc": "Cambiar idioma"
+    }
+}

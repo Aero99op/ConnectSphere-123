@@ -7,30 +7,45 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { useTranslation } from "@/components/providers/language-provider";
 
 const LANGUAGES = [
+    // Global/Official
     { id: 'en', name: "English", native: "English" },
     { id: 'hi_desi', name: "Hinglish", native: "Hinglish/Hindi Mix" },
     { id: 'hi', name: "Hindi", native: "हिन्दी" },
-    { id: 'bn', name: "Bengali", native: "বাংলা" },
-    { id: 'te', name: "Telugu", native: "తెలుగు" },
-    { id: 'mr', name: "Marathi", native: "मराठी" },
-    { id: 'ta', name: "Tamil", native: "தமிழ்" },
-    { id: 'gu', name: "Gujarati", native: "ગુજરાતી" },
-    { id: 'kn', name: "Kannada", native: "ಕನ್ನಡ" },
-    { id: 'ml', name: "Malayalam", native: "മലയാളം" },
-    { id: 'or', name: "Odia", native: "ଓଡ଼ିଆ" },
-    { id: 'pa', name: "Punjabi", native: "ਪੰਜਾਬੀ" },
+
+    // Official Indian (Eighth Schedule)
     { id: 'as', name: "Assamese", native: "অসমীয়া" },
-    { id: 'ma', name: "Maithili", native: "मैथिली" },
-    { id: 'sa', name: "Santali", native: "ସାନ୍ତାଳୀ" },
-    { id: 'ks', name: "Kashmiri", native: "كأشُر" },
-    { id: 'ne', name: "Nepali", native: "नेपाली" },
-    { id: 'sd', name: "Sindhi", native: "سنڌي" },
-    { id: 'ur', name: "Urdu", native: "اردو" },
-    { id: 'ko', name: "Konkani", native: "कोंकणी" },
-    { id: 'mn', name: "Manipuri", native: "ꯃꯅꯤꯄꯨꯔꯤ" },
+    { id: 'bn', name: "Bengali", native: "বাংলা" },
     { id: 'bo', name: "Bodo", native: "बड़ो" },
     { id: 'do', name: "Dogri", native: "डोगरी" },
-    { id: 'sn', name: "Sanskrit", native: "संस्कृतम्" }
+    { id: 'gu', name: "Gujarati", native: "ગુજરાતી" },
+    { id: 'kn', name: "Kannada", native: "ಕನ್ನಡ" },
+    { id: 'ks', name: "Kashmiri", native: "كأشُر" },
+    { id: 'ko', name: "Konkani", native: "कोंकणी" },
+    { id: 'ma', name: "Maithili", native: "मैथिली" },
+    { id: 'ml', name: "Malayalam", native: "മലയാളം" },
+    { id: 'mn', name: "Manipuri", native: "ꯃꯅꯤꯄꯨꯔꯤ" },
+    { id: 'mr', name: "Marathi", native: "मराठी" },
+    { id: 'ne', name: "Nepali", native: "नेपाली" },
+    { id: 'or', name: "Odia", native: "ଓଡ଼ିଆ" },
+    { id: 'pa', name: "Punjabi", native: "ਪੰਜਾਬੀ" },
+    { id: 'sn', name: "Sanskrit", native: "संस्कृतम्" },
+    { id: 'sa', name: "Santali", native: "ସାନ୍ତାଳୀ" },
+    { id: 'sd', name: "Sindhi", native: "سنڌي" },
+    { id: 'ta', name: "Tamil", native: "தமிழ்" },
+    { id: 'te', name: "Telugu", native: "తెలుగు" },
+    { id: 'ur', name: "Urdu", native: "اردو" },
+
+    // Global Top 10
+    { id: 'es', name: "Spanish", native: "Español" },
+    { id: 'fr', name: "French", native: "Français" },
+    { id: 'de', name: "German", native: "Deutsch" },
+    { id: 'zh', name: "Chinese", native: "中文" },
+    { id: 'ja', name: "Japanese", native: "日本語" },
+    { id: 'ar', name: "Arabic", native: "العربية" },
+    { id: 'ru', name: "Russian", native: "Русский" },
+    { id: 'pt', name: "Portuguese", native: "Português" },
+    { id: 'it', name: "Italian", native: "Italiano" },
+    { id: 'tr', name: "Turkish", native: "Türkçe" }
 ];
 
 export default function LanguageSettingsPage() {
