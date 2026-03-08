@@ -130,7 +130,7 @@ export default auth(async (req: any) => {
     res.headers.set('X-Frame-Options', 'DENY');
     res.headers.set('X-Content-Type-Options', 'nosniff');
     res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-    res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    res.headers.set('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=()');
     res.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
     res.headers.set('X-DNS-Prefetch-Control', 'on');
     res.headers.set('X-XSS-Protection', '1; mode=block');
