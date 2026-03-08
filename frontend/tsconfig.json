@@ -24,8 +24,7 @@
         ],
         "baseUrl": ".",
         "types": [
-            "node",
-            "webpack"
+            "node"
         ],
         "paths": {
             "@/*": [

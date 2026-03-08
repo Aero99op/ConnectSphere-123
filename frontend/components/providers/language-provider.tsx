@@ -1,5 +1,9 @@
-import React, { createContext, useContext, ReactNode } from 'react';
-import { useTranslations, useLocale } from 'next-intl';
+"use client";
+
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useAuth } from '@/components/providers/auth-provider';
+
+type Dictionary = { [key: string]: any };
 
 interface LanguageContextType {
     language: string;
@@ -11,26 +15,73 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-    const locale = useLocale();
-    const t_intl = useTranslations();
+    const { user, supabase } = useAuth();
+    const [language, setLanguageState] = useState('en');
+    const [dictionary, setDictionary] = useState<Dictionary>({});
+    const [isLoading, setIsLoading] = useState(true);
 
-    const setLanguage = async (lang: string) => {
-        // Set cookie for next-intl and reload to apply changes
-        // next-intl's middleware will pick this up on refresh
-        document.cookie = `NEXT_LOCALE=${lang}; path=/; max-age=31536000`;
-        window.location.reload();
-    };
-
-    const t = (path: string): string => {
+    const loadDictionary = async (lang: string) => {
         try {
-            return t_intl(path);
-        } catch (e) {
-            return path;
+            // Mapping for Hinglish and other keys
+            const fileMap: { [key: string]: string } = {
+                'en': 'en',
+                'hi_desi': 'hi_desi',
+                'hi': 'hi',
+                // Fallback for others to English until translated
+            };
+            const fileName = fileMap[lang] || 'en';
+            const dict = await import(`../../dictionaries/${fileName}.json`);
+            setDictionary(dict.default || dict);
+        } catch (error) {
+            console.error(`Failed to load dictionary for ${lang}`, error);
+            // Fallback to English
+            const dict = await import(`../../dictionaries/en.json`);
+            setDictionary(dict.default || dict);
         }
     };
 
+    useEffect(() => {
+        async function initLanguage() {
+            if (user) {
+                const { data } = await supabase
+                    .from('profiles')
+                    .select('language_preference')
+                    .eq('id', user.id)
+                    .single();
+
+                const pref = data?.language_preference || 'en';
+                setLanguageState(pref);
+                await loadDictionary(pref);
+            } else {
+                await loadDictionary('en');
+            }
+            setIsLoading(false);
+        }
+        initLanguage();
+    }, [user, supabase]);
+
+    const setLanguage = async (lang: string) => {
+        setLanguageState(lang);
+        setIsLoading(true);
+        await loadDictionary(lang);
+        setIsLoading(false);
+    };
+
+    const t = (path: string): string => {
+        const keys = path.split('.');
+        let result = dictionary;
+        for (const key of keys) {
+            if (result && result[key]) {
+                result = result[key];
+            } else {
+                return path; // Return key if not found
+            }
+        }
+        return typeof result === 'string' ? result : path;
+    };
+
     return (
-        <LanguageContext.Provider value={{ language: locale, setLanguage, t, isLoading: false }}>
+        <LanguageContext.Provider value={{ language, setLanguage, t, isLoading }}>
             {children}
         </LanguageContext.Provider>
     );

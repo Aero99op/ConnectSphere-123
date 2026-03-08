@@ -7,41 +7,30 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { useTranslation } from "@/components/providers/language-provider";
 
 const LANGUAGES = [
-    { code: 'hi_desi', name: 'Hinglish', native: 'Desi Style' },
-    { code: 'en', name: 'English', native: 'English' },
-    { code: 'hi', name: 'Hindi', native: 'हिन्दी' },
-    { code: 'bn', name: 'Bengali', native: 'বাংলা' },
-    { code: 'te', name: 'Telugu', native: 'తెలుగు' },
-    { code: 'mr', name: 'Marathi', native: 'मराठी' },
-    { code: 'ta', name: 'Tamil', native: 'தமிழ்' },
-    { code: 'gu', name: 'Gujarati', native: 'ગુજરાતી' },
-    { code: 'kn', name: 'Kannada', native: 'ಕನ್ನಡ' },
-    { code: 'ml', name: 'Malayalam', native: 'മലയാളം' },
-    { code: 'or', name: 'Odia', native: 'ଓଡ଼ିଆ' },
-    { code: 'pa', name: 'Punjabi', native: 'ਪੰਜਾਬੀ' },
-    { code: 'as', name: 'Assamese', native: 'অসমীয়া' },
-    { code: 'ma', name: 'Maithili', native: 'मैथिली' },
-    { code: 'sa', name: 'Sanskrit', native: 'संस्कृतम्' },
-    { code: 'ks', name: 'Kashmiri', native: 'कॉशुर' },
-    { code: 'ne', name: 'Nepali', native: 'नेपाली' },
-    { code: 'sd', name: 'Sindhi', native: 'सिंधी' },
-    { code: 'ur', name: 'Urdu', native: 'اردو' },
-    { code: 'bo', name: 'Bodo', native: 'बड़ो' },
-    { code: 'do', name: 'Dogri', native: 'डोगरी' },
-    { code: 'ko', name: 'Konkani', native: 'कोंकणी' },
-    { code: 'mn', name: 'Manipuri', native: 'মৈতেইলোন' },
-    { code: 'sn', name: 'Santali', native: 'संताली' },
-    // Global Languages
-    { code: 'es', name: 'Spanish', native: 'Español' },
-    { code: 'fr', name: 'French', native: 'Français' },
-    { code: 'de', name: 'German', native: 'Deutsch' },
-    { code: 'zh', name: 'Chinese', native: '中文' },
-    { code: 'ja', name: 'Japanese', native: '日本語' },
-    { code: 'ru', name: 'Russian', native: 'Русский' },
-    { code: 'pt', name: 'Portuguese', native: 'Português' },
-    { code: 'ar', name: 'Arabic', native: 'العربية' },
-    { code: 'it', name: 'Italian', native: 'Italiano' },
-    { code: 'ko_global', name: 'Korean', native: '한국어' }
+    { id: 'en', name: "English", native: "English" },
+    { id: 'hi_desi', name: "Hinglish", native: "Hinglish/Hindi Mix" },
+    { id: 'hi', name: "Hindi", native: "हिन्दी" },
+    { id: 'bn', name: "Bengali", native: "বাংলা" },
+    { id: 'te', name: "Telugu", native: "తెలుగు" },
+    { id: 'mr', name: "Marathi", native: "मराठी" },
+    { id: 'ta', name: "Tamil", native: "தமிழ்" },
+    { id: 'gu', name: "Gujarati", native: "ગુજરાતી" },
+    { id: 'kn', name: "Kannada", native: "ಕನ್ನಡ" },
+    { id: 'ml', name: "Malayalam", native: "മലയാളം" },
+    { id: 'or', name: "Odia", native: "ଓଡ଼ିଆ" },
+    { id: 'pa', name: "Punjabi", native: "ਪੰਜਾਬੀ" },
+    { id: 'as', name: "Assamese", native: "অসমীয়া" },
+    { id: 'ma', name: "Maithili", native: "मैथिली" },
+    { id: 'sa', name: "Santali", native: "ସାନ୍ତାଳୀ" },
+    { id: 'ks', name: "Kashmiri", native: "كأشُر" },
+    { id: 'ne', name: "Nepali", native: "नेपाली" },
+    { id: 'sd', name: "Sindhi", native: "سنڌي" },
+    { id: 'ur', name: "Urdu", native: "اردو" },
+    { id: 'ko', name: "Konkani", native: "कोंकणी" },
+    { id: 'mn', name: "Manipuri", native: "ꯃꯅꯤꯄꯨꯔꯤ" },
+    { id: 'bo', name: "Bodo", native: "बड़ो" },
+    { id: 'do', name: "Dogri", native: "डोगरी" },
+    { id: 'sn', name: "Sanskrit", native: "संस्कृतम्" }
 ];
 
 export default function LanguageSettingsPage() {
@@ -54,6 +43,8 @@ export default function LanguageSettingsPage() {
     const [message, setMessage] = useState({ text: "", type: "" });
 
     const handleLanguageSelect = async (langId: string) => {
+        if (!userId) return;
+
         setIsUpdating(langId);
         setMessage({ text: "", type: "" });
 
@@ -116,37 +107,32 @@ export default function LanguageSettingsPage() {
                         )}
 
                         <div className="space-y-4 flex flex-col divide-y divide-white/5 bg-black/40 rounded-3xl border border-white/5 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                            {LANGUAGES.map((lang) => (
-                                <button
-                                    key={lang.code}
-                                    onClick={() => handleLanguageSelect(lang.code)}
-                                    disabled={isUpdating !== null}
-                                    className={`flex items-center justify-between p-4 rounded-3xl border transition-all active:scale-[0.98] group ${activeLang === lang.code
-                                        ? 'bg-primary/10 border-primary shadow-[0_0_20px_rgba(255,165,0,0.1)]'
-                                        : 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10'
-                                        }`}
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-display font-black text-lg transition-colors ${activeLang === lang.code ? 'bg-primary text-black' : 'bg-zinc-900 text-zinc-500 group-hover:text-zinc-300'}`}>
-                                            {lang.code === 'hi_desi' ? '😎' : lang.code.slice(0, 2).toUpperCase()}
-                                        </div>
-                                        <div className="text-left">
-                                            <h3 className={`font-bold transition-colors ${activeLang === lang.code ? 'text-primary' : 'text-white'}`}>
-                                                {lang.name}
-                                            </h3>
-                                            <p className="text-zinc-500 text-xs font-mono">{lang.native}</p>
-                                        </div>
-                                    </div>
+                            {LANGUAGES.map((lang) => {
+                                const isActive = activeLang === lang.id;
 
-                                    {isUpdating === lang.code ? (
-                                        <Loader2 className="w-5 h-5 text-zinc-500 animate-spin" />
-                                    ) : activeLang === lang.code && (
-                                        <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center animate-in zoom-in duration-300">
-                                            <Check className="w-4 h-4 text-black stroke-[3]" />
+                                return (
+                                    <button
+                                        key={lang.id}
+                                        onClick={() => handleLanguageSelect(lang.id)}
+                                        disabled={isUpdating !== null}
+                                        className={`w-full flex items-center justify-between p-4 transition-colors group text-left ${isActive ? 'bg-primary/5' : 'hover:bg-white/5 active:bg-white/10'
+                                            }`}
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <Globe className={`w-5 h-5 ${isActive ? 'text-primary' : 'text-zinc-600 group-hover:text-zinc-400'}`} />
+                                            <div className="flex flex-col">
+                                                <span className={`font-bold text-[15px] ${isActive ? 'text-primary' : 'text-zinc-300'}`}>{lang.native}</span>
+                                                <span className="text-xs text-zinc-500">{lang.name}</span>
+                                            </div>
                                         </div>
-                                    )}
-                                </button>
-                            ))}
+                                        {isUpdating === lang.id ? (
+                                            <Loader2 className="w-5 h-5 text-zinc-500 animate-spin" />
+                                        ) : isActive ? (
+                                            <Check className="w-5 h-5 text-primary" />
+                                        ) : null}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
                 )}
