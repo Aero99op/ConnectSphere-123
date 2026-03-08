@@ -87,12 +87,11 @@ export default auth(async (req: any) => {
     }
 
     // 3. Inject Security Headers
-    // --- CSP & Nonce Configuration --- (Finding-005 FIX)
-    const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString('base64');
-
+    // CSP Configuration — No nonce (Next.js on Cloudflare can't inject nonces into hydration scripts)
+    // Using 'unsafe-inline' for scripts is required for Next.js compatibility on Edge
     const cspHeader = `
         default-src 'self';
-        script-src 'self' 'unsafe-inline' 'nonce-${nonce}' https://accounts.google.com https://apis.google.com;
+        script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com;
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         img-src 'self' blob: data: 
             https://*.googleusercontent.com 
@@ -121,9 +120,6 @@ export default auth(async (req: any) => {
         frame-ancestors 'none';
         upgrade-insecure-requests;
     `.replace(/\s{2,}/g, ' ').trim();
-
-    // Pass nonce to layout via headers
-    res.headers.set('x-nonce', nonce);
 
     // Standard Security Headers
     res.headers.set('Content-Security-Policy', cspHeader);
