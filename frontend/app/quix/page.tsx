@@ -20,7 +20,7 @@ export default function QuixPage() {
                 .from("quix")
                 .select(`
                     *,
-                    profiles (username, avatar_url, full_name)
+                    profiles!quix_user_id_fkey (username, avatar_url, full_name)
                 `)
                 .order("created_at", { ascending: false });
 
