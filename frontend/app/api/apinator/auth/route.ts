@@ -42,16 +42,27 @@ export async function POST(req: NextRequest) {
         // 4. Chat Channels: private-chat-{conversationId}
         else if (channel_name.startsWith('private-chat-')) {
             const conversationId = channel_name.replace('private-chat-', '');
-            // Verify if user is a participant
-            const { data: participant, error } = await supabaseAdmin
+
+            // Check 1: Group chat participants table
+            const { data: participant } = await supabaseAdmin
                 .from('conversation_participants')
                 .select('user_id')
                 .eq('conversation_id', conversationId)
                 .eq('user_id', userId)
                 .maybeSingle();
 
-            if (error || !participant) {
-                return NextResponse.json({ error: 'Forbidden: Not a participant' }, { status: 403 });
+            if (!participant) {
+                // Check 2: DM conversations (user1_id / user2_id)
+                const { data: dmConvo } = await supabaseAdmin
+                    .from('conversations')
+                    .select('id')
+                    .eq('id', conversationId)
+                    .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+                    .maybeSingle();
+
+                if (!dmConvo) {
+                    return NextResponse.json({ error: 'Forbidden: Not a participant' }, { status: 403 });
+                }
             }
         }
         // 5. Admin/Official Only: private-reports-updates
