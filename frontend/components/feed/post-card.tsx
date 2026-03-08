@@ -116,11 +116,17 @@ export function PostCard({ post }: PostProps) {
 
         try {
             // "Tod Ke Jodo" download magic ✨
+            // Optimization: Single file media doesn't need merging locha
+            if (post.media_urls.length === 1) {
+                setVideoBlobUrl(post.media_urls[0]);
+                return;
+            }
+
             const blobUrl = await downloadAndMergeChunks(
                 post.media_urls,
-                'video/mp4', // Default type, can be dynamic later if needed
+                'video/mp4',
                 (progress: number) => {
-                    // Optional: Update a progress bar state here if we add one to the UI
+                    // Optional: Update progress
                 }
             );
 

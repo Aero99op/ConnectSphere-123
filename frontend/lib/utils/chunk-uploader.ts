@@ -103,10 +103,9 @@ export async function downloadAndMergeChunks(
     if (!urls || urls.length === 0) throw new Error("No URLs to download");
 
     // If only one URL, just fetch it directly (optimization)
+    // NOTE: Returning early avoid CORS 'fetch' issues on mobile for single-file media
     if (urls.length === 1) {
-        const response = await fetch(urls[0]);
-        const blob = await response.blob();
-        return URL.createObjectURL(new Blob([blob], { type: mimeType }));
+        return urls[0];
     }
 
     const totalChunks = urls.length;

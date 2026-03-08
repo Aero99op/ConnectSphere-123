@@ -87,9 +87,10 @@ create index if not exists idx_comments_quix_id on public.comments(quix_id);
 create table if not exists public.stories (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) not null,
-  media_urls text[] not null default '{}', -- Changed to array for consistency
+  media_urls text[] not null default '{}',
   media_type text check (media_type in ('image', 'video')) default 'image',
   thumbnail_url text,
+  customization jsonb default '{}'::jsonb,
   created_at timestamp with time zone default timezone('utc'::text, now()),
   expires_at timestamp with time zone default timezone('utc'::text, now() + interval '24 hours')
 );

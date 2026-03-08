@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { X, Heart, MessageCircle, Send, MoreHorizontal, ChevronLeft, ChevronRight, Eye, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -78,10 +78,13 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
 
         async function loadMedia() {
             if (mediaUrls.length === 0) return;
-            if (mediaUrls.length === 1 && mediaType === 'image') {
+
+            // Optimization: Single file media shouldn't wait for downloadAndMergeChunks's loading state
+            if (mediaUrls.length === 1) {
                 setMediaBlobUrl(mediaUrls[0]);
                 return;
             }
+
             setIsLoadingMedia(true);
             setPaused(true);
             try {
@@ -133,7 +136,42 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
             });
         }, 50);
         return () => clearInterval(timer);
-    }, [currentIndex, paused]);
+    }, [currentIndex, paused, stories.length]); // Added stories.length for safety
+
+    // Background Music for Stories (Preserve customization)
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    useEffect(() => {
+        const music = currentStory.customization?.music;
+        if (music?.url && !audioRef.current) {
+            audioRef.current = new Audio(music.url);
+        }
+
+        const audio = audioRef.current;
+        if (!audio) return;
+
+        const startTime = music?.startTime || 0;
+        const endTime = music?.endTime || 999;
+
+        const handleTimeUpdate = () => {
+            if (audio.currentTime >= endTime) {
+                audio.currentTime = startTime;
+            }
+        };
+
+        if (!paused && mediaBlobUrl) {
+            audio.currentTime = startTime;
+            audio.play().catch((e: any) => console.log("Story audio blocked", e));
+            audio.addEventListener("timeupdate", handleTimeUpdate);
+        } else {
+            audio.pause();
+            audio.removeEventListener("timeupdate", handleTimeUpdate);
+        }
+
+        return () => {
+            audio.pause();
+            audio.removeEventListener("timeupdate", handleTimeUpdate);
+        };
+    }, [currentStory.id, paused, mediaBlobUrl]);
 
     const nextStory = () => {
         if (currentIndex < stories.length - 1) setCurrentIndex(prev => prev + 1);
@@ -361,16 +399,54 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
                         </div>
                     ) : mediaBlobUrl ? (
                         mediaType === 'video' ? (
-                            <video
-                                src={mediaBlobUrl}
-                                className="w-full h-full object-contain"
-                                autoPlay
-                                loop
-                                playsInline
-                                muted={false}
-                            />
+                            <div className="w-full h-full relative">
+                                <video
+                                    src={mediaBlobUrl}
+                                    className="w-full h-full object-contain"
+                                    style={{ filter: currentStory.customization?.filterStyle || 'none' }}
+                                    autoPlay
+                                    loop
+                                    playsInline
+                                    muted={false}
+                                />
+                                {currentStory.customization?.stickers?.map((sticker: any) => (
+                                    <div
+                                        key={sticker.id}
+                                        className="absolute pointer-events-none select-none z-10"
+                                        style={{
+                                            left: `${sticker.x}%`,
+                                            top: `${sticker.y}%`,
+                                            fontSize: `${sticker.size}px`,
+                                            transform: 'translate(-50%, -50%)'
+                                        }}
+                                    >
+                                        {sticker.emoji}
+                                    </div>
+                                ))}
+                            </div>
                         ) : (
-                            <img src={mediaBlobUrl} className="w-full h-full object-contain" alt="Story" />
+                            <div className="w-full h-full relative">
+                                <img
+                                    src={mediaBlobUrl}
+                                    className="w-full h-full object-contain"
+                                    style={{ filter: currentStory.customization?.filterStyle || 'none' }}
+                                    alt="Story"
+                                />
+                                {currentStory.customization?.stickers?.map((sticker: any) => (
+                                    <div
+                                        key={sticker.id}
+                                        className="absolute pointer-events-none select-none z-10"
+                                        style={{
+                                            left: `${sticker.x}%`,
+                                            top: `${sticker.y}%`,
+                                            fontSize: `${sticker.size}px`,
+                                            transform: 'translate(-50%, -50%)'
+                                        }}
+                                    >
+                                        {sticker.emoji}
+                                    </div>
+                                ))}
+                            </div>
                         )
                     ) : (
                         <div className="w-full h-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-2xl px-8 text-center leading-relaxed">

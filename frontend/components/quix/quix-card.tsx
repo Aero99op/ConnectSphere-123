@@ -200,6 +200,7 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
                 media_urls: [quix.video_url],
                 media_type: 'video',
                 thumbnail_url: quix.thumbnail_url,
+                customization: quix.customization || {},
                 expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
             });
 
