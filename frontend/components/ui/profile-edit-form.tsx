@@ -33,6 +33,7 @@ interface ProfileEditFormProps {
 export function ProfileEditForm({ initialData, onSuccess }: ProfileEditFormProps) {
     const { supabase } = useAuth();
     const [fullName, setFullName] = useState(initialData.full_name || "");
+    const [username, setUsername] = useState(initialData.username || "");
     const [bio, setBio] = useState(initialData.bio || "");
     const [avatarUrl, setAvatarUrl] = useState(initialData.avatar_url || "");
     const [country, setCountry] = useState(initialData.country || "");
@@ -59,6 +60,7 @@ export function ProfileEditForm({ initialData, onSuccess }: ProfileEditFormProps
                 .from("profiles")
                 .update({
                     full_name: fullName,
+                    username: username.toLowerCase().trim(),
                     bio: bio,
                     avatar_url: avatarUrl,
                     country: country.trim(),
@@ -85,7 +87,11 @@ export function ProfileEditForm({ initialData, onSuccess }: ProfileEditFormProps
             if (onSuccess) onSuccess();
         } catch (error: any) {
             console.error(error);
-            toast.error("Kuch gadbad ho gayi: " + error.message);
+            if (error.code === '23505' || error.message?.includes('unique')) {
+                toast.error("Yeh username pehle se kisi ne le rakha hai, bhai! Kuch aur try kar.");
+            } else {
+                toast.error("Kuch gadbad ho gayi: " + error.message);
+            }
         } finally {
             setLoading(false);
         }
@@ -122,11 +128,15 @@ export function ProfileEditForm({ initialData, onSuccess }: ProfileEditFormProps
                 <div className="space-y-2">
                     <label className="text-sm font-bold text-zinc-400 uppercase tracking-widest ml-1">Username</label>
                     <Input
-                        value={initialData.username}
-                        disabled
-                        className="bg-black/20 border-white/5 text-zinc-500 rounded-xl cursor-not-allowed"
+                        value={username}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                            const val = e.target.value.toLowerCase().replace(/\s/g, '');
+                            setUsername(val);
+                        }}
+                        placeholder="Unique username dalo..."
+                        className="bg-black/50 border-white/10 focus:border-primary transition-all rounded-xl"
                     />
-                    <p className="text-[10px] text-zinc-600 ml-1 italic">Username change nahi ho sakta, bhai.</p>
+                    <p className="text-[10px] text-zinc-600 ml-1 italic">Username unique hona chahiye aur spaces nahi chalenge.</p>
                 </div>
 
                 <div className="space-y-2">
