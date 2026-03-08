@@ -5,18 +5,20 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Settings, LogOut, MessageCircle, MapPin, Camera, Compass, Bookmark, Users } from "lucide-react";
+import { Loader2, Settings, LogOut, MessageCircle, MapPin, Camera, Compass, Bookmark, Users, Clapperboard, Play } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { PostCard } from "@/components/feed/post-card";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { getApinatorClient } from "@/lib/apinator";
+import Link from "next/link";
 
 function ProfilePageContent() {
     const { user: authUser, supabase, signOut } = useAuth();
-    const [activeTab, setActiveTab] = useState<'posts' | 'saved' | 'reports' | 'followers' | 'following'>('posts');
+    const [activeTab, setActiveTab] = useState<'posts' | 'quix' | 'saved' | 'reports' | 'followers' | 'following'>('posts');
     const [profile, setProfile] = useState<any>(null);
     const [posts, setPosts] = useState<any[]>([]);
+    const [quixList, setQuixList] = useState<any[]>([]);
     const [savedPosts, setSavedPosts] = useState<any[]>([]);
     const [reports, setReports] = useState<any[]>([]);
     const [followersCount, setFollowersCount] = useState(0);
@@ -123,13 +125,15 @@ function ProfilePageContent() {
             setReports(reportsData || []);
 
             // Fetch Follower Counts
-            const [folCount, followingCount] = await Promise.all([
+            const [folCount, fingCount, quixResponse] = await Promise.all([
                 supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', user.id),
-                supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', user.id)
+                supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', user.id),
+                supabase.from('quix').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
             ]);
 
             setFollowersCount(folCount.count || 0);
-            setFollowingCount(followingCount.count || 0);
+            setFollowingCount(fingCount.count || 0);
+            setQuixList(quixResponse.data || []);
 
         } catch (error) {
             console.error("Failed to load profile", error);
@@ -352,6 +356,10 @@ function ProfilePageContent() {
                                 <p className="font-display font-black text-xl tracking-tighter text-white">{posts.length}</p>
                                 <p className="text-[10px] font-mono font-black uppercase tracking-[0.2em] text-zinc-500 mt-0.5">Posts</p>
                             </div>
+                            <div onClick={() => setActiveTab('quix')} className="cursor-pointer hover:bg-white/5 transition-colors rounded-xl px-4 border-r border-white/5 last:border-0 text-center">
+                                <p className="font-display font-black text-xl tracking-tighter text-white">{quixList.length}</p>
+                                <p className="text-[10px] font-mono font-black uppercase tracking-[0.2em] text-zinc-500 mt-0.5">Quix</p>
+                            </div>
                             <div onClick={() => fetchFollowList('followers')} className="cursor-pointer hover:bg-white/5 transition-colors rounded-xl px-4 border-r border-white/5 last:border-0 text-center">
                                 <p className="font-display font-black text-xl tracking-tighter text-white">{followersCount}</p>
                                 <p className="text-[10px] font-mono font-black uppercase tracking-[0.2em] text-zinc-500 mt-0.5">Followers</p>
@@ -389,6 +397,7 @@ function ProfilePageContent() {
                 <div className="glass-panel p-1.5 rounded-[2rem] border-premium shadow-premium-md flex gap-2">
                     {[
                         { id: 'posts', label: 'Posts', icon: Camera },
+                        { id: 'quix', label: 'Quix', icon: Clapperboard },
                         { id: 'saved', label: 'Saved', icon: Bookmark },
                         { id: 'reports', label: 'Reports', icon: Compass }
                     ].map((tab) => (
@@ -419,6 +428,41 @@ function ProfilePageContent() {
                         {posts.length === 0 && (
                             <div className="text-center py-10 opacity-50">
                                 No posts yet. Start uploading!
+                            </div>
+                        )}
+                    </div>
+                ) : activeTab === 'quix' ? (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        {quixList.length > 0 ? (
+                            <div className="grid grid-cols-3 gap-1 sm:gap-4 max-w-4xl mx-auto w-full">
+                                {quixList.map((quix) => (
+                                    <Link
+                                        key={quix.id}
+                                        href={`/quix?id=${quix.id}`}
+                                        className="aspect-[9/16] relative group overflow-hidden rounded-xl sm:rounded-2xl border border-white/5 bg-zinc-900"
+                                    >
+                                        <img
+                                            src={quix.thumbnail_url || quix.video_url?.replace(/\.[^/.]+$/, ".jpg")}
+                                            alt=""
+                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                        />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <Play className="w-8 h-8 text-white fill-current" />
+                                        </div>
+                                        <div className="absolute bottom-2 left-2 flex items-center gap-1 text-white text-[10px] sm:text-xs font-bold drop-shadow-lg">
+                                            <Play className="w-3 h-3 fill-current" />
+                                            {quix.views_count || 0}
+                                        </div>
+                                    </Link>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="glass-panel p-16 rounded-[2.5rem] text-center border-premium border-dashed opacity-60 max-w-xl mx-auto">
+                                <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/10">
+                                    <Clapperboard className="w-8 h-8 text-zinc-600" />
+                                </div>
+                                <h3 className="font-display font-black text-xl uppercase tracking-widest text-zinc-500">No Quix Yet</h3>
+                                <p className="text-sm font-mono text-zinc-700 mt-2 uppercase tracking-widest">No reels created yet.</p>
                             </div>
                         )}
                     </div>

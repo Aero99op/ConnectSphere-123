@@ -7,11 +7,25 @@ import { Loader2 } from "lucide-react";
 interface QuixViewerProps {
     quixList: any[];
     loading?: boolean;
+    initialId?: string;
 }
 
-export function QuixViewer({ quixList, loading }: QuixViewerProps) {
+export function QuixViewer({ quixList, loading, initialId }: QuixViewerProps) {
     const [activeIndex, setActiveIndex] = useState(0);
     const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (initialId && quixList.length > 0 && containerRef.current) {
+            const index = quixList.findIndex(q => q.id === initialId);
+            if (index !== -1) {
+                setActiveIndex(index);
+                containerRef.current.scrollTo({
+                    top: index * containerRef.current.clientHeight,
+                    behavior: 'instant'
+                });
+            }
+        }
+    }, [initialId, quixList]);
 
     const handleScroll = () => {
         if (!containerRef.current) return;

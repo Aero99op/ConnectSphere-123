@@ -116,13 +116,17 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
             setIsFollowing(!!follow);
         };
         checkInteractions();
-    }, [user, quix.id, quix.user_id, supabase]);
+
+        // Sync counts from props but handle active states accurately
+        setLikesCount(isLiked ? Math.max(1, quix.likes_count || 0) : (quix.likes_count || 0));
+        setRepostsCount(isReposted ? Math.max(1, quix.reposts_count || 0) : (quix.reposts_count || 0));
+    }, [user, quix.id, quix.user_id, quix.likes_count, quix.reposts_count, isLiked, isReposted, supabase]);
 
     const handleLike = async () => {
         if (!user) return toast.error("Login to like!");
         if (isLiked) {
             setIsLiked(false);
-            setLikesCount((prev: number) => prev - 1);
+            setLikesCount((prev: number) => Math.max(0, prev - 1));
             await supabase.from('quix_likes').delete().eq('quix_id', quix.id).eq('user_id', user.id);
         } else {
             setIsLiked(true);
@@ -148,7 +152,7 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
         if (!user) return toast.error("Login to repost!");
         if (isReposted) {
             setIsReposted(false);
-            setRepostsCount((prev: number) => prev - 1);
+            setRepostsCount((prev: number) => Math.max(0, prev - 1));
             await supabase.from('quix_reposts').delete().eq('quix_id', quix.id).eq('user_id', user.id);
         } else {
             setIsReposted(true);

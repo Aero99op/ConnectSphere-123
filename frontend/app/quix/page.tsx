@@ -5,13 +5,15 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { QuixViewer } from "@/components/quix/quix-viewer";
 import { Loader2, ArrowLeft, Plus } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function QuixPage() {
     const { supabase, user } = useAuth();
     const [quixList, setQuixList] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const initialId = searchParams.get('id');
 
     useEffect(() => {
         const fetchQuix = async () => {
@@ -53,7 +55,7 @@ export default function QuixPage() {
             </div>
 
             {/* Main Feed */}
-            <QuixViewer quixList={quixList} loading={loading} />
+            <QuixViewer quixList={quixList} loading={loading} initialId={initialId || undefined} />
 
             {/* Mobile Bottom Spacer (since BottomNav is absolute/fixed) */}
             <div className="h-16 md:hidden bg-black" />

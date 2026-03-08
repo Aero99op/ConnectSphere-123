@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
     Grid, Bookmark, LogOut, Loader2, ArrowLeft,
-    AtSign, MapPin, Briefcase, Calendar, Info, Medal, Globe
+    AtSign, MapPin, Briefcase, Calendar, Info, Medal, Globe, Clapperboard, Play
 } from "lucide-react";
 import Link from "next/link";
 import { PostCard } from "@/components/feed/post-card";
@@ -54,10 +54,12 @@ function AnotherUserProfileContent() {
 
     // Posts tab
     const [posts, setPosts] = useState<any[]>([]);
+    const [quixList, setQuixList] = useState<any[]>([]);
     const [loadingPosts, setLoadingPosts] = useState(false);
+    const [loadingQuix, setLoadingQuix] = useState(false);
 
     // Follower Stats & State
-    const [stats, setStats] = useState({ followers: 0, following: 0, posts: 0 });
+    const [stats, setStats] = useState({ followers: 0, following: 0, posts: 0, quix: 0 });
     const [isFollowing, setIsFollowing] = useState(false);
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [followLoading, setFollowLoading] = useState(false);
@@ -91,8 +93,9 @@ function AnotherUserProfileContent() {
 
             setCurrentUser(authUser);
 
-            const [postsResponse, followersResponse, followingResponse] = await Promise.all([
+            const [postsResponse, quixResponse, followersResponse, followingResponse] = await Promise.all([
                 supabase.from('posts').select(`*, profiles(username, avatar_url, full_name, role)`).eq('user_id', userId).order('created_at', { ascending: false }),
+                supabase.from('quix').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
                 supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
                 supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId)
             ]);
@@ -108,9 +111,11 @@ function AnotherUserProfileContent() {
             }
 
             if (postsResponse.data) setPosts(postsResponse.data);
+            if (quixResponse.data) setQuixList(quixResponse.data);
 
             setStats({
                 posts: postsResponse.data?.length || 0,
+                quix: quixResponse.data?.length || 0,
                 followers: followersResponse.count || 0,
                 following: followingResponse.count || 0
             });
@@ -340,6 +345,11 @@ function AnotherUserProfileContent() {
                                     <div className="text-[10px] font-mono font-black text-zinc-500 uppercase tracking-widest">Posts</div>
                                 </div>
                                 <div className="w-px bg-white/10 my-2" />
+                                <div onClick={() => setActiveTab('quix')} className="text-center sm:px-4 cursor-pointer hover:bg-white/5 rounded-2xl transition-colors py-2 flex-1 sm:flex-none">
+                                    <div className="font-display font-black text-2xl text-white">{stats.quix}</div>
+                                    <div className="text-[10px] font-mono font-black text-zinc-500 uppercase tracking-widest">Quix</div>
+                                </div>
+                                <div className="w-px bg-white/10 my-2" />
                                 <div onClick={() => fetchFollowList('followers')} className="text-center sm:px-4 cursor-pointer hover:bg-white/5 rounded-2xl transition-colors py-2 flex-1 sm:flex-none">
                                     <div className="font-display font-black text-2xl text-white">{stats.followers}</div>
                                     <div className="text-[10px] font-mono font-black text-zinc-500 uppercase tracking-widest">Followers</div>
@@ -366,6 +376,13 @@ function AnotherUserProfileContent() {
                             }`}
                     >
                         <Grid className="w-4 h-4" /> Posts
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("quix")}
+                        className={`flex-1 flex items-center justify-center gap-2 py-3 sm:py-2.5 rounded-full text-sm font-bold uppercase tracking-widest transition-all ${activeTab === "quix" ? 'bg-white/10 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
+                            }`}
+                    >
+                        <Clapperboard className="w-4 h-4" /> Quix
                     </button>
                     <button
                         onClick={() => setActiveTab("about")}
@@ -397,6 +414,46 @@ function AnotherUserProfileContent() {
                                     </div>
                                     <h3 className="font-display font-black text-xl uppercase tracking-widest text-zinc-500">No Posts Yet</h3>
                                     <p className="text-sm font-mono text-zinc-700 mt-2 uppercase tracking-widest">No content shared yet.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* QUIX TAB */}
+                    {activeTab === "quix" && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            {loadingPosts ? (
+                                <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+                            ) : quixList.length > 0 ? (
+                                <div className="grid grid-cols-3 gap-1 sm:gap-4 max-w-4xl mx-auto w-full">
+                                    {quixList.map((quix) => (
+                                        <Link
+                                            key={quix.id}
+                                            href={`/quix?id=${quix.id}`}
+                                            className="aspect-[9/16] relative group overflow-hidden rounded-xl sm:rounded-2xl border border-white/5 bg-zinc-900"
+                                        >
+                                            <img
+                                                src={quix.thumbnail_url || quix.video_url?.replace(/\.[^/.]+$/, ".jpg")}
+                                                alt=""
+                                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                            />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <Play className="w-8 h-8 text-white fill-current" />
+                                            </div>
+                                            <div className="absolute bottom-2 left-2 flex items-center gap-1 text-white text-[10px] sm:text-xs font-bold drop-shadow-lg">
+                                                <Play className="w-3 h-3 fill-current" />
+                                                {quix.views_count || 0}
+                                            </div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="glass-panel p-16 rounded-[2.5rem] text-center border-premium border-dashed opacity-60 max-w-xl mx-auto">
+                                    <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/10">
+                                        <Clapperboard className="w-8 h-8 text-zinc-600" />
+                                    </div>
+                                    <h3 className="font-display font-black text-xl uppercase tracking-widest text-zinc-500">No Quix Yet</h3>
+                                    <p className="text-sm font-mono text-zinc-700 mt-2 uppercase tracking-widest">No reels created yet.</p>
                                 </div>
                             )}
                         </div>
