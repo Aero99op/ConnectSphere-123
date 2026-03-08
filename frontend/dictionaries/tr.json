@@ -1,0 +1,26 @@
+{
+    "common": {
+        "loading": "Yükleniyor...",
+        "error": "Hata!",
+        "save": "Kaydet",
+        "done": "Bitti",
+        "cancel": "İptal",
+        "delete": "Sil",
+        "confirm": "Onayla",
+        "success": "Başarılı!"
+    },
+    "nav": {
+        "home": "Ana Sayfa",
+        "explore": "Keşfet",
+        "create": "Oluştur",
+        "quix": "Quix",
+        "messages": "Mesajlar",
+        "notifications": "Bildirimler",
+        "profile": "Profil",
+        "settings": "Ayarlar"
+    },
+    "settings": {
+        "title": "Ayarlar",
+        "header_desc": "Hesabınızı এবং uygulama tercihlerinizi yönetin."
+    }
+}

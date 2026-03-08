@@ -1,0 +1,26 @@
+{
+    "common": {
+        "loading": "読み込み中...",
+        "error": "エラー！",
+        "save": "保存",
+        "done": "完了",
+        "cancel": "キャンセル",
+        "delete": "削除",
+        "confirm": "確認",
+        "success": "成功！"
+    },
+    "nav": {
+        "home": "ホーム",
+        "explore": "見つける",
+        "create": "作成",
+        "quix": "Quix",
+        "messages": "メッセージ",
+        "notifications": "通知",
+        "profile": "プロフィール",
+        "settings": "設定"
+    },
+    "settings": {
+        "title": "設定",
+        "header_desc": "アカウントとアプリの設定を管理します。"
+    }
+}

@@ -1,0 +1,12 @@
+{
+    "common": {
+        "loading": "मैथिली..."
+    },
+    "nav": {
+        "home": "घर",
+        "settings": "सेटिंग"
+    },
+    "settings": {
+        "title": "सेटिंग"
+    }
+}

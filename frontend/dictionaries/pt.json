@@ -1,0 +1,26 @@
+{
+    "common": {
+        "loading": "Carregando...",
+        "error": "Erro!",
+        "save": "Salvar",
+        "done": "Concluído",
+        "cancel": "Cancelar",
+        "delete": "Excluir",
+        "confirm": "Confirmar",
+        "success": "Sucesso!"
+    },
+    "nav": {
+        "home": "Início",
+        "explore": "Explorar",
+        "create": "Criar",
+        "quix": "Quix",
+        "messages": "Mensagens",
+        "notifications": "Notificações",
+        "profile": "Perfil",
+        "settings": "Configurações"
+    },
+    "settings": {
+        "title": "Configurações",
+        "header_desc": "Gerencie sua conta e preferências de aplicativo."
+    }
+}

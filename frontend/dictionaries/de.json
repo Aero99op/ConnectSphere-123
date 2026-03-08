@@ -1,0 +1,26 @@
+{
+    "common": {
+        "loading": "Laden...",
+        "error": "Fehler!",
+        "save": "Speichern",
+        "done": "Fertig",
+        "cancel": "Abbrechen",
+        "delete": "Löschen",
+        "confirm": "Bestätigen",
+        "success": "Erfolg!"
+    },
+    "nav": {
+        "home": "Startseite",
+        "explore": "Entdecken",
+        "create": "Erstellen",
+        "quix": "Quix",
+        "messages": "Nachrichten",
+        "notifications": "Benachrichtigungen",
+        "profile": "Profil",
+        "settings": "Einstellungen"
+    },
+    "settings": {
+        "title": "Einstellungen",
+        "header_desc": "Verwalten Sie Ihr Konto und Ihre App-Einstellungen."
+    }
+}

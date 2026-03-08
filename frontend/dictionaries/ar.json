@@ -1,0 +1,26 @@
+{
+    "common": {
+        "loading": "جارٍ التحميل...",
+        "error": "خطأ!",
+        "save": "حفظ",
+        "done": "تم",
+        "cancel": "إلغاء",
+        "delete": "حذف",
+        "confirm": "تأكيد",
+        "success": "تم بنجاح!"
+    },
+    "nav": {
+        "home": "الرئيسية",
+        "explore": "استكشاف",
+        "create": "إنشاء",
+        "quix": "كويكس",
+        "messages": "الرسائل",
+        "notifications": "الإشعارات",
+        "profile": "الملف الشخصي",
+        "settings": "الإعدادات"
+    },
+    "settings": {
+        "title": "الإعدادات",
+        "header_desc": "إدارة حسابك وتفضيلات التطبيق."
+    }
+}

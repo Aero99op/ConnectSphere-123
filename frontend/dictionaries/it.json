@@ -1,0 +1,26 @@
+{
+    "common": {
+        "loading": "Caricamento...",
+        "error": "Errore!",
+        "save": "Salva",
+        "done": "Fatto",
+        "cancel": "Annulla",
+        "delete": "Elimina",
+        "confirm": "Conferma",
+        "success": "Successo!"
+    },
+    "nav": {
+        "home": "Home",
+        "explore": "Esplora",
+        "create": "Crea",
+        "quix": "Quix",
+        "messages": "Messaggi",
+        "notifications": "Notifiche",
+        "profile": "Profilo",
+        "settings": "Impostazioni"
+    },
+    "settings": {
+        "title": "Impostazioni",
+        "header_desc": "Gestisci il tuo account e le preferenze dell'app."
+    }
+}

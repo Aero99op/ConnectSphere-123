@@ -1,0 +1,26 @@
+{
+    "common": {
+        "loading": "加载中...",
+        "error": "错误！",
+        "save": "保存",
+        "done": "完成",
+        "cancel": "取消",
+        "delete": "删除",
+        "confirm": "确认",
+        "success": "成功！"
+    },
+    "nav": {
+        "home": "首页",
+        "explore": "探索",
+        "create": "创建",
+        "quix": "Quix",
+        "messages": "消息",
+        "notifications": "通知",
+        "profile": "个人资料",
+        "settings": "设置"
+    },
+    "settings": {
+        "title": "设置",
+        "header_desc": "管理您的帐户和应用偏好。"
+    }
+}
