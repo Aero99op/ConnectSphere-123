@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useTranslation } from "@/components/providers/language-provider";
 import {
     User,
     Bell,
@@ -22,6 +23,7 @@ import {
 
 export default function SettingsPage() {
     const { signOut } = useAuth();
+    const { t } = useTranslation();
     const router = useRouter();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -33,41 +35,41 @@ export default function SettingsPage() {
 
     const settingSections = [
         {
-            title: "Account & Meta Data",
+            title: t('settings.account_title'),
             items: [
-                { icon: User, label: "Edit Profile Info", description: "Naam, Bio aur Avatar badlo", href: "/settings/account/profile" },
-                { icon: Shield, label: "Privacy and Security", description: "Password, Auths aur Meta control center", href: "/settings/account/privacy" },
-                { icon: Compass, label: "Verification Badge", description: "Blue tick ke liye apply karo", href: "/settings/account/verification" },
+                { icon: User, label: t('settings.edit_profile'), description: t('settings.edit_profile_desc'), href: "/settings/account/profile" },
+                { icon: Shield, label: t('settings.privacy'), description: t('settings.privacy_desc'), href: "/settings/account/privacy" },
+                { icon: Compass, label: t('settings.verification'), description: t('settings.verification_desc'), href: "/settings/account/verification" },
             ]
         },
         {
-            title: "Activity & Interactions",
+            title: t('settings.activity_title'),
             items: [
-                { icon: Bell, label: "Notifications", description: "Alerts aur sound control", href: "/settings/preferences/notifications" },
-                { icon: Users, label: "Blocked Accounts", description: "Gareeb aur pareshan karne waalo ki list", href: "/settings/interactions/blocked" },
-                { icon: MessageCircle, label: "Message Preferences", description: "PM filtering aur read receipts", href: "/settings/interactions/messages" },
+                { icon: Bell, label: t('settings.notifications'), description: t('settings.notifications_desc'), href: "/settings/preferences/notifications" },
+                { icon: Users, label: t('settings.blocked'), description: t('settings.blocked_desc'), href: "/settings/interactions/blocked" },
+                { icon: MessageCircle, label: t('settings.messages'), description: t('settings.messages_desc'), href: "/settings/interactions/messages" },
             ]
         },
         {
-            title: "App Preferences",
+            title: t('settings.app_title'),
             items: [
-                { icon: Paintbrush, label: "Appearance & Theme", description: "Dark/Light mode aur premium Indian themes", href: "/settings/preferences/appearance" },
-                { icon: Globe, label: "Language", description: "Hindi, English aur regional languages", href: "/settings/preferences/language" },
-                { icon: HardDrive, label: "Data Usage", description: "Media auto-play aur quality", href: "/settings/preferences/data" },
+                { icon: Paintbrush, label: t('settings.appearance'), description: t('settings.appearance_desc'), href: "/settings/preferences/appearance" },
+                { icon: Globe, label: t('settings.language'), description: t('settings.language_desc'), href: "/settings/preferences/language" },
+                { icon: HardDrive, label: t('settings.data'), description: t('settings.data_desc'), href: "/settings/preferences/data" },
             ]
         },
         {
-            title: "Professional & Content",
+            title: t('settings.professional_title'),
             items: [
-                { icon: Globe, label: "Creator Tools", description: "Monetization aur Analytics", href: "/settings/content/creator" },
-                { icon: HelpCircle, label: "Civic Reports Dashboard", description: "Apni reports ka progress dekho", href: "/settings/content/reports" },
+                { icon: Globe, label: t('settings.creator'), description: t('settings.creator_desc'), href: "/settings/content/creator" },
+                { icon: HelpCircle, label: t('settings.reports'), description: t('settings.reports_desc'), href: "/settings/content/reports" },
             ]
         },
         {
-            title: "Support & Legal",
+            title: t('settings.support_title'),
             items: [
-                { icon: HelpCircle, label: "Help Center", description: "Jugaad aur pareshani ka hal", href: "/settings/support/help" },
-                { icon: Info, label: "About ConnectSphere", description: "Version 1.0 (Beta Edition)", href: "/settings/support/about" },
+                { icon: HelpCircle, label: t('settings.help'), description: t('settings.help_desc'), href: "/settings/support/help" },
+                { icon: Info, label: t('settings.about'), description: t('settings.about_desc'), href: "/settings/support/about" },
             ]
         }
     ];
@@ -86,8 +88,8 @@ export default function SettingsPage() {
 
                 {/* Header Section */}
                 <div>
-                    <h1 className="text-3xl font-display font-black text-white tracking-tight">Settings</h1>
-                    <p className="text-zinc-500 text-sm mt-1">Apna account aur app preference set karo.</p>
+                    <h1 className="text-3xl font-display font-black text-white tracking-tight">{t('settings.title')}</h1>
+                    <p className="text-zinc-500 text-sm mt-1">{t('settings.header_desc')}</p>
                 </div>
 
                 {/* Settings Lists */}
@@ -133,7 +135,7 @@ export default function SettingsPage() {
                         ) : (
                             <>
                                 <LogOut className="w-5 h-5" />
-                                <span>Logout (Bahar Niklo)</span>
+                                <span>{t('settings.logout')}</span>
                             </>
                         )}
                     </button>

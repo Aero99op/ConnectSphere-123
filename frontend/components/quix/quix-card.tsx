@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ShareSheet } from "@/components/feed/share-sheet";
 import { CommentSheet } from "@/components/feed/comment-sheet";
+import { useTranslation } from "@/components/providers/language-provider";
 import { toast } from "sonner";
 import Link from "next/link";
 import { QuixOptionsSheet } from "./quix-options-sheet";
@@ -20,6 +21,7 @@ interface QuixCardProps {
 
 export function QuixCard({ quix, isActive }: QuixCardProps) {
     const { user, supabase } = useAuth();
+    const { t } = useTranslation();
     const videoRef = useRef<HTMLVideoElement>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [isMuted, setIsMuted] = useState(false);
@@ -126,7 +128,7 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
     }, [user, quix.id, quix.user_id, quix.likes_count, quix.reposts_count, isLiked, isReposted, supabase]);
 
     const handleLike = async () => {
-        if (!user) return toast.error("Login to like!");
+        if (!user) return toast.error(t('common.login_to_like'));
         if (isLiked) {
             setIsLiked(false);
             setLikesCount((prev: number) => Math.max(0, prev - 1));
@@ -137,59 +139,61 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
             setShowHeartAnimation(true);
             setTimeout(() => setShowHeartAnimation(false), 800);
             await supabase.from('quix_likes').insert({ quix_id: quix.id, user_id: user.id });
-            toast.success("Dil khush kar diya! ❤️");
+            toast.success(t('quix.liked'));
         }
     };
 
     const handleSave = async () => {
-        if (!user) return toast.error("Login to save!");
+        if (!user) return toast.error(t('common.login_to_save'));
         if (isSaved) {
             setIsSaved(false);
             await supabase.from('quix_bookmarks').delete().eq('quix_id', quix.id).eq('user_id', user.id);
+            toast.success(t('quix.unsaved'));
         } else {
             setIsSaved(true);
             await supabase.from('quix_bookmarks').insert({ quix_id: quix.id, user_id: user.id });
-            toast.success("Bookmark lag gaya! 🔖");
+            toast.success(t('quix.saved'));
         }
     };
 
     const handleRepost = async () => {
-        if (!user) return toast.error("Login to repost!");
+        if (!user) return toast.error(t('common.login_to_repost'));
         if (isReposted) {
             setIsReposted(false);
             setRepostsCount((prev: number) => Math.max(0, prev - 1));
             await supabase.from('quix_reposts').delete().eq('quix_id', quix.id).eq('user_id', user.id);
+            toast.success(t('quix.unreposted'));
         } else {
             setIsReposted(true);
             setRepostsCount((prev: number) => prev + 1);
             await supabase.from('quix_reposts').insert({ quix_id: quix.id, user_id: user.id });
-            toast.success("Aapki profile pe dikhayega! 🔄");
+            toast.success(t('quix.reposted'));
         }
     };
 
     const handleFollowToggle = async () => {
-        if (!user) return toast.error("Pehle login karle bhai!");
-        if (user.id === quix.user_id) return toast.error("Khud ko follow karega? 😂");
+        if (!user) return toast.error(t('common.login_to_follow'));
+        if (user.id === quix.user_id) return toast.error(t('quix.cannot_follow_self'));
 
         setFollowLoading(true);
         if (isFollowing) {
             const { error } = await supabase.from('follows').delete().match({ follower_id: user.id, following_id: quix.user_id });
             if (!error) {
                 setIsFollowing(false);
-                toast.success("Unfollow kar diya! 💔");
+                toast.success(t('quix.unfollowed'));
             }
         } else {
             const { error } = await supabase.from('follows').insert({ follower_id: user.id, following_id: quix.user_id });
             if (!error) {
                 setIsFollowing(true);
-                toast.success("Followed! 🚀");
+                toast.success(t('quix.followed'));
             }
         }
         setFollowLoading(false);
     };
 
     const handleAddToStory = async () => {
-        if (!user) return toast.error("Login to add story!");
+        if (!user) return toast.error(t('common.login_to_add_story'));
         try {
             const { error } = await supabase.from('stories').insert({
                 user_id: user.id,
@@ -204,9 +208,9 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
             // Notify the Quix owner
             await notifyStoryShare(supabase, quix.user_id, user.id, quix.id);
 
-            toast.success("Story mein laga diya! 🌌");
+            toast.success(t('quix.share_story'));
         } catch (error: any) {
-            toast.success("Story lag gayi! 🎥");
+            toast.error(t('common.error'));
         }
     };
 
@@ -289,8 +293,29 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
                 </div>
             )}
 
-            {/* Right Actions Bar */}
-            <div className="absolute right-4 top-[55%] -translate-y-1/2 flex flex-col gap-5 items-center z-20">
+            {/* Right Side Actions - Fixed position to avoid overlap */}
+            <div className="absolute right-4 bottom-[120px] flex flex-col items-center gap-6 z-30 animate-in slide-in-from-right duration-500">
+                {/* User Avatar & Follow */}
+                <div className="flex flex-col items-center gap-1">
+                    <Link href={`/profile/${quix.user_id}`}>
+                        <Avatar className="w-12 h-12 border-2 border-white/20">
+                            <AvatarImage src={quix.profiles?.avatar_url} />
+                            <AvatarFallback className="bg-zinc-800 text-white">{quix.profiles?.username?.[0]}</AvatarFallback>
+                        </Avatar>
+                    </Link>
+                    {user?.id !== quix.user_id && !isFollowing && (
+                        <Button
+                            onClick={handleFollowToggle}
+                            disabled={followLoading}
+                            variant="outline"
+                            size="sm"
+                            className="absolute -bottom-3 h-6 w-6 rounded-full bg-red-500 border-2 border-black text-white text-[11px] font-bold hover:bg-red-600 flex items-center justify-center"
+                        >
+                            {followLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-4 h-4" />}
+                        </Button>
+                    )}
+                </div>
+
                 <div className="flex flex-col items-center gap-1">
                     <button
                         onClick={handleLike}

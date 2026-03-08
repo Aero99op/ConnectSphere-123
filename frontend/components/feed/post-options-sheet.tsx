@@ -26,6 +26,7 @@ import {
     DialogTitle
 } from "@/components/ui/dialog";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useTranslation } from "@/components/providers/language-provider";
 import { toast } from "sonner";
 
 interface PostOptionsSheetProps {
@@ -37,6 +38,7 @@ interface PostOptionsSheetProps {
 
 export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostOptionsSheetProps) {
     const { user: authUser, supabase } = useAuth();
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [deleting, setDeleting] = useState(false);
@@ -47,7 +49,7 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
         const url = `${window.location.origin}/post/${post.id}`;
         try {
             await navigator.clipboard.writeText(url);
-            toast.success("Link copy ho gaya! 🔗");
+            toast.success(t('post.link_copied'));
         } catch {
             toast.error("Copy failed. Manual copy required.");
         } finally {
@@ -79,13 +81,13 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
                 throw new Error(errorMessage);
             }
 
-            toast.success("Post koodedaal mein chali gayi! 🧨");
+            toast.success(t('post.delete_success'));
             onDelete?.(post.id);
             setDeleteConfirmOpen(false);
             setOpen(false);
         } catch (error: any) {
             console.error("Delete Error details:", error);
-            toast.error("Delete fail ho gaya: " + error.message);
+            toast.error(`${t('common.error')}: ${error.message}`);
         } finally {
             setDeleting(false);
         }
@@ -94,7 +96,7 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
     const handleRemention = async () => {
         if (!authUser) return;
 
-        toast.loading("Rementioning (Reposting)...", { id: 'remention' });
+        toast.loading(t('post.remention_loading'), { id: 'remention' });
 
         const { error } = await supabase.from('posts').insert({
             user_id: authUser.id,
@@ -106,10 +108,10 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
         });
 
         if (error) {
-            toast.error("Remention fail ho gaya!", { id: 'remention' });
+            toast.error(t('post.remention_error'), { id: 'remention' });
             console.error(error);
         } else {
-            toast.success("Remention successful! 🔄", { id: 'remention' });
+            toast.success(t('post.remention_success'), { id: 'remention' });
             onRemention?.(post);
             setOpen(false);
         }
@@ -124,7 +126,7 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
             </DrawerTrigger>
             <DrawerContent className="bg-zinc-900 border-t border-white/10 safebottom">
                 <DrawerHeader className="border-b border-white/5">
-                    <DrawerTitle className="text-center text-white font-display font-black uppercase tracking-widest text-sm">Post Operations</DrawerTitle>
+                    <DrawerTitle className="text-center text-white font-display font-black uppercase tracking-widest text-sm">{t('post.options')}</DrawerTitle>
                 </DrawerHeader>
 
                 <div className="p-4 space-y-3">
@@ -138,8 +140,8 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
                                 {copying ? <Check className="w-5 h-5 text-blue-500" /> : <Copy className="w-5 h-5 text-blue-500" />}
                             </div>
                             <div className="text-left">
-                                <p className="text-sm font-bold text-white">Copy Post Link</p>
-                                <p className="text-[10px] text-zinc-500 font-mono tracking-tight">Direct URL to clipboard</p>
+                                <p className="text-sm font-bold text-white">{t('post.copy_link')}</p>
+                                <p className="text-[10px] text-zinc-500 font-mono tracking-tight">{t('post.copy_link_desc')}</p>
                             </div>
                         </div>
                     </button>
@@ -154,8 +156,8 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
                                 <Repeat2 className="w-5 h-5 text-primary" />
                             </div>
                             <div className="text-left">
-                                <p className="text-sm font-bold text-white">Remention (Repost)</p>
-                                <p className="text-[10px] text-zinc-500 font-mono tracking-tight">Broadcast to your feed</p>
+                                <p className="text-sm font-bold text-white">{t('post.remention')}</p>
+                                <p className="text-[10px] text-zinc-500 font-mono tracking-tight">{t('post.remention_desc')}</p>
                             </div>
                         </div>
                     </button>
@@ -170,8 +172,8 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
                                 <Calendar className="w-5 h-5 text-purple-500" />
                             </div>
                             <div className="text-left">
-                                <p className="text-sm font-bold text-white">Schedule Post</p>
-                                <p className="text-[10px] text-zinc-500 font-mono tracking-tight">Set tactical delay</p>
+                                <p className="text-sm font-bold text-white">{t('post.schedule')}</p>
+                                <p className="text-[10px] text-zinc-500 font-mono tracking-tight">{t('post.schedule_desc')}</p>
                             </div>
                         </div>
                         <span className="text-[8px] font-black uppercase tracking-widest bg-purple-500/20 text-purple-400 px-2 py-1 rounded-md">Alpha</span>
@@ -192,8 +194,8 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
                                     {deleting ? <Loader2 className="w-5 h-5 text-red-500 animate-spin" /> : <Trash2 className="w-5 h-5 text-red-500" />}
                                 </div>
                                 <div className="text-left">
-                                    <p className="text-sm font-bold text-red-500">Self-Destruct (Delete)</p>
-                                    <p className="text-[10px] text-zinc-600 font-mono tracking-tight italic">Permanent removal from matrix</p>
+                                    <p className="text-sm font-bold text-red-500">{t('post.delete')}</p>
+                                    <p className="text-[10px] text-zinc-600 font-mono tracking-tight italic">{t('post.delete_desc')}</p>
                                 </div>
                             </div>
                             <AlertCircle className="w-4 h-4 text-red-900 opacity-20" />
@@ -201,7 +203,7 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
                     )}
 
                     <div className="pt-4 text-center">
-                        <p className="text-[10px] font-mono text-zinc-700 uppercase tracking-[0.3em]">Matrix Level Cryptography Enabled</p>
+                        <p className="text-[10px] font-mono text-zinc-700 uppercase tracking-[0.3em]">{t('post.e2e_removal')}</p>
                     </div>
                 </div>
             </DrawerContent>
@@ -209,9 +211,9 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
             <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
                 <DialogContent className="bg-zinc-950 border border-red-500/30 text-white sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle className="text-red-400 font-display font-black">Delete Post</DialogTitle>
+                        <DialogTitle className="text-red-400 font-display font-black">{t('post.delete_confirm_title')}</DialogTitle>
                         <DialogDescription className="text-zinc-400">
-                            Yeh action permanent hai. Post wapas nahi aayega.
+                            {t('post.delete_confirm_desc')}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="flex items-center justify-end gap-3 pt-2">
@@ -221,7 +223,7 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
                             disabled={deleting}
                             className="px-4 py-2 rounded-xl border border-white/15 text-zinc-200 hover:bg-white/5 transition-all disabled:opacity-50"
                         >
-                            Cancel
+                            {t('common.cancel')}
                         </button>
                         <button
                             type="button"
@@ -230,7 +232,7 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
                             className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold transition-all disabled:opacity-50 inline-flex items-center gap-2"
                         >
                             {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                            Delete
+                            {t('common.delete')}
                         </button>
                     </div>
                 </DialogContent>

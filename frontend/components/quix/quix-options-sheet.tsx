@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { useAuth } from "@/components/providers/auth-provider";
 import { toast } from "sonner";
+import { useTranslation } from "@/components/providers/language-provider";
 
 interface QuixOptionsSheetProps {
     quix: any;
@@ -34,7 +35,8 @@ interface QuixOptionsSheetProps {
 }
 
 export function QuixOptionsSheet({ quix, isOwner, onDelete, trigger }: QuixOptionsSheetProps) {
-    const { user: authUser } = useAuth();
+    const { supabase, user: authUser } = useAuth();
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [deleting, setDeleting] = useState(false);
@@ -44,9 +46,9 @@ export function QuixOptionsSheet({ quix, isOwner, onDelete, trigger }: QuixOptio
         setCopying(true);
         const url = `${window.location.origin}/quix?id=${quix.id}`;
         try {
-            await navigator.clipboard.writeText(url);
-            toast.success("Link copy ho gaya! 🔗");
-        } catch {
+            await navigator.clipboard.writeText(`${window.location.origin}/quix?initialId=${quix.id}`);
+            toast.success(t('quix.link_copied'));
+        } catch (err) {
             toast.error("Copy failed.");
         } finally {
             setTimeout(() => setCopying(false), 2000);
@@ -62,26 +64,22 @@ export function QuixOptionsSheet({ quix, isOwner, onDelete, trigger }: QuixOptio
         setDeleting(true);
 
         try {
-            const response = await fetch(`/api/quix/${quix.id}`, {
-                method: 'DELETE',
-            });
+            const { error } = await supabase
+                .from('quixes')
+                .delete()
+                .eq('id', quix.id);
 
-            if (!response.ok) {
-                let errorMessage = 'Server-side delete failed';
-                try {
-                    const data = await response.json();
-                    errorMessage = data.error || errorMessage;
-                } catch (e) { }
-                throw new Error(errorMessage);
+            if (error) {
+                throw error;
             }
 
-            toast.success("Quix gya tel lene! 🧨");
+            toast.success(t('quix.delete_success'));
             onDelete?.(quix.id);
             setDeleteConfirmOpen(false);
             setOpen(false);
         } catch (error: any) {
             console.error("Delete Error:", error);
-            toast.error("Delete fail ho gaya: " + error.message);
+            toast.error(`${t('common.error')}: ${error.message}`);
         } finally {
             setDeleting(false);
         }
@@ -97,8 +95,8 @@ export function QuixOptionsSheet({ quix, isOwner, onDelete, trigger }: QuixOptio
                 )}
             </DrawerTrigger>
             <DrawerContent className="bg-zinc-900 border-t border-white/10 safebottom">
-                <DrawerHeader className="border-b border-white/5">
-                    <DrawerTitle className="text-center text-white font-display font-black uppercase tracking-widest text-sm">Quix Options</DrawerTitle>
+                <DrawerHeader className="text-left border-b border-white/5">
+                    <DrawerTitle className="text-white font-display font-black uppercase tracking-widest text-sm">{t('quix.options')}</DrawerTitle>
                 </DrawerHeader>
 
                 <div className="p-4 space-y-3">
@@ -112,8 +110,8 @@ export function QuixOptionsSheet({ quix, isOwner, onDelete, trigger }: QuixOptio
                                 {copying ? <Check className="w-5 h-5 text-blue-500" /> : <Copy className="w-5 h-5 text-blue-500" />}
                             </div>
                             <div className="text-left">
-                                <p className="text-sm font-bold text-white">Copy Quix Link</p>
-                                <p className="text-[10px] text-zinc-500 font-mono tracking-tight">Direct URL to clipboard</p>
+                                <p className="text-sm font-bold text-white">{t('quix.copy_link')}</p>
+                                <p className="text-[10px] text-zinc-500 font-mono tracking-tight">{t('quix.copy_link_desc')}</p>
                             </div>
                         </div>
                     </button>
@@ -133,8 +131,8 @@ export function QuixOptionsSheet({ quix, isOwner, onDelete, trigger }: QuixOptio
                                     {deleting ? <Loader2 className="w-5 h-5 text-red-500 animate-spin" /> : <Trash2 className="w-5 h-5 text-red-500" />}
                                 </div>
                                 <div className="text-left">
-                                    <p className="text-sm font-bold text-red-500">Delete Permanently</p>
-                                    <p className="text-[10px] text-zinc-600 font-mono tracking-tight italic">Self-destruct this content</p>
+                                    <p className="text-sm font-bold text-red-500">{t('quix.delete_permanently')}</p>
+                                    <p className="text-[10px] text-zinc-600 font-mono tracking-tight italic">{t('quix.delete_permanently_desc')}</p>
                                 </div>
                             </div>
                             <AlertCircle className="w-4 h-4 text-red-900 opacity-20" />
@@ -142,7 +140,7 @@ export function QuixOptionsSheet({ quix, isOwner, onDelete, trigger }: QuixOptio
                     )}
 
                     <div className="pt-4 text-center">
-                        <p className="text-[10px] font-mono text-zinc-700 uppercase tracking-[0.3em]">End-to-End Encrypted Removal</p>
+                        <p className="text-[10px] font-mono text-zinc-700 uppercase tracking-[0.3em]">{t('quix.e2e_removal')}</p>
                     </div>
                 </div>
             </DrawerContent>
@@ -150,9 +148,9 @@ export function QuixOptionsSheet({ quix, isOwner, onDelete, trigger }: QuixOptio
             <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
                 <DialogContent className="bg-zinc-950 border border-red-500/30 text-white sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle className="text-red-400 font-display font-black">Delete Quix?</DialogTitle>
+                        <DialogTitle className="text-red-400 font-display font-black">{t('quix.delete_confirm_title')}</DialogTitle>
                         <DialogDescription className="text-zinc-400">
-                            Yeh action permanent hai. Yeh video hamesha ke liye gayab ho jayegi.
+                            {t('quix.delete_confirm_desc')}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="flex items-center justify-end gap-3 pt-2">

@@ -12,6 +12,7 @@ import { PostOptionsSheet } from "@/components/feed/post-options-sheet";
 import { toast } from "sonner";
 import { getApinatorClient } from "@/lib/apinator";
 import Link from "next/link";
+import { useTranslation } from "@/components/providers/language-provider";
 
 interface PostProps {
     post: {
@@ -31,6 +32,7 @@ interface PostProps {
 
 export function PostCard({ post }: PostProps) {
     const { user: authUser, supabase } = useAuth();
+    const { t } = useTranslation();
     const [isPlaying, setIsPlaying] = useState(false);
     const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
     const [loadingVideo, setLoadingVideo] = useState(false);
@@ -125,9 +127,8 @@ export function PostCard({ post }: PostProps) {
             setVideoBlobUrl(blobUrl);
 
         } catch (e) {
-            console.error("Video Load Failed", e);
             setIsPlaying(false);
-            toast.error("Video load nahi hua! Internet check karo.");
+            toast.error(t('post.video_load_error'));
         } finally {
             setLoadingVideo(false);
         }
@@ -172,7 +173,7 @@ export function PostCard({ post }: PostProps) {
 
     const handleLike = async () => {
         if (!currentUserId) {
-            toast.error("Please login to like!");
+            toast.error(t('post.login_to_like'));
             return;
         }
 
@@ -249,9 +250,8 @@ export function PostCard({ post }: PostProps) {
         } catch (error: any) {
             console.error("Like Action Failed:", error?.message || error);
             // Rollback functional state
-            setLiked(currentLiked);
             setLikes(prev => newLikedState ? prev - 1 : prev + 1);
-            toast.error("Like update nahi hua! Try again.");
+            toast.error(t('post.like_error'));
         } finally {
             isLikeProcessing.current = false;
         }
@@ -265,17 +265,17 @@ export function PostCard({ post }: PostProps) {
             const { error } = await supabase.from('bookmarks').insert({ post_id: post.id, user_id: currentUserId });
             if (error) {
                 setIsBookmarked(!newStatus);
-                toast.error("Bookmark fail ho gaya!");
+                toast.error(t('post.bookmark_error'));
             } else {
-                toast.success("Guthri mein daal diya! (Saved)");
+                toast.success(t('post.bookmark_success'));
             }
         } else {
             const { error } = await supabase.from('bookmarks').delete().eq('post_id', post.id);
             if (error) {
                 setIsBookmarked(!newStatus);
-                toast.error("Remove nahi ho paya!");
+                toast.error(t('post.bookmark_remove_error'));
             } else {
-                toast.success("Guthri se nikaal diya.");
+                toast.success(t('post.bookmark_remove'));
             }
         }
     };
@@ -294,11 +294,11 @@ export function PostCard({ post }: PostProps) {
 
         if (!error) {
             setIsFollowing(true);
-            toast.success(`Following @${post.username}`);
+            toast.success(`${t('post.follow_success')}@${post.username}`);
         } else {
             console.error("Follow error:", error);
             // If it's a constraint violation it might still be fine, but we assume failure here if it reaches 'else'
-            toast.error("Follow nahi kar paye!");
+            toast.error(t('post.follow_error'));
         }
         setIsFollowingLoading(false);
     };
@@ -465,7 +465,7 @@ export function PostCard({ post }: PostProps) {
                     </div>
 
                     <div className="space-y-2 px-1">
-                        <p className="text-[13px] font-bold text-white tracking-tight">{likes.toLocaleString()} likes</p>
+                        <p className="text-[13px] font-bold text-white tracking-tight">{likes.toLocaleString()} {t('post.likes')}</p>
                         <p className="text-[14px] leading-relaxed text-zinc-200 font-sans">
                             <span className="font-display font-bold text-white mr-2 tracking-tight">@{post.username}</span>
                             <span dangerouslySetInnerHTML={{ __html: sanitizeInput(post.caption) }} />

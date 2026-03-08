@@ -1,0 +1,38 @@
+{
+    "common": {
+        "loading": "लोड हो रहा है...",
+        "error": "त्रुटि!",
+        "save": "सहेजें",
+        "done": "हो गया",
+        "cancel": "रद्द करें",
+        "delete": "हटाएं",
+        "confirm": "पुष्टि करें",
+        "success": "सफलता!"
+    },
+    "nav": {
+        "home": "होम",
+        "explore": "एक्सप्लोर",
+        "create": "बनाएं",
+        "quix": "क्विक",
+        "messages": "संदेश",
+        "notifications": "सूचनाएं",
+        "profile": "प्रोफ़ाइल",
+        "settings": "सेटिंग्स"
+    },
+    "quix": {
+        "delete_success": "क्विक हटा दिया गया!",
+        "share_story": "स्टोरी में जोड़ा गया!",
+        "liked": "पसंद किया गया!",
+        "bookmark": "सहेज लिया गया!",
+        "options": "क्विक विकल्प",
+        "delete_confirm_title": "क्विक हटाएं?",
+        "delete_confirm_desc": "यह कार्रवाई स्थायी है।"
+    },
+    "settings": {
+        "title": "सेटिंग्स",
+        "header_desc": "अपना अकाउंट और ऐप प्राथमिकताएं प्रबंधित करें।",
+        "account_title": "अकाउंट और मेटा डेटा",
+        "language": "भाषा",
+        "logout": "लॉगआउट"
+    }
+}

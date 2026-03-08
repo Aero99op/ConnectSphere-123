@@ -4,59 +4,53 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ChevronLeft, Check, Globe, Loader2 } from "lucide-react";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useTranslation } from "@/components/providers/language-provider";
 
 const LANGUAGES = [
     { id: 'en', name: "English", native: "English" },
+    { id: 'hi_desi', name: "Hinglish", native: "Hinglish/Hindi Mix" },
     { id: 'hi', name: "Hindi", native: "हिन्दी" },
     { id: 'bn', name: "Bengali", native: "বাংলা" },
     { id: 'te', name: "Telugu", native: "తెలుగు" },
     { id: 'mr', name: "Marathi", native: "मराठी" },
+    { id: 'ta', name: "Tamil", native: "தமிழ்" },
+    { id: 'gu', name: "Gujarati", native: "ગુજરાતી" },
+    { id: 'kn', name: "Kannada", native: "ಕನ್ನಡ" },
+    { id: 'ml', name: "Malayalam", native: "മലയാളം" },
+    { id: 'or', name: "Odia", native: "ଓଡ଼ିଆ" },
+    { id: 'pa', name: "Punjabi", native: "ਪੰਜਾਬੀ" },
+    { id: 'as', name: "Assamese", native: "অসমীয়া" },
+    { id: 'ma', name: "Maithili", native: "मैथिली" },
+    { id: 'sa', name: "Santali", native: "ସାନ୍ତାଳୀ" },
+    { id: 'ks', name: "Kashmiri", native: "كأشُر" },
+    { id: 'ne', name: "Nepali", native: "नेपाली" },
+    { id: 'sd', name: "Sindhi", native: "سنڌي" },
+    { id: 'ur', name: "Urdu", native: "اردو" },
+    { id: 'ko', name: "Konkani", native: "कोंकणी" },
+    { id: 'mn', name: "Manipuri", native: "ꯃꯅꯤꯄꯨꯔꯤ" },
+    { id: 'bo', name: "Bodo", native: "बड़ो" },
+    { id: 'do', name: "Dogri", native: "डोगरी" },
+    { id: 'sn', name: "Sanskrit", native: "संस्कृतम्" }
 ];
 
 export default function LanguageSettingsPage() {
     const { user: authUser, supabase } = useAuth();
+    const { language: activeLang, setLanguage, t } = useTranslation();
     const userId = authUser?.id || null;
-    const [activeLang, setActiveLang] = useState<string>('en');
 
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false); // Already loaded via Provider
     const [isUpdating, setIsUpdating] = useState<string | null>(null);
     const [message, setMessage] = useState({ text: "", type: "" });
 
-    useEffect(() => {
-        async function loadLanguageSettings() {
-            try {
-                if (!authUser) { setIsLoading(false); return; }
-                const { data } = await supabase
-                    .from('profiles')
-                    .select('language_preference')
-                    .eq('id', authUser.id)
-                    .single();
-
-                if (data && data.language_preference) {
-                    setActiveLang(data.language_preference);
-                }
-            } catch (error) {
-                console.error("Error loading language settings:", error);
-            } finally {
-                setIsLoading(false);
-            }
-        }
-        loadLanguageSettings();
-    }, [authUser, supabase]);
-
     const handleLanguageSelect = async (langId: string) => {
         if (!userId) return;
-        if (langId !== 'en' && langId !== 'hi') {
-            alert("Currently only English and Hindi are supported, more coming soon!");
-            return;
-        }
 
         setIsUpdating(langId);
         setMessage({ text: "", type: "" });
 
         const previousLang = activeLang;
-        // Optimistic update
-        setActiveLang(langId);
+        // Optimistic update via provider
+        setLanguage(langId);
 
         try {
             const { error } = await supabase
@@ -66,9 +60,12 @@ export default function LanguageSettingsPage() {
 
             if (error) throw error;
 
+            setMessage({ text: "Settings updated successfully!", type: "success" });
+            setTimeout(() => setMessage({ text: "", type: "" }), 3000);
+
         } catch (error: any) {
             console.error("Error updating language:", error);
-            setActiveLang(previousLang); // Revert
+            setLanguage(previousLang); // Revert
             setMessage({ text: "Error! Database update failed.", type: "error" });
             setTimeout(() => setMessage({ text: "", type: "" }), 3000);
         } finally {
@@ -90,8 +87,8 @@ export default function LanguageSettingsPage() {
                         <ChevronLeft className="w-6 h-6 text-zinc-400" />
                     </Link>
                     <div>
-                        <h1 className="text-2xl font-display font-black text-white tracking-tight">Language</h1>
-                        <p className="text-zinc-500 text-xs mt-1">Select your preferred app language.</p>
+                        <h1 className="text-2xl font-display font-black text-white tracking-tight">{t('settings.language')}</h1>
+                        <p className="text-zinc-500 text-xs mt-1">{t('settings.language_desc')}</p>
                     </div>
                 </div>
 
@@ -104,22 +101,21 @@ export default function LanguageSettingsPage() {
                     <div className="glass p-6 rounded-[32px] border-premium shadow-premium-lg space-y-6">
 
                         {message.text && (
-                            <div className={`text-xs text-center font-bold mb-2 p-2 rounded-lg ${message.type === 'error' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : ''}`}>
+                            <div className={`text-xs text-center font-bold mb-2 p-2 rounded-lg ${message.type === 'error' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-green-500/10 text-green-500 border border-green-500/20'}`}>
                                 {message.text}
                             </div>
                         )}
 
-                        <div className="space-y-4 flex flex-col divide-y divide-white/5 bg-black/40 rounded-3xl border border-white/5">
+                        <div className="space-y-4 flex flex-col divide-y divide-white/5 bg-black/40 rounded-3xl border border-white/5 max-h-[60vh] overflow-y-auto custom-scrollbar">
                             {LANGUAGES.map((lang) => {
                                 const isActive = activeLang === lang.id;
-                                const isDisallowed = lang.id !== 'en' && lang.id !== 'hi';
 
                                 return (
                                     <button
                                         key={lang.id}
                                         onClick={() => handleLanguageSelect(lang.id)}
                                         disabled={isUpdating !== null}
-                                        className={`w-full flex items-center justify-between p-4 transition-colors group text-left first:rounded-t-3xl last:rounded-b-3xl ${isDisallowed ? 'opacity-40 hover:bg-transparent cursor-not-allowed' : 'hover:bg-white/5 active:bg-white/10'
+                                        className={`w-full flex items-center justify-between p-4 transition-colors group text-left ${isActive ? 'bg-primary/5' : 'hover:bg-white/5 active:bg-white/10'
                                             }`}
                                     >
                                         <div className="flex items-center gap-4">
