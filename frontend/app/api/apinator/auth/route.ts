@@ -66,7 +66,11 @@ export async function POST(req: NextRequest) {
                 return NextResponse.json({ error: 'Forbidden: Officials only' }, { status: 403 });
             }
         }
-        // 6. User Profile Sync & Social Data: private-profiles-{userId}, private-follows-{userId}
+        // 6. Sidebar Updates: private-sidebar-{userId}
+        else if (channel_name === `private-sidebar-${userId}`) {
+            // Authorized for the owner — used for real-time chat sidebar updates
+        }
+        // 7. User Profile Sync & Social Data: private-profiles-{userId}, private-follows-{userId}
         else if (channel_name === `private-profiles-${userId}` || channel_name === `private-follows-${userId}`) {
             // Authorized for the owner of the data
         }
