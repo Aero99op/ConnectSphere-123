@@ -227,7 +227,7 @@ function ProfilePageContent() {
         const client = getApinatorClient();
         if (!client) return;
 
-        const channel = client.subscribe(`follows-${authUser.id}`);
+        const channel = client.subscribe(`private-follows-${authUser.id}`);
 
         channel.bind('follow_update', async () => {
             console.log("[Profile] Apinator follow update received! Refreshing counts...");
@@ -240,7 +240,7 @@ function ProfilePageContent() {
         });
 
         return () => {
-            client.unsubscribe(`follows-${authUser.id}`);
+            client.unsubscribe(`private-follows-${authUser.id}`);
         };
     }, [authUser, supabase]);
 
@@ -251,7 +251,7 @@ function ProfilePageContent() {
         const client = getApinatorClient();
         if (!client) return;
 
-        const channel = client.subscribe('reports-updates');
+        const channel = client.subscribe('private-reports-updates');
 
         channel.bind('report-update', (data: any) => {
             const payload = typeof data === 'string' ? JSON.parse(data) : data;
@@ -261,7 +261,7 @@ function ProfilePageContent() {
         });
 
         return () => {
-            client.unsubscribe('reports-updates');
+            client.unsubscribe('private-reports-updates');
         };
     }, [authUser]);
 
@@ -272,7 +272,7 @@ function ProfilePageContent() {
         const client = getApinatorClient();
         if (!client) return;
 
-        const channel = client.subscribe(`profiles-${authUser.id}`);
+        const channel = client.subscribe(`private-profiles-${authUser.id}`);
 
         channel.bind('profile_updated', () => {
             console.log("[Profile] Profile update received! Refetching...");
@@ -280,7 +280,7 @@ function ProfilePageContent() {
         });
 
         return () => {
-            client.unsubscribe(`profiles-${authUser.id}`);
+            client.unsubscribe(`private-profiles-${authUser.id}`);
         };
     }, [authUser, supabase]);
 

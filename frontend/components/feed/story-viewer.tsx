@@ -104,7 +104,7 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
         const client = getApinatorClient();
         let channel: any = null;
         if (client && !isMock) {
-            channel = client.subscribe(`story-${currentStory.id}`);
+            channel = client.subscribe(`private-story-${currentStory.id}`);
             channel.bind('story_like_updated', (data: any) => {
                 const payload = typeof data === 'string' ? JSON.parse(data) : data;
                 if (payload.likes !== undefined) setLikes(payload.likes);

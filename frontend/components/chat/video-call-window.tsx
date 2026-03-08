@@ -169,7 +169,7 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
         const client = getApinatorClient();
         if (!client) return;
 
-        const channelName = `webrtc-${roomId}`;
+        const channelName = `private-webrtc-${roomId}`;
         const channel = client.subscribe(channelName);
         let iceCandidateQueue: RTCIceCandidateInit[] = [];
         let isRemoteDescriptionSet = false;
@@ -389,7 +389,7 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    channel: `webrtc-${roomId}`,
+                    channel: `private-webrtc-${roomId}`,
                     event: 'end-call',
                     data: {}
                 })

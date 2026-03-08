@@ -25,7 +25,7 @@ export function CallManager() {
         if (!userId) return;
         let isMounted = true;
         let ringTimeout: NodeJS.Timeout;
-        const channelName = `call-${userId}`;
+        const channelName = `private-call-${userId}`;
 
         // Ensure channel is subscribed and has event handler bound
         const ensureSubscription = () => {

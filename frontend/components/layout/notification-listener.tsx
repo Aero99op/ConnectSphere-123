@@ -20,7 +20,8 @@ export function NotificationListener() {
             return;
         }
 
-        const channel = client.subscribe(`notifications-${userId}`);
+        const channelName = `private-notifications-${userId}`;
+        const channel = client.subscribe(channelName);
 
         const handleIncomingNotification = async (data: any) => {
             console.log("[NotificationListener] Apinator notification received:", data);
@@ -51,11 +52,11 @@ export function NotificationListener() {
         channel.bind('notification_ping', handleIncomingNotification);
         channel.bind('notification-new', handleIncomingNotification);
 
-        console.log(`[NotificationListener] Subscribed to Apinator channel: notifications-${userId}`);
+        console.log(`[NotificationListener] Subscribed to Apinator channel: ${channelName}`);
 
         return () => {
-            client.unsubscribe(`notifications-${userId}`);
-            console.log(`[NotificationListener] Unsubscribed from Apinator channel: notifications-${userId}`);
+            client.unsubscribe(channelName);
+            console.log(`[NotificationListener] Unsubscribed from Apinator channel: ${channelName}`);
         };
     }, [userId]);
 

@@ -51,7 +51,7 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
             return;
         }
 
-        const channel = client.subscribe(`chat-${conversationId}`);
+        const channel = client.subscribe(`private-chat-${conversationId}`);
 
         channel.bind('new-message', (data: any) => {
             const newMsg = typeof data === 'string' ? JSON.parse(data) : data;
@@ -82,7 +82,7 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
             }
         });
 
-        console.log(`[ChatWindow] Subscribed to Apinator channel: chat-${conversationId}`);
+        console.log(`[ChatWindow] Subscribed to Apinator channel: private-chat-${conversationId}`);
 
         // Subscribe to recipient profile updates
         const profileChannel = supabase
@@ -107,7 +107,7 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
 
         return () => {
             window.removeEventListener('focus', handleFocus);
-            if (client) client.unsubscribe(`chat-${conversationId}`);
+            if (client) client.unsubscribe(`private-chat-${conversationId}`);
             supabase.removeChannel(profileChannel);
         };
     }, [conversationId, recipientId, supabase]);
@@ -129,7 +129,7 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                channel: `chat-${conversationId}`,
+                channel: `private-chat-${conversationId}`,
                 event: 'messages-read',
                 data: { reader_id: currentUserId }
             })
@@ -203,7 +203,7 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    channel: `chat-${conversationId}`,
+                    channel: `private-chat-${conversationId}`,
                     event: 'new-message',
                     data
                 })
@@ -214,7 +214,7 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    channel: `sidebar-${recipientId}`,
+                    channel: `private-sidebar-${recipientId}`,
                     event: 'conversation-update',
                     data: { conversationId, lastMessage: data }
                 })
@@ -259,7 +259,7 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                channel: `call-${recipientId}`,
+                channel: `private-call-${recipientId}`,
                 event: 'incoming-call',
                 data: {
                     roomId: conversationId,

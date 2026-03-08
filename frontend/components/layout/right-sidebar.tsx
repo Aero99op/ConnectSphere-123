@@ -68,7 +68,7 @@ function RightSidebarContent() {
         // 🟢 Real-time Profile Sync (Apinator)
         const client = getApinatorClient();
         if (client && authUser) {
-            const channel = client.subscribe(`profiles-${authUser.id}`);
+            const channel = client.subscribe(`private-profiles-${authUser.id}`);
             channel.bind('profile_updated', async (payload: any) => {
                 if (payload?.data) {
                     setCurrentUser((prev: any) => ({ ...prev, ...payload.data }));

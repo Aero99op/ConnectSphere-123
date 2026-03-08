@@ -208,10 +208,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         strategy: 'jwt',
         maxAge: 30 * 24 * 60 * 60, // 30 Days (Standard Hardened Security)
     },
-    // NextAuth v5 treats 'secret' as 'AUTH_SECRET' environment variable primarily
-    secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "fallback_secret_for_build",
-    trustHost: true,
-    // Explicitly define URL if present to prevent auto-detection failures on Cloudflare Edge
+    // Hardened Cookie Configuration (Finding-004 FIX)
+    cookies: {
+        sessionToken: {
+            name: process.env.NODE_ENV === 'production' ? `__Secure-authjs.session-token` : `authjs.session-token`,
+            options: {
+                httpOnly: true,
+                sameSite: "strict", // Prevent cross-site session probing
+                path: "/",
+                secure: process.env.NODE_ENV === 'production',
+            },
+        },
+    },
     basePath: "/api/auth",
     debug: process.env.NODE_ENV === 'development',
 });

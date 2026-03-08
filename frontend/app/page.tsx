@@ -178,7 +178,7 @@ function HomeFeedContent() {
         const client = getApinatorClient();
         if (!client || !authUser) return;
 
-        const channel = client.subscribe(`profiles-${authUser.id}`);
+        const channel = client.subscribe(`private-profiles-${authUser.id}`);
         channel.bind('profile_updated', async (payload: any) => {
             console.log("[Feed] Local profile update received! Syncing header...");
             const { data } = await supabase.from('profiles').select('*').eq('id', authUser.id).maybeSingle();

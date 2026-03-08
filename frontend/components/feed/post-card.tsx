@@ -74,7 +74,7 @@ export function PostCard({ post }: PostProps) {
         // 🟢 Real-time Like Sync (Global)
         const client = getApinatorClient();
         if (client) {
-            const channel = client.subscribe(`post-${post.id}`);
+            const channel = client.subscribe(`private-post-${post.id}`);
 
             channel.bind('like_updated', (data: any) => {
                 const payload = typeof data === 'string' ? JSON.parse(data) : data;

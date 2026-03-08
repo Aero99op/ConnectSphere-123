@@ -69,7 +69,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             const client = getApinatorClient();
             if (!client) return null;
 
-            const chatChannelName = `chat-${conversationId}`;
+            const chatChannelName = `private-chat-${conversationId}`;
             const channel = client.subscribe(chatChannelName);
 
             channel.bind('new-message', async (data: any) => {
@@ -154,7 +154,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             client.bind('state_change', handleStateChange);
             (channel as any)._stateChangeHandler = handleStateChange; // Store for cleanup
 
-            console.log(`[ChatView] Subscribed to Apinator channel: chat-${conversationId}`);
+            console.log(`[ChatView] Subscribed to Apinator channel: private-chat-${conversationId}`);
             return channel;
         };
 
@@ -208,7 +208,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                     if (currentChannel && (currentChannel as any)._stateChangeHandler) {
                         c.unbind('state_change', (currentChannel as any)._stateChangeHandler);
                     }
-                    c.unsubscribe(`chat-${conversationId}`);
+                    c.unsubscribe(`private-chat-${conversationId}`);
                 }
                 supabase.removeChannel(profileChannel);
             };
@@ -222,7 +222,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                 if (currentChannel && (currentChannel as any)._stateChangeHandler) {
                     c.unbind('state_change', (currentChannel as any)._stateChangeHandler);
                 }
-                c.unsubscribe(`chat-${conversationId}`);
+                c.unsubscribe(`private-chat-${conversationId}`);
             }
         };
     }, [conversationId, isGroup]);
@@ -321,7 +321,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                channel: `chat-${conversationId}`,
+                channel: `private-chat-${conversationId}`,
                 event: 'messages-read',
                 data: { reader_id: currentUserId }
             })
@@ -367,7 +367,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                channel: `chat-${conversationId}`,
+                channel: `private-chat-${conversationId}`,
                 event: 'typing',
                 data: { userId: currentUserId, isTyping: false }
             })
@@ -395,7 +395,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        channel: `chat-${conversationId}`,
+                        channel: `private-chat-${conversationId}`,
                         event: 'update-message',
                         data: { id: editingMessageId, content: msgContent, is_edited: true }
                     })
@@ -462,7 +462,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                channel: `chat-${conversationId}`,
+                channel: `private-chat-${conversationId}`,
                 event: 'new-message',
                 data: optimisticMsg
             })
@@ -488,7 +488,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    channel: `chat-${conversationId}`,
+                    channel: `private-chat-${conversationId}`,
                     event: 'message-confirmed',
                     data: { tempId, actualMsg: insertedMsg }
                 })
@@ -511,7 +511,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            channel: `sidebar-${uid}`,
+                            channel: `private-sidebar-${uid}`,
                             event: 'conversation-update',
                             data: { conversationId, lastMessage: insertedMsg }
                         })
@@ -522,7 +522,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        channel: `sidebar-${recipientId}`,
+                        channel: `private-sidebar-${recipientId}`,
                         event: 'conversation-update',
                         data: { conversationId, lastMessage: insertedMsg }
                     })
@@ -548,7 +548,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    channel: `chat-${conversationId}`,
+                    channel: `private-chat-${conversationId}`,
                     event: 'update-message',
                     data: { id: msgId, content: "🚫 This message was deleted", is_deleted: true }
                 })
@@ -583,7 +583,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    channel: `chat-${conversationId}`,
+                    channel: `private-chat-${conversationId}`,
                     event: 'typing',
                     data: { userId: currentUserId, isTyping: true }
                 })
@@ -596,7 +596,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    channel: `chat-${conversationId}`,
+                    channel: `private-chat-${conversationId}`,
                     event: 'typing',
                     data: { userId: currentUserId, isTyping: false }
                 })
@@ -633,7 +633,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        channel: `call-${uid}`,
+                        channel: `private-call-${uid}`,
                         event: 'incoming-call',
                         data: {
                             roomId: conversationId,
@@ -658,7 +658,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                channel: `call-${recipientId}`,
+                channel: `private-call-${recipientId}`,
                 event: 'incoming-call',
                 data: {
                     roomId: conversationId,

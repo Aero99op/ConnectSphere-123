@@ -52,7 +52,7 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
     useEffect(() => {
         let isCleaningUp = false;
 
-        const channelName = `group-call-${roomId}`;
+        const channelName = `private-group-call-${roomId}`;
 
         // Helper to send signaling events (Moved to effect scope for heartbeat access)
         const sendGroupSignal = (event: string, data: any) => {
@@ -234,9 +234,9 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
                 fetch('/api/apinator/trigger', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ channel: `group-call-${roomId}`, event: 'user-left', data: { userId: currentUserId } })
+                    body: JSON.stringify({ channel: `private-group-call-${roomId}`, event: 'user-left', data: { userId: currentUserId } })
                 }).catch(console.error);
-                client.unsubscribe(`group-call-${roomId}`);
+                client.unsubscribe(`private-group-call-${roomId}`);
             }
         };
     }, [roomId, currentUserId, callType]);
@@ -252,10 +252,10 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
         fetch('/api/apinator/trigger', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ channel: `group-call-${roomId}`, event: 'user-left', data: { userId: currentUserId } })
+            body: JSON.stringify({ channel: `private-group-call-${roomId}`, event: 'user-left', data: { userId: currentUserId } })
         }).catch(console.error);
         const client = getApinatorClient();
-        if (client) client.unsubscribe(`group-call-${roomId}`);
+        if (client) client.unsubscribe(`private-group-call-${roomId}`);
 
         onEndCall(durationRef.current);
     };

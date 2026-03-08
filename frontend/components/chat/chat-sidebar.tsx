@@ -33,7 +33,7 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
         if (!userId) return;
         let isMounted = true;
 
-        const channelName = `sidebar-${userId}`;
+        const channelName = `private-sidebar-${userId}`;
 
         const bindSidebarEvents = (ch: any) => {
             ch.bind('conversation-update', (data: any) => {

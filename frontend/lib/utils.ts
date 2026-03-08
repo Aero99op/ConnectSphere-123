@@ -1,6 +1,8 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { formatDistanceToNowStrict } from "date-fns";
+// @ts-ignore
+import DOMPurify from "isomorphic-dompurify";
 
 export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
@@ -17,20 +19,19 @@ export function formatTimeAgo(date: Date | string | number): string {
 }
 
 /**
- * Lightweight input sanitization to prevent basic XSS
- * Strips common dangerous tags like <script>, <iframe>, <object>, etc.
+ * 🔱 Robust input sanitization to prevent XSS (Finding-007 FIX)
+ * Uses DOMPurify to kill SVG-based XSS, Mutation XSS, and Entity encoding bypasses.
+ * Replaces old regex-based logic which was bypassable.
  */
 export function sanitizeInput(input: string): string {
     if (!input) return "";
-    // Regex to strip tags like <script>...</script>, <img ...>, etc.
-    // We target common XSS vectors while allowing plain text.
-    return input
-        .replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gim, "")
-        .replace(/<iframe\b[^>]*>([\s\S]*?)<\/iframe>/gim, "")
-        .replace(/<object\b[^>]*>([\s\S]*?)<\/object>/gim, "")
-        .replace(/<embed\b[^>]*>([\s\S]*?)<\/embed>/gim, "")
-        .replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gim, "")
-        // Strip event handlers like onclick, onerror, onload, etc. more robustly
-        .replace(/\son\w+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)/gim, "")
-        .replace(/javascript:[^"']*/gim, ""); // Strip javascript: protocol
+
+    return DOMPurify.sanitize(input, {
+        ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'span', 'ul', 'ol', 'li'],
+        ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
+        FORCE_BODY: true,
+        ADD_ATTR: ['target'],
+        FORBID_TAGS: ['script', 'style', 'iframe', 'frame', 'object', 'embed', 'svg'],
+        FORBID_ATTR: ['on*', 'style', 'action', 'formaction'],
+    });
 }

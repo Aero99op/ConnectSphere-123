@@ -86,7 +86,7 @@ export function DepartmentDashboard() {
 
         // Apinator-based report updates (UNLIMITED)
         const client = getApinatorClient();
-        let channelName = 'reports-updates';
+        let channelName = 'private-reports-updates';
         if (client) {
             const channel = client.subscribe(channelName);
             channel.bind('report-new', () => {
@@ -222,7 +222,7 @@ export function DepartmentDashboard() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    channel: 'reports-updates',
+                    channel: 'private-reports-updates',
                     event: 'report-update',
                     data: { id: selectedReport.id, status: newStatus }
                 })
@@ -233,7 +233,7 @@ export function DepartmentDashboard() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    channel: `notifications-${selectedReport.user_id}`,
+                    channel: `private-notifications-${selectedReport.user_id}`,
                     event: 'notification-new',
                     data: {
                         type: 'report_update',

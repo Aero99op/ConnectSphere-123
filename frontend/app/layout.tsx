@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     alternates: {
         canonical: '/',
     },
-    manifest: '/manifest.json',
+    manifest: '/manifest.json', // 🔱 Removed crossOrigin="use-credentials" requirement
     icons: {
         icon: '/logo.svg',
         shortcut: '/logo.svg',
@@ -67,8 +67,8 @@ export const viewport: Viewport = {
     themeColor: '#ff9933',
     width: 'device-width',
     initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
+    // maximumScale removed (Finding ADDITIONAL-2)
+    userScalable: true, // Enabled for accessibility
 }
 
 export default function RootLayout({

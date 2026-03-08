@@ -11,6 +11,7 @@ import {
 import Link from "next/link";
 import { PostCard } from "@/components/feed/post-card";
 import { usePathname, useParams } from "next/navigation";
+import { getProfileByUsername, getUserStats } from "@/lib/actions/profile"; // 🔱 New Server Actions
 
 // Utility function to determine border color based on role
 function getRoleBorderColor(role: string) {
@@ -43,10 +44,11 @@ function ProfileHeaderSkeleton() {
 function AnotherUserProfileContent() {
     const { user: authUser, supabase } = useAuth();
     const params = useParams();
-    const userId = params.id as string;
+    const username = params.username as string; // 🔱 Use username from params
 
     // Auth & Basic Info
     const [profile, setProfile] = useState<any>(null);
+    const [userId, setUserId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
     // Details tab
@@ -71,40 +73,36 @@ function AnotherUserProfileContent() {
 
     useEffect(() => {
         const fetchUserProfile = async () => {
-            if (!userId) return;
+            if (!username) return;
             setLoading(true);
 
-            // 1. Fetch Profile Data
-            const { data: profileData, error: profileError } = await supabase
-                .from("profiles")
-                .select("*")
-                .eq("id", userId)
-                .single();
+            // 🔱 1. Fetch Profile Data via SERVER ACTION (FIXES FINDING-001 & 002)
+            const { data: profileData, error: profileError } = await getProfileByUsername(username);
 
             if (profileError || !profileData) {
                 setLoading(false);
                 return;
             }
 
+            const currentUserId = profileData.id;
+            setUserId(currentUserId);
             setProfile(profileData);
 
-            // 2. Fetch Stats, Posts & Current User Auth
+            // 🔱 2. Fetch Stats via SERVER ACTION
             setLoadingPosts(true);
-
             setCurrentUser(authUser);
 
-            const [postsResponse, quixResponse, followersResponse, followingResponse] = await Promise.all([
-                supabase.from('posts').select(`*, profiles(username, avatar_url, full_name, role)`).eq('user_id', userId).order('created_at', { ascending: false }),
-                supabase.from('quix').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-                supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
-                supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId)
+            const [statsResponse, postsResponse, quixResponse] = await Promise.all([
+                getUserStats(currentUserId),
+                supabase.from('posts').select(`*, profiles(username, avatar_url, full_name, role)`).eq('user_id', currentUserId).order('created_at', { ascending: false }),
+                supabase.from('quix').select('*').eq('user_id', currentUserId).order('created_at', { ascending: false })
             ]);
 
             if (authUser) {
                 const { data: followData } = await supabase
                     .from('follows')
                     .select('*')
-                    .match({ follower_id: authUser.id, following_id: userId })
+                    .match({ follower_id: authUser.id, following_id: currentUserId })
                     .single();
 
                 if (followData) setIsFollowing(true);
@@ -112,23 +110,17 @@ function AnotherUserProfileContent() {
 
             if (postsResponse.data) setPosts(postsResponse.data);
             if (quixResponse.data) setQuixList(quixResponse.data);
-
-            setStats({
-                posts: postsResponse.data?.length || 0,
-                quix: quixResponse.data?.length || 0,
-                followers: followersResponse.count || 0,
-                following: followingResponse.count || 0
-            });
+            if (statsResponse.data) setStats(statsResponse.data);
 
             setLoadingPosts(false);
             setLoading(false);
         };
 
         fetchUserProfile();
-    }, [userId]);
+    }, [username, authUser, supabase]);
 
     const handleFollowToggle = async () => {
-        if (!currentUser) {
+        if (!currentUser || !userId) {
             alert("Please login first to follow!");
             return;
         }
@@ -167,12 +159,12 @@ function AnotherUserProfileContent() {
                 // 1. DB Record
                 await supabase.from('notifications').insert(notifData);
 
-                // 2. Instant Notification via Apinator (UNLIMITED)
+                // 🔱 2. Instant Notification via SECURE API (FIXES FINDING-003)
                 fetch('/api/apinator/trigger', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        channel: `notifications-${userId}`,
+                        channel: `private-notifications-${userId}`, // 🔱 Use private prefix
                         event: 'notification_ping',
                         data: notifData
                     })
@@ -183,6 +175,7 @@ function AnotherUserProfileContent() {
     };
 
     const fetchFollowList = async (type: 'followers' | 'following') => {
+        if (!userId) return;
         setActiveTab(type);
         setLoadingFollowsList(true);
 
@@ -231,7 +224,7 @@ function AnotherUserProfileContent() {
     const isOfficial = profile.role === 'official';
     const isCitizen = profile.role === 'citizen';
     const profileBorderColor = getRoleBorderColor(profile.role);
-    const joinDate = new Date(profile.created_at || Date.now()).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+    const joinDate = new Date(profile.updated_at || Date.now()).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 
     return (
         <div className="min-h-screen bg-[#050507] text-white pb-20 md:pb-0 md:pl-20 xl:pl-64">
@@ -524,7 +517,7 @@ function AnotherUserProfileContent() {
                                     {(activeTab === "followers" ? followersList : followingList).map((user: any) => (
                                         <Link
                                             key={user.id}
-                                            href={`/profile/${user.id}`}
+                                            href={`/profile/${user.username}`} // 🔱 Use username instead of ID
                                             className="group relative"
                                         >
                                             <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-secondary/20 blur opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl" />

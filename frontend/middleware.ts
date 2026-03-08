@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
+// import { crypto } from 'next/dist/compiled/@edge-runtime/primitives/crypto' // DELETED: Causes build error
+// Use global 'crypto' instead, which is available in Edge Runtime.
+
 
 const rateLimit = new Map();
 
@@ -84,10 +87,12 @@ export default auth(async (req: any) => {
     }
 
     // 3. Inject Security Headers
-    // --- CSP Configuration (Consolidated & Hardened) ---
+    // --- CSP & Nonce Configuration --- (Finding-005 FIX)
+    const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString('base64');
+
     const cspHeader = `
         default-src 'self';
-        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com;
+        script-src 'self' 'nonce-${nonce}' https://accounts.google.com https://apis.google.com;
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         img-src 'self' blob: data: 
             https://*.googleusercontent.com 
@@ -107,7 +112,7 @@ export default auth(async (req: any) => {
             https://accounts.google.com 
             https://api.telegram.org
             https://ipapi.co
-            ${process.env.NEXT_PUBLIC_BACKEND_URL || ''};
+            ${process.env.BACKEND_URL || ''};
         frame-src 'self' https://accounts.google.com;
         media-src 'self' blob: https://*.supabase.co https://*.catbox.moe https://files.catbox.moe;
         object-src 'none';
@@ -117,14 +122,18 @@ export default auth(async (req: any) => {
         upgrade-insecure-requests;
     `.replace(/\s{2,}/g, ' ').trim();
 
+    // Pass nonce to layout via headers
+    res.headers.set('x-nonce', nonce);
+
     // Standard Security Headers
     res.headers.set('Content-Security-Policy', cspHeader);
     res.headers.set('X-Frame-Options', 'DENY');
     res.headers.set('X-Content-Type-Options', 'nosniff');
     res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-    res.headers.set('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=(self)');
+    res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
     res.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
     res.headers.set('X-DNS-Prefetch-Control', 'on');
+    res.headers.set('X-XSS-Protection', '1; mode=block');
 
     return res
 })
