@@ -28,12 +28,39 @@ export function ChatList() {
         if (authUser) fetchConversations(authUser.id);
     }, [authUser]);
 
-    // 📡 Handle Incoming Peer Signals
+    // 📡 Handle Incoming Peer Signals and Profile Updates
     useEffect(() => {
         if (incomingSignal?.type === 'REFRESH_LIST' || incomingSignal?.type === 'NEW_MSG') {
             if (userId) fetchConversations(userId);
             clearSignal();
         }
+
+        const profileSub = supabase
+            .channel('public-profiles-sync')
+            .on(
+                'postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'profiles' },
+                (payload) => {
+                    setConversations(prev => prev.map(conv => {
+                        if (!conv.is_group && conv.recipient.id === payload.new.id) {
+                            return {
+                                ...conv,
+                                recipient: {
+                                    ...conv.recipient,
+                                    last_seen: payload.new.last_seen,
+                                    is_online: payload.new.is_online
+                                }
+                            };
+                        }
+                        return conv;
+                    }));
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(profileSub);
+        };
     }, [incomingSignal, userId]);
 
     const fetchConversations = async (uid: string) => {

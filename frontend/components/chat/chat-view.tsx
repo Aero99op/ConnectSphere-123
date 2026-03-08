@@ -160,6 +160,33 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                 .then(({ data }) => {
                     if (data) groupParticipantsRef.current = data.map(p => p.user_id);
                 });
+        } else {
+            // Subscribe to recipient profile updates
+            const profileChannel = supabase
+                .channel(`profile-${recipientId}`)
+                .on(
+                    'postgres_changes',
+                    { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${recipientId}` },
+                    (payload) => {
+                        if (isMounted) {
+                            setRecipientLastSeen(payload.new.last_seen);
+                        }
+                    }
+                )
+                .subscribe();
+
+            return () => {
+                isMounted = false;
+                clearInterval(typingCleanupInterval);
+                const c = getApinatorClient();
+                if (c) {
+                    if (currentChannel && (currentChannel as any)._stateChangeHandler) {
+                        c.unbind('state_change', (currentChannel as any)._stateChangeHandler);
+                    }
+                    c.unsubscribe(`chat-${conversationId}`);
+                }
+                supabase.removeChannel(profileChannel);
+            };
         }
 
         return () => {

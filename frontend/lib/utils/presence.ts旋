@@ -1,16 +1,17 @@
-import { format, differenceInHours } from 'date-fns';
+import { format, isToday, isYesterday, differenceInHours } from 'date-fns';
 
 export function formatLastSeen(date: string | Date | null): string {
     if (!date) return 'Status unknown';
-
+    
     const lastSeen = typeof date === 'string' ? new Date(date) : date;
     const now = new Date();
-
+    
     const diffInHours = Math.abs(differenceInHours(now, lastSeen));
 
     if (diffInHours < 24) {
         // Within 24 hours - show time
-        // If it's today, we can just show the time.
+        // If it's today, we can just show the time. If it was yesterday but < 24h, maybe show "Yesterday at..." 
+        // but user specifically asked for "Time if within 24h"
         return `Last seen ${format(lastSeen, 'h:mm a')}`;
     } else {
         // More than 24 hours - show date and time

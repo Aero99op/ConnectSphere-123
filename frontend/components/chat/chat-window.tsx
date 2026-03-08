@@ -62,10 +62,23 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
 
         console.log(`[ChatWindow] Subscribed to Apinator channel: chat-${conversationId}`);
 
+        // Subscribe to recipient profile updates
+        const profileChannel = supabase
+            .channel(`profile-popup-${recipientId}`)
+            .on(
+                'postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${recipientId}` },
+                (payload) => {
+                    setRecipientLastSeen(payload.new.last_seen);
+                }
+            )
+            .subscribe();
+
         return () => {
             client.unsubscribe(`chat-${conversationId}`);
+            supabase.removeChannel(profileChannel);
         };
-    }, [conversationId]);
+    }, [conversationId, recipientId]);
 
     useEffect(() => {
         scrollToBottom();

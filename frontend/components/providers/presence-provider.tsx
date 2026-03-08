@@ -34,9 +34,8 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
                     const state = channel.presenceState();
                     const ids = new Set(Object.keys(state));
                     setOnlineUsers(ids);
-                })
-                .on('presence', { event: 'join' }, ({ newPresences }: any) => {
-                    if (newPresences.some((p: any) => p.user_id === user.id)) {
+
+                    if (ids.has(user.id)) {
                         supabase
                             .from('profiles')
                             .update({ is_online: true, last_seen: new Date().toISOString() })
@@ -44,13 +43,25 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
                             .then();
                     }
                 })
-                .on('presence', { event: 'leave' }, ({ leftPresences }: any) => {
-                    if (leftPresences.some((p: any) => p.user_id === user.id)) {
+                .on('presence', { event: 'join' }, ({ key }: any) => {
+                    if (key === user.id) {
                         supabase
                             .from('profiles')
-                            .update({ is_online: false, last_seen: new Date().toISOString() })
+                            .update({ is_online: true, last_seen: new Date().toISOString() })
                             .eq('id', user.id)
                             .then();
+                    }
+                })
+                .on('presence', { event: 'leave' }, ({ key }: any) => {
+                    if (key === user.id) {
+                        const state = channel.presenceState();
+                        if (!state[user.id] || state[user.id].length === 0) {
+                            supabase
+                                .from('profiles')
+                                .update({ is_online: false, last_seen: new Date().toISOString() })
+                                .eq('id', user.id)
+                                .then();
+                        }
                     }
                 })
                 .subscribe(async (status: string) => {
@@ -62,24 +73,27 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
                     }
                 });
 
-            // Update last_seen periodically while active
+            // Update last_seen periodically while active (every 2 minutes for better precision)
             const interval = setInterval(() => {
                 supabase
                     .from('profiles')
                     .update({ last_seen: new Date().toISOString(), is_online: true })
                     .eq('id', user.id)
                     .then();
-            }, 1000 * 60 * 5); // Every 5 minutes
+            }, 1000 * 60 * 2);
 
             return () => {
                 clearInterval(interval);
+                // Final update on unmount: only if no other tabs are open
+                const state = channel?.presenceState();
+                if (!state || !state[user.id] || state[user.id].length <= 1) {
+                    supabase
+                        .from('profiles')
+                        .update({ is_online: false, last_seen: new Date().toISOString() })
+                        .eq('id', user.id)
+                        .then();
+                }
                 if (channel) supabase.removeChannel(channel);
-                // Final update on unmount
-                supabase
-                    .from('profiles')
-                    .update({ is_online: false, last_seen: new Date().toISOString() })
-                    .eq('id', user.id)
-                    .then();
             };
         };
 
