@@ -44,7 +44,6 @@ function BottomNavContent() {
         { href: "/messages", icon: MessageSquare, label: t('nav.messages') },
         { href: "/notifications", icon: Bell, label: t('nav.notifications') },
         { href: user ? `/profile/${user.id}` : "/login", icon: User, label: t('nav.profile') },
-        { href: "/settings", icon: Settings, label: t('nav.settings') },
     ];
 
     // In Citizen mode, we only want Citizen items for everyone to keep paths strictly separated.

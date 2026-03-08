@@ -1,5 +1,15 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
+import createMiddleware from 'next-intl/middleware';
+
+const locales = ['as', 'bn', 'brx', 'doi', 'gu', 'hi', 'kn', 'ks', 'gom', 'mai', 'ml', 'mni', 'mr', 'ne', 'or', 'pa', 'sa', 'sat', 'sd', 'ta', 'te', 'ur', 'hi_desi', 'en', 'es', 'fr', 'de', 'zh', 'ja', 'ru', 'pt', 'ar', 'it', 'ko'];
+
+const intlMiddleware = createMiddleware({
+    locales,
+    defaultLocale: 'en',
+    localeDetection: true,
+    localePrefix: 'never'
+});
 
 const rateLimit = new Map();
 
@@ -24,7 +34,8 @@ async function checkRateLimit(ip: string) {
 }
 
 export default auth(async (req: any) => {
-    const res = NextResponse.next()
+    // 1. Run Intl Middleware first to handle locale detection/cookies
+    const res = intlMiddleware(req);
 
     // Secure IP Extraction (Cloudflare / Proxies)
     const forwardedFor = req.headers.get('x-forwarded-for')

@@ -106,5 +106,21 @@
         "about": "About ConnectSphere",
         "about_desc": "Version 1.0 (Beta Edition)",
         "logout": "Logout"
+    },
+    "profile": {
+        "posts": "Posts",
+        "quix": "Quix",
+        "about": "About",
+        "followers": "Followers",
+        "following": "Following",
+        "joined": "Joined",
+        "no_posts": "No Posts Yet",
+        "no_quix": "No Quix Yet",
+        "no_content": "No content shared yet.",
+        "identity": "Identity Info",
+        "duties": "Official Duties",
+        "follow": "Follow",
+        "unfollow": "Unfollow",
+        "edit": "Edit Profile"
     }
 }

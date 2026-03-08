@@ -6,8 +6,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
     Grid, Bookmark, LogOut, Loader2, ArrowLeft,
-    AtSign, MapPin, Briefcase, Calendar, Info, Medal, Globe, Clapperboard, Play
+    AtSign, MapPin, Briefcase, Calendar, Info, Medal, Globe, Clapperboard, Play, Settings
 } from "lucide-react";
+import { useTranslation } from "@/components/providers/language-provider";
 import Link from "next/link";
 import { PostCard } from "@/components/feed/post-card";
 import { usePathname, useParams } from "next/navigation";
@@ -42,6 +43,7 @@ function ProfileHeaderSkeleton() {
 
 function AnotherUserProfileContent() {
     const { user: authUser, supabase } = useAuth();
+    const { t } = useTranslation();
     const params = useParams();
     const userId = params.id as string;
 
@@ -222,8 +224,8 @@ function AnotherUserProfileContent() {
         <div className="min-h-screen bg-[#050507] flex flex-col items-center justify-center p-6 text-center">
             <h1 className="text-4xl font-display font-black text-white uppercase tracking-widest mb-4">404_NOT_FOUND</h1>
             <p className="text-zinc-500 font-mono">This profile does not exist.</p>
-            <Link href="/search">
-                <Button className="mt-8 bg-primary text-black font-bold uppercase tracking-widest hover:bg-primary/90 rounded-full px-8">Go Back</Button>
+            <Link href="/">
+                <Button className="mt-8 bg-primary text-black font-bold uppercase tracking-widest hover:bg-primary/90 rounded-full px-8">{t('common.done')}</Button>
             </Link>
         </div>
     );
@@ -239,11 +241,16 @@ function AnotherUserProfileContent() {
             {/* Top Navigation Bar / App Bar */}
             <div className="sticky top-0 z-50 glass border-b border-white/5 px-4 h-14 flex items-center justify-between xl:hidden">
                 <div className="flex items-center gap-3">
-                    <Link href="/search" className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors active:scale-95">
+                    <Link href="/" className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors active:scale-95">
                         <ArrowLeft className="w-5 h-5 text-white" />
                     </Link>
                     <span className="font-display font-black text-lg tracking-tighter truncate max-w-[200px]">{profile.username}</span>
                 </div>
+                {currentUser?.id === userId && (
+                    <Link href="/settings" className="p-2 rounded-full hover:bg-white/10 transition-colors">
+                        <Settings className="w-5 h-5 text-zinc-400" />
+                    </Link>
+                )}
             </div>
 
             {/* Profile Header Block */}
@@ -277,7 +284,7 @@ function AnotherUserProfileContent() {
                                     {profile.full_name || profile.username}
                                     {isOfficial && (
                                         <span className="bg-blue-500/10 text-blue-400 text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border border-blue-500/20 flex items-center gap-1 shrink-0">
-                                            <Medal className="w-3 h-3" /> Official
+                                            <Medal className="w-3 h-3" /> {t('profile.duties')}
                                         </span>
                                     )}
                                 </h1>
@@ -288,7 +295,7 @@ function AnotherUserProfileContent() {
                             </div>
 
                             <div className="flex gap-3 w-full sm:w-auto mt-4 sm:mt-0">
-                                {currentUser?.id !== userId && (
+                                {currentUser?.id !== userId ? (
                                     <Button
                                         onClick={handleFollowToggle}
                                         disabled={followLoading}
@@ -297,8 +304,14 @@ function AnotherUserProfileContent() {
                                             : 'bg-primary text-black hover:bg-primary/90 shadow-[0_0_20px_rgba(255,165,0,0.3)]'
                                             }`}
                                     >
-                                        {followLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : isFollowing ? 'Unfollow' : 'Follow'}
+                                        {followLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : isFollowing ? t('quix.unfollow') : t('quix.follow')}
                                     </Button>
+                                ) : (
+                                    <Link href="/settings" className="w-full sm:w-auto">
+                                        <Button className="w-full uppercase font-bold tracking-widest h-11 px-8 rounded-full bg-zinc-800 text-white hover:bg-zinc-700 border border-white/10 flex items-center gap-2">
+                                            <Settings className="w-4 h-4" /> {t('nav.settings')}
+                                        </Button>
+                                    </Link>
                                 )}
                             </div>
                         </div>
@@ -332,7 +345,7 @@ function AnotherUserProfileContent() {
                                 )}
                                 <div className="flex items-center gap-3 text-zinc-500 text-sm">
                                     <Calendar className="w-4 h-4 shrink-0" />
-                                    <span>Joined {joinDate}</span>
+                                    <span>{t('profile.joined')} {joinDate}</span>
                                 </div>
                             </div>
                         </div>
@@ -342,22 +355,22 @@ function AnotherUserProfileContent() {
                             <div className="flex gap-4 sm:gap-6 justify-between sm:justify-start glass p-4 rounded-3xl border-premium md:w-fit">
                                 <div onClick={() => setActiveTab('posts')} className="text-center sm:px-4 cursor-pointer hover:bg-white/5 rounded-2xl transition-colors py-2 flex-1 sm:flex-none">
                                     <div className="font-display font-black text-2xl text-white">{stats.posts}</div>
-                                    <div className="text-[10px] font-mono font-black text-zinc-500 uppercase tracking-widest">Posts</div>
+                                    <div className="text-[10px] font-mono font-black text-zinc-500 uppercase tracking-widest">{t('profile.posts')}</div>
                                 </div>
                                 <div className="w-px bg-white/10 my-2" />
                                 <div onClick={() => setActiveTab('quix')} className="text-center sm:px-4 cursor-pointer hover:bg-white/5 rounded-2xl transition-colors py-2 flex-1 sm:flex-none">
                                     <div className="font-display font-black text-2xl text-white">{stats.quix}</div>
-                                    <div className="text-[10px] font-mono font-black text-zinc-500 uppercase tracking-widest">Quix</div>
+                                    <div className="text-[10px] font-mono font-black text-zinc-500 uppercase tracking-widest">{t('profile.quix')}</div>
                                 </div>
                                 <div className="w-px bg-white/10 my-2" />
                                 <div onClick={() => fetchFollowList('followers')} className="text-center sm:px-4 cursor-pointer hover:bg-white/5 rounded-2xl transition-colors py-2 flex-1 sm:flex-none">
                                     <div className="font-display font-black text-2xl text-white">{stats.followers}</div>
-                                    <div className="text-[10px] font-mono font-black text-zinc-500 uppercase tracking-widest">Followers</div>
+                                    <div className="text-[10px] font-mono font-black text-zinc-500 uppercase tracking-widest">{t('profile.followers')}</div>
                                 </div>
                                 <div className="w-px bg-white/10 my-2" />
                                 <div onClick={() => fetchFollowList('following')} className="text-center sm:px-4 cursor-pointer hover:bg-white/5 rounded-2xl transition-colors py-2 flex-1 sm:flex-none">
                                     <div className="font-display font-black text-2xl text-white">{stats.following}</div>
-                                    <div className="text-[10px] font-mono font-black text-zinc-500 uppercase tracking-widest">Following</div>
+                                    <div className="text-[10px] font-mono font-black text-zinc-500 uppercase tracking-widest">{t('profile.following')}</div>
                                 </div>
                             </div>
                         </div>
@@ -375,21 +388,21 @@ function AnotherUserProfileContent() {
                         className={`flex-1 flex items-center justify-center gap-2 py-3 sm:py-2.5 rounded-full text-sm font-bold uppercase tracking-widest transition-all ${activeTab === "posts" ? 'bg-white/10 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
                             }`}
                     >
-                        <Grid className="w-4 h-4" /> Posts
+                        <Grid className="w-4 h-4" /> {t('profile.posts')}
                     </button>
                     <button
                         onClick={() => setActiveTab("quix")}
                         className={`flex-1 flex items-center justify-center gap-2 py-3 sm:py-2.5 rounded-full text-sm font-bold uppercase tracking-widest transition-all ${activeTab === "quix" ? 'bg-white/10 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
                             }`}
                     >
-                        <Clapperboard className="w-4 h-4" /> Quix
+                        <Clapperboard className="w-4 h-4" /> {t('profile.quix')}
                     </button>
                     <button
                         onClick={() => setActiveTab("about")}
                         className={`flex-1 flex items-center justify-center gap-2 py-3 sm:py-2.5 rounded-full text-sm font-bold uppercase tracking-widest transition-all ${activeTab === "about" ? 'bg-white/10 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
                             }`}
                     >
-                        <Info className="w-4 h-4" /> About
+                        <Info className="w-4 h-4" /> {t('profile.about')}
                     </button>
                 </div>
 
@@ -412,8 +425,8 @@ function AnotherUserProfileContent() {
                                     <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/10">
                                         <Grid className="w-8 h-8 text-zinc-600" />
                                     </div>
-                                    <h3 className="font-display font-black text-xl uppercase tracking-widest text-zinc-500">No Posts Yet</h3>
-                                    <p className="text-sm font-mono text-zinc-700 mt-2 uppercase tracking-widest">No content shared yet.</p>
+                                    <h3 className="font-display font-black text-xl uppercase tracking-widest text-zinc-500">{t('profile.no_posts')}</h3>
+                                    <p className="text-sm font-mono text-zinc-700 mt-2 uppercase tracking-widest">{t('profile.no_content')}</p>
                                 </div>
                             )}
                         </div>
