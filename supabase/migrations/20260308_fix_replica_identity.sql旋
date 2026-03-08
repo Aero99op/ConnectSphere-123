@@ -1,0 +1,5 @@
+-- Final fix for presence tracking to ensure row identification
+ALTER TABLE public.profiles REPLICA IDENTITY FULL;
+
+-- Ensure it's in publication (idempotent)
+ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;

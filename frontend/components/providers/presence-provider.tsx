@@ -1,7 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { getSupabase } from '@/lib/supabase';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import { useAuth } from './auth-provider';
 
 interface PresenceContextType {
     onlineUsers: Set<string>;
@@ -11,15 +11,22 @@ interface PresenceContextType {
 const PresenceContext = createContext<PresenceContextType | undefined>(undefined);
 
 export function PresenceProvider({ children }: { children: React.ReactNode }) {
-    const supabase = getSupabase();
+    const { user, supabase } = useAuth();
     const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+    const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
+        if (!user || !supabase) {
+            setOnlineUsers(new Set());
+            if (intervalRef.current) clearInterval(intervalRef.current);
+            return;
+        }
+
         let channel: any;
 
         const setupPresence = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            // Cleanup existing if any
+            if (intervalRef.current) clearInterval(intervalRef.current);
 
             channel = supabase.channel('online-users', {
                 config: {
@@ -35,6 +42,7 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
                     const ids = new Set(Object.keys(state));
                     setOnlineUsers(ids);
 
+                    // Mark self as online in DB if synced
                     if (ids.has(user.id)) {
                         supabase
                             .from('profiles')
@@ -73,19 +81,23 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
                     }
                 });
 
-            // Update last_seen periodically while active (every 2 minutes for better precision)
-            const interval = setInterval(() => {
+            // Update last_seen periodically (every 2 minutes)
+            intervalRef.current = setInterval(() => {
                 supabase
                     .from('profiles')
                     .update({ last_seen: new Date().toISOString(), is_online: true })
                     .eq('id', user.id)
                     .then();
             }, 1000 * 60 * 2);
+        };
 
-            return () => {
-                clearInterval(interval);
-                // Final update on unmount: only if no other tabs are open
-                const state = channel?.presenceState();
+        setupPresence();
+
+        return () => {
+            if (intervalRef.current) clearInterval(intervalRef.current);
+            if (channel) {
+                // Final update on unmount if no other tabs
+                const state = channel.presenceState();
                 if (!state || !state[user.id] || state[user.id].length <= 1) {
                     supabase
                         .from('profiles')
@@ -93,16 +105,10 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
                         .eq('id', user.id)
                         .then();
                 }
-                if (channel) supabase.removeChannel(channel);
-            };
+                supabase.removeChannel(channel);
+            }
         };
-
-        setupPresence();
-
-        return () => {
-            if (channel) supabase.removeChannel(channel);
-        };
-    }, []);
+    }, [user, supabase]);
 
     const isUserOnline = (userId: string) => onlineUsers.has(userId);
 

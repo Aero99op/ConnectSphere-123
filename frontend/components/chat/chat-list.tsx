@@ -41,14 +41,15 @@ export function ChatList() {
                 'postgres_changes',
                 { event: 'UPDATE', schema: 'public', table: 'profiles' },
                 (payload) => {
+                    const updatedProfile = payload.new;
                     setConversations(prev => prev.map(conv => {
-                        if (!conv.is_group && conv.recipient.id === payload.new.id) {
+                        if (!conv.is_group && conv.recipient.id === updatedProfile.id) {
                             return {
                                 ...conv,
                                 recipient: {
                                     ...conv.recipient,
-                                    last_seen: payload.new.last_seen,
-                                    is_online: payload.new.is_online
+                                    last_seen: updatedProfile.last_seen,
+                                    is_online: updatedProfile.is_online
                                 }
                             };
                         }
@@ -76,8 +77,8 @@ export function ChatList() {
                 group_name,
                 group_avatar,
                 updated_at,
-                user1:profiles!user1_id(full_name, username, avatar_url, last_seen),
-                user2:profiles!user2_id(full_name, username, avatar_url, last_seen)
+                user1:profiles!user1_id(id, full_name, username, avatar_url, last_seen, is_online),
+                user2:profiles!user2_id(id, full_name, username, avatar_url, last_seen, is_online)
             `)
             .order("updated_at", { ascending: false });
 
@@ -106,6 +107,7 @@ export function ChatList() {
                             username: otherUser?.username || "unknown",
                             avatar_url: otherUser?.avatar_url || "",
                             last_seen: otherUser?.last_seen || null,
+                            is_online: otherUser?.is_online || false,
                             is_group: false
                         }
                     };
