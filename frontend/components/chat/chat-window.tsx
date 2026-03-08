@@ -30,6 +30,7 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
     const [recipientLastSeen, setRecipientLastSeen] = useState<string | null>(null);
     const { isUserOnline } = usePresence();
     const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+    const [isRecipientOnlineFromDB, setIsRecipientOnlineFromDB] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -91,13 +92,22 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                 { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${recipientId}` },
                 (payload) => {
                     setRecipientLastSeen(payload.new.last_seen);
+                    setIsRecipientOnlineFromDB(payload.new.is_online);
+                    // Force re-render for presence update
+                    setMessages((prev: any[]) => [...prev]);
                 }
             )
             .subscribe();
 
+        // Initial check for is_online
+        supabase.from('profiles').select('is_online').eq('id', recipientId).single()
+            .then(({ data }) => {
+                if (data) setIsRecipientOnlineFromDB(data.is_online);
+            });
+
         return () => {
             window.removeEventListener('focus', handleFocus);
-            client.unsubscribe(`chat-${conversationId}`);
+            if (client) client.unsubscribe(`chat-${conversationId}`);
             supabase.removeChannel(profileChannel);
         };
     }, [conversationId, recipientId, supabase]);
@@ -379,7 +389,7 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                                             <div className="absolute right-0 -bottom-4 flex items-center gap-0.5">
                                                 {msg.is_read ? (
                                                     <CheckCheck className="w-3.5 h-3.5 text-[#ff9933]" />
-                                                ) : isUserOnline(recipientId) ? (
+                                                ) : (isUserOnline(recipientId) || isRecipientOnlineFromDB) ? (
                                                     <CheckCheck className="w-3.5 h-3.5 text-zinc-500 opacity-70" />
                                                 ) : (
                                                     <Check className="w-3.5 h-3.5 text-zinc-500 opacity-70" />

@@ -36,6 +36,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     const [recipientLastSeen, setRecipientLastSeen] = useState<string | null>(null);
     const { isUserOnline } = usePresence();
     const [showAddMembers, setShowAddMembers] = useState(false);
+    const [isRecipientOnlineFromDB, setIsRecipientOnlineFromDB] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
     const [typingUsers, setTypingUsers] = useState<Map<string, number>>(new Map()); // userId -> timestamp
     const [messageContextMenuId, setMessageContextMenuId] = useState<string | null>(null);
@@ -191,6 +192,9 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                     (payload) => {
                         if (isMounted) {
                             setRecipientLastSeen(payload.new.last_seen);
+                            setIsRecipientOnlineFromDB(payload.new.is_online);
+                            // Force re-render
+                            setMessages((prev: any[]) => [...prev]);
                         }
                     }
                 )
@@ -964,7 +968,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                                                     <div className="absolute right-0 -bottom-4 flex items-center gap-0.5">
                                                         {msg.is_read ? (
                                                             <CheckCheck className="w-3.5 h-3.5 text-[#ff9933]" />
-                                                        ) : isUserOnline(recipientId) ? (
+                                                        ) : (isUserOnline(recipientId) || isRecipientOnlineFromDB) ? (
                                                             <CheckCheck className="w-3.5 h-3.5 text-zinc-500 opacity-70" />
                                                         ) : (
                                                             <Check className="w-3.5 h-3.5 text-zinc-500 opacity-70" />
