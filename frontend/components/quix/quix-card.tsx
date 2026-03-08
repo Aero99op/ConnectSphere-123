@@ -25,6 +25,9 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
     const [likesCount, setLikesCount] = useState(quix.likes_count || 0);
     const [repostsCount, setRepostsCount] = useState(quix.reposts_count || 0);
     const [showShareSheet, setShowShareSheet] = useState(false);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+    const [isDragging, setIsDragging] = useState(false);
 
     useEffect(() => {
         const music = quix.customization?.music;
@@ -145,6 +148,26 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
         }
     };
 
+    const handleTimeUpdate = () => {
+        if (videoRef.current && !isDragging) {
+            setCurrentTime(videoRef.current.currentTime);
+        }
+    };
+
+    const handleLoadedMetadata = () => {
+        if (videoRef.current) {
+            setDuration(videoRef.current.duration);
+        }
+    };
+
+    const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const time = parseFloat(e.target.value);
+        setCurrentTime(time);
+        if (videoRef.current) {
+            videoRef.current.currentTime = time;
+        }
+    };
+
     return (
         <div className="relative w-full h-full bg-black snap-start overflow-hidden group">
             <video
@@ -159,8 +182,11 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
                 loop
                 muted={isMuted}
                 playsInline
+                autoPlay
                 onClick={() => setIsMuted(!isMuted)}
                 onDoubleClick={handleLike}
+                onTimeUpdate={handleTimeUpdate}
+                onLoadedMetadata={handleLoadedMetadata}
             />
 
             {/* Overlay Gradient */}
@@ -252,6 +278,32 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
                         {quix.customization?.music ? `${quix.customization.music.name} - ${quix.customization.music.artist}` : `Original Audio - ${quix.profiles?.username}`}
                     </span>
                 </div>
+            </div>
+
+            {/* Progress Slider (YouTube Style) */}
+            <div className="absolute bottom-0 left-0 right-0 h-1 z-30 group/slider hover:h-2 transition-all cursor-pointer">
+                <input
+                    type="range"
+                    min="0"
+                    max={duration}
+                    step="0.1"
+                    value={currentTime}
+                    onChange={handleSliderChange}
+                    onMouseDown={() => setIsDragging(true)}
+                    onMouseUp={() => setIsDragging(false)}
+                    onTouchStart={() => setIsDragging(true)}
+                    onTouchEnd={() => setIsDragging(false)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                />
+                <div className="absolute inset-0 bg-white/20" />
+                <div
+                    className="absolute inset-y-0 left-0 bg-orange-500 transition-all duration-75"
+                    style={{ width: `${(currentTime / duration) * 100}%` }}
+                />
+                <div
+                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-orange-500 rounded-full opacity-0 group-hover/slider:opacity-100 transition-opacity shadow-lg"
+                    style={{ left: `calc(${(currentTime / duration) * 100}% - 6px)` }}
+                />
             </div>
 
             {/* Stickers Overlay */}
