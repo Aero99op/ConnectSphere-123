@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createAdminSupabaseClient } from '@/lib/auth';
+import { createAdminSupabaseClient, hashPassword } from '@/lib/auth';
 export const runtime = 'edge';
 
 function generateToken() {
@@ -36,10 +36,11 @@ export async function POST(req: Request) {
         const expires = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(); // 2 hours
 
         // Store metadata for signup (Deferred creation)
+        // SECURITY: Hash password before storing — never store plaintext
         const metadata = action === 'signup' ? {
-            password, // We'll hash it here for security OR just store it if we trust the channel
+            password: await hashPassword(password),
             fullName,
-            role: 'citizen' // CRITICAL FIX: Hardcoded to citizen for public signup
+            role: 'citizen'
         } : null;
 
         // 1. Cleanup old tokens for this email

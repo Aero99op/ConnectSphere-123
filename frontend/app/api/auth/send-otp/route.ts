@@ -97,13 +97,11 @@ export async function POST(req: Request) {
         return NextResponse.json({ message: 'OTP sent successfully' });
 
     } catch (error: any) {
-        console.error('Send OTP Handler Error Full:', error);
+        // SECURITY: Log full error server-side, return generic message to client
+        console.error('Send OTP Handler Error Full:', error?.message, error?.stack);
 
-        // Return raw error strictly for debugging the live environment
         return NextResponse.json({
-            error: 'Internal server error',
-            details: error?.message || String(error),
-            stack: error?.stack
+            error: 'Internal server error'
         }, { status: 500 });
     }
 }

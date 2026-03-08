@@ -19,6 +19,18 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
         }
 
+        // SECURITY: Validate file size (50MB max server-side)
+        if (file.size > 50 * 1024 * 1024) {
+            return NextResponse.json({ error: 'File too large. Max 50MB.' }, { status: 413 });
+        }
+
+        // SECURITY: Validate file type
+        const allowedTypes = ['image/', 'video/', 'audio/', 'application/pdf'];
+        const isAllowed = allowedTypes.some(t => file.type.startsWith(t));
+        if (!isAllowed && file.type) {
+            return NextResponse.json({ error: 'File type not allowed' }, { status: 415 });
+        }
+
         const catboxFormData = new FormData();
         catboxFormData.append('reqtype', 'fileupload');
 

@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
+import { auth } from '@/auth';
 
 export const runtime = 'edge';
 
 export async function POST(request: Request) {
     try {
+        // SECURITY: Require authentication
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const formData = await request.formData();
 
         const response = await fetch("https://catbox.moe/user/api.php", {

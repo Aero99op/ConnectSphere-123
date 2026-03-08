@@ -58,7 +58,8 @@ export async function GET(req: Request) {
         if (metadata) {
             // SIGNUP FLOW: Create Profile now
             const userId = await emailToUUID(email);
-            const hashedPassword = await hashPassword(metadata.password);
+            // Password is already hashed in send-verification route
+            const hashedPassword = metadata.password;
 
             const { error: insertError } = await adminSupabase
                 .from('profiles')
@@ -67,7 +68,7 @@ export async function GET(req: Request) {
                     email: email,
                     username: email.split('@')[0] + Math.floor(Math.random() * 1000),
                     full_name: metadata.fullName || email.split('@')[0],
-                    role: metadata.role || 'citizen',
+                    role: 'citizen', // SECURITY: Always hardcode — never trust metadata
                     password_hash: hashedPassword,
                     email_verified: new Date().toISOString(),
                     is_onboarded: false,

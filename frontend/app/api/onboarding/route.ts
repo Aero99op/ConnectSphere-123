@@ -6,14 +6,23 @@ import { auth } from '@/auth';
 import { createAdminSupabaseClient, emailToUUID } from '@/lib/auth';
 
 // Edge-compatible sanitizer (DOMPurify crashes in Edge Runtime — no DOM)
+// Strengthened against entity encoding, unicode, and null byte bypasses
 function edgeSanitize(input: string): string {
     if (!input) return "";
-    return input
-        .replace(/[<>]/g, '') // Strip angle brackets
-        .replace(/javascript:/gi, '')
-        .replace(/on\w+\s*=/gi, '')
-        .trim()
-        .slice(0, 500); // Length limit
+    let s = input;
+    // Strip null bytes
+    s = s.replace(/\0/g, '');
+    // Decode HTML entities that could hide tags
+    s = s.replace(/&#x([0-9a-f]+);?/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+    s = s.replace(/&#(\d+);?/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)));
+    // Strip angle brackets and script-related patterns
+    s = s.replace(/[<>]/g, '');
+    s = s.replace(/javascript\s*:/gi, '');
+    s = s.replace(/on\w+\s*=/gi, '');
+    s = s.replace(/\\u003[cC]/g, '').replace(/\\u003[eE]/g, ''); // Unicode escapes for < >
+    // Only allow safe characters for profile fields (letters, numbers, spaces, basic punctuation)
+    s = s.replace(/[^\p{L}\p{N}\s.,!?@#$%&*()_+\-=:;'"\/\\[\]{}|~`^]/gu, '');
+    return s.trim().slice(0, 500);
 }
 
 // GET /api/onboarding — Check if user is onboarded
