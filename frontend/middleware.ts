@@ -92,7 +92,7 @@ export default auth(async (req: any) => {
 
     const cspHeader = `
         default-src 'self';
-        script-src 'self' 'nonce-${nonce}' https://accounts.google.com https://apis.google.com;
+        script-src 'self' 'unsafe-inline' 'nonce-${nonce}' https://accounts.google.com https://apis.google.com;
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         img-src 'self' blob: data: 
             https://*.googleusercontent.com 
