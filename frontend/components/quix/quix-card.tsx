@@ -10,6 +10,7 @@ import { ShareSheet } from "@/components/feed/share-sheet";
 import { CommentSheet } from "@/components/feed/comment-sheet";
 import { toast } from "sonner";
 import Link from "next/link";
+import { QuixOptionsSheet } from "./quix-options-sheet";
 
 interface QuixCardProps {
     quix: any;
@@ -314,6 +315,14 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
                 >
                     <Share2 className="w-7 h-7" />
                 </button>
+
+                <QuixOptionsSheet
+                    quix={quix}
+                    isOwner={user?.id === quix.user_id}
+                    onDelete={() => {
+                        window.location.reload(); // Simple way to force refresh the feed
+                    }}
+                />
 
                 <button
                     onClick={handleAddToStory}
