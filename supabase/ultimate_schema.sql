@@ -9,6 +9,8 @@ create table if not exists public.profiles (
   role text check (role in ('citizen', 'official', 'admin')) default 'citizen',
   department text,
   assigned_area text,
+  last_seen timestamp with time zone default timezone('utc'::text, now()),
+  is_online boolean default false,
   updated_at timestamp with time zone default timezone('utc'::text, now())
 );
 
@@ -207,4 +209,4 @@ begin;
   drop publication if exists supabase_realtime;
   create publication supabase_realtime;
 commit;
-alter publication supabase_realtime add table public.messages, public.posts, public.stories;
+alter publication supabase_realtime add table public.messages, public.posts, public.stories, public.profiles;

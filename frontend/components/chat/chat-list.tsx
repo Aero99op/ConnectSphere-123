@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { usePeer } from "@/hooks/use-peer";
+import { usePresence } from "@/components/providers/presence-provider";
+import { formatLastSeen } from "@/lib/utils/presence";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MessageCircle, X, Loader2, Plus } from "lucide-react";
 import { ChatWindow } from "./chat-window";
@@ -20,6 +22,7 @@ export function ChatList() {
     const [showCreateGroup, setShowCreateGroup] = useState(false);
     const [showNewChat, setShowNewChat] = useState(false);
     const { incomingSignal, clearSignal } = usePeer();
+    const { isUserOnline } = usePresence();
 
     useEffect(() => {
         if (authUser) fetchConversations(authUser.id);
@@ -46,8 +49,8 @@ export function ChatList() {
                 group_name,
                 group_avatar,
                 updated_at,
-                user1:profiles!user1_id(full_name, username, avatar_url),
-                user2:profiles!user2_id(full_name, username, avatar_url)
+                user1:profiles!user1_id(full_name, username, avatar_url, last_seen),
+                user2:profiles!user2_id(full_name, username, avatar_url, last_seen)
             `)
             .order("updated_at", { ascending: false });
 
@@ -75,6 +78,7 @@ export function ChatList() {
                             full_name: otherUser?.full_name || "Unknown User",
                             username: otherUser?.username || "unknown",
                             avatar_url: otherUser?.avatar_url || "",
+                            last_seen: otherUser?.last_seen || null,
                             is_group: false
                         }
                     };
@@ -153,12 +157,24 @@ export function ChatList() {
                                     onClick={() => setActiveChat(chat)}
                                     className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 cursor-pointer transition-colors border border-transparent hover:border-white/10"
                                 >
-                                    <Avatar>
-                                        <AvatarImage src={chat.recipient.avatar_url} />
-                                        <AvatarFallback>{chat.recipient.full_name?.[0]}</AvatarFallback>
-                                    </Avatar>
+                                    <div className="relative">
+                                        <Avatar>
+                                            <AvatarImage src={chat.recipient.avatar_url} />
+                                            <AvatarFallback>{chat.recipient.full_name?.[0]}</AvatarFallback>
+                                        </Avatar>
+                                        {!chat.recipient.is_group && isUserOnline(chat.recipient.id) && (
+                                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-black rounded-full" />
+                                        )}
+                                    </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-semibold text-sm text-white truncate">{chat.recipient.full_name}</p>
+                                        <div className="flex items-center justify-between">
+                                            <p className="font-semibold text-sm text-white truncate">{chat.recipient.full_name}</p>
+                                            {!chat.recipient.is_group && !isUserOnline(chat.recipient.id) && (
+                                                <span className="text-[10px] text-zinc-500">
+                                                    {formatLastSeen(chat.recipient.last_seen)}
+                                                </span>
+                                            )}
+                                        </div>
                                         <p className="text-xs text-zinc-400 truncate">@{chat.recipient.username}</p>
                                     </div>
                                 </div>

@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { FileUpload } from "@/components/ui/file-upload";
+import { usePresence } from "@/components/providers/presence-provider";
+import { formatLastSeen } from "@/lib/utils/presence";
 import { downloadAndMergeChunks } from "@/lib/utils/chunk-uploader";
 
 interface ChatWindowProps {
@@ -25,6 +27,8 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
     const [messages, setMessages] = useState<any[]>([]);
     const [newMessage, setNewMessage] = useState("");
     const [loading, setLoading] = useState(true);
+    const [recipientLastSeen, setRecipientLastSeen] = useState<string | null>(null);
+    const { isUserOnline } = usePresence();
     const [isUploadingMedia, setIsUploadingMedia] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -73,6 +77,14 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
 
     const fetchMessages = async () => {
         setLoading(true);
+
+        // Fetch recipient's last_seen if not a group
+        if (!isGroup && recipientId) {
+            supabase.from('profiles').select('last_seen').eq('id', recipientId).single()
+                .then(({ data }) => {
+                    if (data) setRecipientLastSeen(data.last_seen);
+                });
+        }
         // Helper: 'sender:sender_id(...)' might fail if relationship mapping isn't auto-detected.
         // Using 'profiles!sender_id' is safer if FK is explicit.
         // Let's try select `*, sender:profiles!sender_id(...)`
@@ -208,13 +220,20 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
             {/* Header */}
             <div className="bg-primary/90 p-3 flex items-center justify-between text-white shadow-md">
                 <div className="flex items-center gap-2">
-                    <Avatar className="h-8 w-8 border border-white/50">
-                        <AvatarImage src={recipientAvatar} />
-                        <AvatarFallback>{recipientName[0]}</AvatarFallback>
-                    </Avatar>
+                    <div className="relative">
+                        <Avatar className="h-8 w-8 border border-white/50">
+                            <AvatarImage src={recipientAvatar} />
+                            <AvatarFallback>{recipientName[0]}</AvatarFallback>
+                        </Avatar>
+                        {!isGroup && isUserOnline(recipientId) && (
+                            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-black rounded-full" />
+                        )}
+                    </div>
                     <div className="flex flex-col">
                         <span className="font-semibold text-sm truncate max-w-[120px]">{recipientName}</span>
-                        {isGroup && <span className="text-[10px] text-white/70">Group Chat</span>}
+                        <span className="text-[10px] text-white/70">
+                            {isGroup ? "Group Chat" : (isUserOnline(recipientId) ? "Online" : formatLastSeen(recipientLastSeen))}
+                        </span>
                     </div>
                 </div>
                 <div className="flex items-center gap-1">

@@ -8,6 +8,8 @@ import { Send, ChevronLeft, Loader2, Video, Phone, MoreVertical, Image as ImageI
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { usePresence } from "@/components/providers/presence-provider";
+import { formatLastSeen } from "@/lib/utils/presence";
 import { AddGroupMembersDialog } from "./add-group-members-dialog";
 import Image from "next/image";
 
@@ -31,6 +33,8 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     const [messages, setMessages] = useState<any[]>([]);
     const [newMessage, setNewMessage] = useState("");
     const [loading, setLoading] = useState(true);
+    const [recipientLastSeen, setRecipientLastSeen] = useState<string | null>(null);
+    const { isUserOnline } = usePresence();
     const [showAddMembers, setShowAddMembers] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
     const [typingUsers, setTypingUsers] = useState<Map<string, number>>(new Map()); // userId -> timestamp
@@ -224,6 +228,14 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
 
     const fetchMessages = async () => {
         setLoading(true);
+
+        // Fetch recipient's last_seen if not a group
+        if (!isGroup && recipientId) {
+            supabase.from('profiles').select('last_seen').eq('id', recipientId).single()
+                .then(({ data }) => {
+                    if (data) setRecipientLastSeen(data.last_seen);
+                });
+        }
         const { data, error } = await supabase
             .from("messages")
             .select(`
@@ -611,15 +623,17 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                             <AvatarImage src={recipientAvatar} />
                             <AvatarFallback className="bg-zinc-800 text-zinc-400">{recipientName[0]}</AvatarFallback>
                         </Avatar>
-                        {!isGroup && <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-black rounded-full" />}
+                        {!isGroup && isUserOnline(recipientId) && <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-black rounded-full" />}
                     </div>
                     <div className="flex flex-col justify-center -space-y-0.5">
                         <span className="font-bold text-[15px] text-white tracking-tight">{recipientName}</span>
                         {isGroup ? (
                             <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Mandli</span>
                         ) : (
-                            <span className={cn("text-[11px] font-medium transition-colors", typingUsers.size > 0 ? "text-orange-400" : "text-zinc-400")}>
-                                {typingUsers.size > 0 ? "typing..." : "Active now"}
+                            <span className={cn("text-[11px] font-medium transition-colors",
+                                typingUsers.size > 0 ? "text-orange-400" : (isUserOnline(recipientId) ? "text-green-400" : "text-zinc-400")
+                            )}>
+                                {typingUsers.size > 0 ? "typing..." : (isUserOnline(recipientId) ? "Online" : formatLastSeen(recipientLastSeen))}
                             </span>
                         )}
                     </div>
