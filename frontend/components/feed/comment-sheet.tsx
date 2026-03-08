@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
+import { toast } from "sonner";
+import { triggerMentions } from "@/lib/utils/mentions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, Send } from "lucide-react";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -63,19 +65,28 @@ export function CommentSheet({ postId, quixId, open, onOpenChange }: CommentShee
         if (!newComment.trim()) return;
 
         try {
-            if (!user) return alert("Login toh karlo!");
+            if (!user) return toast.error("Login toh karlo!");
 
-            const { error } = await supabase.from("comments").insert({
+            const { data, error } = await supabase.from("comments").insert({
                 post_id: postId || null,
                 quix_id: quixId || null,
                 user_id: user.id,
                 content: newComment
-            });
+            }).select(); // Add .select() to return the inserted row
 
             if (error) {
                 console.error("Comment Insertion Error:", error);
-                alert(`Comment fail ho gaya: ${error.message}`);
+                toast.error("Comment nahi hua!");
                 return;
+            } else {
+                setNewComment("");
+                fetchComments(); // Refresh
+                toast.success("Baatcheet shuru! 💬");
+
+                // Trigger Mentions
+                if (data && data[0]) {
+                    triggerMentions(supabase, newComment, user.id, data[0].id, 'comment');
+                }
             }
 
             // Trigger Notification + Broadcast Signal (Hyper-Scale)

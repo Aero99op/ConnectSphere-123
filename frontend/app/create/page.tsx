@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { sanitizeInput } from "@/lib/utils";
 
 import { PostEditor } from "@/components/create/post-editor";
+import { triggerMentions } from "@/lib/utils/mentions";
 
 function CreatePostPageContent() {
     const { user: authUser, supabase } = useAuth();
@@ -80,6 +81,11 @@ function CreatePostPageContent() {
                 toast.error("Failed to upload Quix!");
                 setLoading(false);
             } else {
+                // Trigger Mentions
+                const { data: newQuix } = await supabase.from('quix').select('id').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).single();
+                if (newQuix) {
+                    triggerMentions(supabase, sanitizedCaption, userId, newQuix.id, 'quix');
+                }
                 router.push("/quix");
             }
             return;
@@ -100,6 +106,11 @@ function CreatePostPageContent() {
             alert("Post failed! Please try again.");
             setLoading(false);
         } else {
+            // Trigger Mentions
+            const { data: newPost } = await supabase.from('posts').select('id').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).single();
+            if (newPost) {
+                triggerMentions(supabase, sanitizedCaption, userId, newPost.id, 'post');
+            }
             router.push("/"); // Go to Feed
         }
     };

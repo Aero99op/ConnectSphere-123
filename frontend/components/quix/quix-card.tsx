@@ -11,6 +11,7 @@ import { CommentSheet } from "@/components/feed/comment-sheet";
 import { toast } from "sonner";
 import Link from "next/link";
 import { QuixOptionsSheet } from "./quix-options-sheet";
+import { notifyStoryShare } from "@/lib/utils/mentions";
 
 interface QuixCardProps {
     quix: any;
@@ -29,6 +30,7 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
     const [repostsCount, setRepostsCount] = useState(quix.reposts_count || 0);
     const [showShareSheet, setShowShareSheet] = useState(false);
     const [showComments, setShowComments] = useState(false);
+    const [showHeartAnimation, setShowHeartAnimation] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
@@ -132,6 +134,8 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
         } else {
             setIsLiked(true);
             setLikesCount((prev: number) => prev + 1);
+            setShowHeartAnimation(true);
+            setTimeout(() => setShowHeartAnimation(false), 800);
             await supabase.from('quix_likes').insert({ quix_id: quix.id, user_id: user.id });
             toast.success("Dil khush kar diya! ❤️");
         }
@@ -186,17 +190,22 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
 
     const handleAddToStory = async () => {
         if (!user) return toast.error("Login to add story!");
-        const { error } = await supabase.from('stories').insert({
-            user_id: user.id,
-            quix_id: quix.id,
-            media_url: quix.video_url, // Fallback for old story viewers
-            thumbnail_url: quix.thumbnail_url,
-            media_type: 'video',
-            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-        });
-        if (error) {
-            toast.error("Story nahi lagi!");
-        } else {
+        try {
+            const { error } = await supabase.from('stories').insert({
+                user_id: user.id,
+                media_urls: [quix.video_url],
+                media_type: 'video',
+                thumbnail_url: quix.thumbnail_url,
+                expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+            });
+
+            if (error) throw error;
+
+            // Notify the Quix owner
+            await notifyStoryShare(supabase, quix.user_id, user.id, quix.id);
+
+            toast.success("Story mein laga diya! 🌌");
+        } catch (error: any) {
             toast.success("Story lag gayi! 🎥");
         }
     };
@@ -254,6 +263,7 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
                             audioRef.current?.pause();
                         }
                     }}
+                    onDoubleClick={handleLike}
                 />
                 {/* Right - Mute Toggle */}
                 <div
@@ -270,8 +280,17 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
                 {isMuted ? <VolumeX className="w-16 h-16 text-white/50" /> : <Volume2 className="w-16 h-16 text-white/50" />}
             </div>
 
+            {/* Big Heart Animation */}
+            {showHeartAnimation && (
+                <div className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none">
+                    <div className="animate-heart-pop">
+                        <Heart className="w-32 h-32 text-red-500 fill-current drop-shadow-[0_0_30px_rgba(239,68,68,0.5)]" />
+                    </div>
+                </div>
+            )}
+
             {/* Right Actions Bar */}
-            <div className="absolute right-4 bottom-24 flex flex-col gap-6 items-center z-20">
+            <div className="absolute right-4 top-[55%] -translate-y-1/2 flex flex-col gap-5 items-center z-20">
                 <div className="flex flex-col items-center gap-1">
                     <button
                         onClick={handleLike}
