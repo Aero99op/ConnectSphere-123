@@ -45,7 +45,10 @@ export function QuixViewer({ quixList, loading }: QuixViewerProps) {
         >
             {quixList.map((quix, index) => (
                 <div key={quix.id} className="w-full h-full snap-start">
-                    <QuixCard quix={quix} isActive={index === activeIndex} />
+                    <QuixCard
+                        quix={quix}
+                        isActive={index === activeIndex}
+                    />
                 </div>
             ))}
         </div>

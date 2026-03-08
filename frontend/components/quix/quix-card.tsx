@@ -20,7 +20,7 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
     const { user, supabase } = useAuth();
     const videoRef = useRef<HTMLVideoElement>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
-    const [isMuted, setIsMuted] = useState(true);
+    const [isMuted, setIsMuted] = useState(false);
     const [isLiked, setIsLiked] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
     const [isReposted, setIsReposted] = useState(false);
@@ -35,51 +35,70 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
     const [followLoading, setFollowLoading] = useState(false);
 
     useEffect(() => {
+        const video = videoRef.current;
         const music = quix.customization?.music;
+
+        // Initialize custom audio if needed
         if (music?.url && !audioRef.current) {
             audioRef.current = new Audio(music.url);
+            audioRef.current.loop = false; // We handle loop via timeupdate/video loop
         }
-
         const audio = audioRef.current;
-        if (!audio) return;
 
         const startTime = music?.startTime || 0;
-        const endTime = music?.endTime || audio.duration || 999;
+        const endTime = music?.endTime || (audio?.duration ?? 999);
 
-        const handleTimeUpdate = () => {
-            if (audio.currentTime >= endTime) {
+        const handleAudioLoop = () => {
+            if (audio && audio.currentTime >= endTime) {
                 audio.currentTime = startTime;
             }
         };
 
         if (isActive) {
-            videoRef.current?.play();
-            if (!isMuted) {
-                audio.currentTime = startTime;
-                audio.play().catch(e => console.log("Audio play blocked", e));
-                audio.addEventListener("timeupdate", handleTimeUpdate);
+            // PLAYING STATE
+            if (video) {
+                video.muted = isMuted;
+                video.volume = isMuted ? 0 : 1;
+                video.play().catch(e => console.log("Video play blocked", e));
+            }
+
+            if (audio) {
+                if (!isMuted) {
+                    audio.currentTime = startTime;
+                    audio.play().catch(e => console.log("Audio play blocked", e));
+                    audio.addEventListener("timeupdate", handleAudioLoop);
+                } else {
+                    audio.pause();
+                }
             }
         } else {
-            videoRef.current?.pause();
-            if (videoRef.current) videoRef.current.currentTime = 0;
-            audio.pause();
-            audio.currentTime = startTime;
-            audio.removeEventListener("timeupdate", handleTimeUpdate);
+            // PAUSED/INACTIVE STATE
+            if (video) {
+                video.pause();
+                video.currentTime = 0;
+                video.muted = true;
+                video.volume = 0;
+            }
+
+            if (audio) {
+                audio.pause();
+                audio.currentTime = startTime;
+                audio.removeEventListener("timeupdate", handleAudioLoop);
+            }
         }
 
         return () => {
-            audio.pause();
-            audio.removeEventListener("timeupdate", handleTimeUpdate);
+            if (video) {
+                video.pause();
+                video.muted = true;
+                video.volume = 0;
+            }
+            if (audio) {
+                audio.pause();
+                audio.removeEventListener("timeupdate", handleAudioLoop);
+            }
         };
-    }, [isActive, isMuted, quix.customization?.music?.url, quix.customization?.music?.startTime, quix.customization?.music?.endTime]);
-
-    useEffect(() => {
-        if (isMuted) {
-            audioRef.current?.pause();
-        } else if (isActive) {
-            audioRef.current?.play().catch(e => console.log("Audio play blocked", e));
-        }
-    }, [isMuted, isActive]);
+    }, [isActive, isMuted, quix.id]); // Explicitly depend on isActive and isMuted
 
     useEffect(() => {
         const checkInteractions = async () => {
@@ -209,9 +228,8 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
                         `inset(${quix.customization.crop.y}% ${100 - (quix.customization.crop.x + quix.customization.crop.w)}% ${100 - (quix.customization.crop.y + quix.customization.crop.h)}% ${quix.customization.crop.x}%)` : 'none'
                 }}
                 loop
-                muted={isMuted}
+                muted={isMuted || !isActive}
                 playsInline
-                autoPlay
                 onDoubleClick={handleLike}
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
