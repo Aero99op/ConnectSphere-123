@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { getApinatorClient } from "@/lib/apinator";
-import { Send, Image as ImageIcon, Video, Phone, MoreVertical, X, Laugh, File as FileIcon, Search, UserPlus, Info, Trash2, Loader2, Paperclip } from "lucide-react";
+import { Send, Image as ImageIcon, Video, Phone, MoreVertical, X, Laugh, File as FileIcon, Search, UserPlus, Info, Trash2, Loader2, Paperclip, Check, CheckCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -53,11 +53,24 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                 return [...prev, newMsg];
             });
             scrollToBottom();
+            // Mark as read if receiving message while active
+            if (newMsg.sender_id === recipientId) {
+                markMessagesAsRead();
+            }
         });
 
         channel.bind('message-confirmed', (data: any) => {
             const payload = typeof data === 'string' ? JSON.parse(data) : data;
             setMessages(prev => prev.map(m => m.id === payload.tempId ? payload.actualMsg : m));
+        });
+
+        channel.bind('messages-read', (data: any) => {
+            const payload = typeof data === 'string' ? JSON.parse(data) : data;
+            if (payload.reader_id === recipientId) {
+                setMessages(prev => prev.map(m =>
+                    m.sender_id === currentUserId && !m.is_read ? { ...m, is_read: true } : m
+                ));
+            }
         });
 
         console.log(`[ChatWindow] Subscribed to Apinator channel: chat-${conversationId}`);
@@ -88,6 +101,22 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
+    const markMessagesAsRead = async () => {
+        if (isGroup) return;
+
+        await supabase.rpc('mark_messages_as_read', { conv_id: conversationId });
+
+        fetch('/api/apinator/trigger', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                channel: `chat-${conversationId}`,
+                event: 'messages-read',
+                data: { reader_id: currentUserId }
+            })
+        }).catch(console.error);
+    };
+
     const fetchMessages = async () => {
         setLoading(true);
 
@@ -98,9 +127,7 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                     if (data) setRecipientLastSeen(data.last_seen);
                 });
         }
-        // Helper: 'sender:sender_id(...)' might fail if relationship mapping isn't auto-detected.
-        // Using 'profiles!sender_id' is safer if FK is explicit.
-        // Let's try select `*, sender:profiles!sender_id(...)`
+
         const { data, error } = await supabase
             .from("messages")
             .select(`
@@ -114,6 +141,7 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
 
         if (!error && data) {
             setMessages(data);
+            if (!isGroup) markMessagesAsRead();
         }
         setLoading(false);
     };
@@ -331,7 +359,24 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                                             </div>
                                         )}
 
-                                        {msg.content}
+                                        {msg.content && (
+                                            <span className={cn("leading-snug whitespace-pre-wrap flex-wrap break-all", msg.is_deleted && "italic opacity-70")}>
+                                                {msg.content}
+                                            </span>
+                                        )}
+
+                                        {/* Read Receipts (Ticks) for outgoing messages */}
+                                        {isMe && !msg.content?.startsWith("[CALL_LOG]:") && (
+                                            <div className="absolute right-0 -bottom-4 flex items-center gap-0.5">
+                                                {msg.is_read ? (
+                                                    <CheckCheck className="w-3.5 h-3.5 text-[#ff9933]" />
+                                                ) : isUserOnline(recipientId) ? (
+                                                    <CheckCheck className="w-3.5 h-3.5 text-zinc-500 opacity-70" />
+                                                ) : (
+                                                    <Check className="w-3.5 h-3.5 text-zinc-500 opacity-70" />
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

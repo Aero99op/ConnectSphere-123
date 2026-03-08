@@ -71,9 +71,13 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                         if (prev.some(m => m.id === newMsg.id)) return prev;
                         // Add message and sort chronologically to fix sequence race conditions
                         const newArray = [...prev, newMsg];
-                        return newArray.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+                        return newArray.sort((a, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
                     });
                     scrollToBottom();
+                    // Mark as read if receiving a message while active
+                    if (newMsg.sender_id === recipientId) {
+                        markMessagesAsRead();
+                    }
                 }
 
                 if (newMsg.sender_id !== currentUserId && !newMsg.sender) {
@@ -91,6 +95,15 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                         const newArray = prev.map(m => m.id === payload.tempId ? payload.actualMsg : m);
                         return newArray.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
                     });
+                }
+            });
+
+            channel.bind('messages-read', (data: any) => {
+                const payload = typeof data === 'string' ? JSON.parse(data) : data;
+                if (isMounted && payload.reader_id === recipientId) {
+                    setMessages(prev => prev.map(m =>
+                        m.sender_id === currentUserId && !m.is_read ? { ...m, is_read: true } : m
+                    ));
                 }
             });
 
@@ -276,8 +289,31 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
 
         if (!error && data) {
             setMessages(data);
+            // Mark as read after fetching
+            if (!isGroup) {
+                supabase.rpc('mark_messages_as_read', { conv_id: conversationId }).then();
+            }
         }
         setLoading(false);
+    };
+
+    const markMessagesAsRead = async () => {
+        if (isGroup) return;
+
+        // 1. Update DB
+        const { error } = await supabase.rpc('mark_messages_as_read', { conv_id: conversationId });
+        if (error) console.error("Failed to mark as read", error);
+
+        // 2. Trigger Apinator event for real-time
+        fetch('/api/apinator/trigger', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                channel: `chat-${conversationId}`,
+                event: 'messages-read',
+                data: { reader_id: currentUserId }
+            })
+        }).catch(console.error);
     };
 
     const handleMediaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -919,9 +955,11 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                                                 {isMe && !msg.content?.startsWith("[CALL_LOG]:") && (
                                                     <div className="absolute right-0 -bottom-4 flex items-center gap-0.5">
                                                         {msg.is_read ? (
-                                                            <CheckCheck className="w-3.5 h-3.5 text-blue-400" />
+                                                            <CheckCheck className="w-3.5 h-3.5 text-[#ff9933]" />
+                                                        ) : isUserOnline(recipientId) ? (
+                                                            <CheckCheck className="w-3.5 h-3.5 text-zinc-500 opacity-70" />
                                                         ) : (
-                                                            <Check className="w-3 h-3 text-zinc-400" />
+                                                            <Check className="w-3.5 h-3.5 text-zinc-500 opacity-70" />
                                                         )}
                                                     </div>
                                                 )}
