@@ -62,13 +62,8 @@ export async function POST(req: Request) {
         }
 
         // 3. Construct Magic Link
-        // Fetch base URL from env OR fallback to origin header
-        let baseUrl = process.env.NEXTAUTH_URL || req.headers.get('origin');
-
-        // If still no baseUrl (should not happen on CF), fallback to the hardcoded prod URL
-        if (!baseUrl) {
-            baseUrl = 'https://connectsphere-123.pages.dev';
-        }
+        // SECURITY: Never use req.headers.get('origin') — attackers can control it
+        let baseUrl = process.env.NEXTAUTH_URL || 'https://connectsphere-123.pages.dev';
 
         if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
 

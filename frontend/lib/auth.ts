@@ -95,10 +95,10 @@ export async function hashPassword(password: string): Promise<string> {
 
         return Array.from(new Uint8Array(derivedBits)).map(b => b.toString(16).padStart(2, '0')).join('');
     } catch (e) {
-        console.error("PBKDF2 Hashing Failed, using safe fallback:", e);
-        const data = new TextEncoder().encode(password + (process.env.AUTH_PASSWORD_SALT || "connectsphere_salt"));
-        const hash = await crypto.subtle.digest('SHA-256', data);
-        return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+        console.error("PBKDF2 Hashing Failed:", e);
+        // SECURITY: Never silently fall back to weak SHA-256.
+        // A weak hash stored once is weak forever.
+        throw new Error("Password hashing failed. Crypto API unavailable.");
     }
 }
 

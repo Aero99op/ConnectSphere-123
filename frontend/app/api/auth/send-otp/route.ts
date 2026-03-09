@@ -3,8 +3,11 @@ import { createAdminSupabaseClient } from '@/lib/auth';
 
 export const runtime = 'edge';
 
+// SECURITY: Cryptographically secure OTP generation (CRIT-002 + HIGH-001 FIX)
 function generateOTP() {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+    const arr = new Uint32Array(1);
+    crypto.getRandomValues(arr);
+    return (100000 + (arr[0] % 900000)).toString();
 }
 
 export async function POST(req: Request) {
@@ -16,6 +19,20 @@ export async function POST(req: Request) {
         }
 
         const adminSupabase = createAdminSupabaseClient();
+
+        // SECURITY: Rate limit — max 3 OTP requests per email per 10 minutes
+        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+        const { count, error: countError } = await adminSupabase
+            .from('auth_otps')
+            .select('*', { count: 'exact', head: true })
+            .eq('email', email)
+            .gte('created_at', tenMinutesAgo);
+
+        if (!countError && (count ?? 0) >= 3) {
+            return NextResponse.json({
+                error: 'Bahut zyada OTP request ho gaye. 10 minute baad try karo.'
+            }, { status: 429 });
+        }
 
         // Remove old OTPs for this email to prevent spam issues
         await adminSupabase.from('auth_otps').delete().eq('email', email);

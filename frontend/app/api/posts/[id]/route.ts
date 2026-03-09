@@ -55,6 +55,6 @@ export async function DELETE(
 
     } catch (error: any) {
         console.error('[Post Delete API] Error:', error);
-        return NextResponse.json({ error: 'Deletion failed: ' + error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Deletion failed. Please try again.' }, { status: 500 });
     }
 }
