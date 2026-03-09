@@ -73,8 +73,9 @@ export function ApinatorProvider({ children }: { children: React.ReactNode }) {
                     connectingTicks = 0;
                 } else if (s === 'connecting') {
                     connectingTicks++;
-                    if (connectingTicks >= 2) {
-                        // It's been stuck connecting for >= 20 seconds. Force a recycle.
+                    // Relaxed from 2 ticks (20s) to 3 ticks (30s) to allow slower connections
+                    // and avoid fighting with Supabase realtime multiplexing
+                    if (connectingTicks >= 3) {
                         console.error("[ApinatorProvider] 🚨 Deadlock detected. Forcing socket recycle.");
                         apinatorClient.disconnect();
                         setTimeout(() => apinatorClient.connect(), 500);
@@ -84,7 +85,7 @@ export function ApinatorProvider({ children }: { children: React.ReactNode }) {
                     connectingTicks = 0;
                 }
             }
-        }, 10000); // Check every 10 seconds for tighter deadlock resolution
+        }, 10000); // Check every 10 seconds 
 
         return () => {
             // In a global provider, we NEVER disconnect on unmount unless the whole app is closing.

@@ -7,12 +7,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
     console.warn("⚠️ Supabase credentials missing! Please check your .env.local file.");
 }
 
-let _supabase: SupabaseClient | null = null;
+// Use globalThis to maintain a true singleton across Next.js HMR and React StrictMode
+declare global {
+    var _supabaseInstance: SupabaseClient | undefined;
+}
 
-// Singleton pattern to prevent "Multiple GoTrueClient instances detected"
 export const getSupabase = () => {
-    if (!_supabase && supabaseUrl && supabaseAnonKey) {
-        _supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    if (!globalThis._supabaseInstance && supabaseUrl && supabaseAnonKey) {
+        globalThis._supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
             auth: {
                 persistSession: false,
                 autoRefreshToken: false,
@@ -20,7 +22,7 @@ export const getSupabase = () => {
             }
         });
     }
-    return _supabase!;
+    return globalThis._supabaseInstance!;
 };
 
 // Legacy export for compatibility, but better to use getSupabase()
