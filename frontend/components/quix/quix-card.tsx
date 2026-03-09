@@ -295,11 +295,11 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
             )}
 
             {/* Right Side Actions - Fixed position to avoid overlap */}
-            <div className="absolute right-4 bottom-[120px] flex flex-col items-center gap-6 z-30 animate-in slide-in-from-right duration-500">
+            <div className="absolute right-4 bottom-[90px] flex flex-col items-center gap-4 z-30 animate-in slide-in-from-right duration-500">
                 {/* User Avatar & Follow */}
-                <div className="flex flex-col items-center gap-1">
+                <div className="flex flex-col items-center gap-1 mb-2">
                     <Link href={`/profile/${quix.user_id}`}>
-                        <Avatar className="w-12 h-12 border-2 border-white/20">
+                        <Avatar className="w-10 h-10 border-2 border-white/20">
                             <AvatarImage src={quix.profiles?.avatar_url} />
                             <AvatarFallback className="bg-zinc-800 text-white">{quix.profiles?.username?.[0]}</AvatarFallback>
                         </Avatar>
@@ -310,55 +310,55 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
                             disabled={followLoading}
                             variant="outline"
                             size="sm"
-                            className="absolute -bottom-3 h-6 w-6 rounded-full bg-red-500 border-2 border-black text-white text-[11px] font-bold hover:bg-red-600 flex items-center justify-center"
+                            className="absolute -bottom-3 h-5 w-5 rounded-full bg-red-500 border border-black text-white text-[10px] font-bold hover:bg-red-600 flex items-center justify-center p-0"
                         >
-                            {followLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-4 h-4" />}
+                            {followLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
                         </Button>
                     )}
                 </div>
 
-                <div className="flex flex-col items-center gap-1">
+                <div className="flex flex-col items-center gap-0.5">
                     <button
                         onClick={handleLike}
-                        className={cn("p-3 rounded-full bg-black/20 backdrop-blur-md border border-white/10 transition-all active:scale-75", isLiked ? "text-red-500" : "text-white")}
+                        className={cn("p-2 rounded-full bg-black/20 backdrop-blur-md border border-white/10 transition-all active:scale-75", isLiked ? "text-red-500" : "text-white")}
                     >
-                        <Heart className={cn("w-7 h-7", isLiked && "fill-current")} />
+                        <Heart className={cn("w-6 h-6", isLiked && "fill-current")} />
                     </button>
-                    <span className="text-white text-xs font-bold shadow-sm">{likesCount}</span>
+                    <span className="text-white text-[11px] font-bold shadow-sm">{likesCount}</span>
                 </div>
 
-                <div className="flex flex-col items-center gap-1">
+                <div className="flex flex-col items-center gap-0.5">
                     <button
                         onClick={() => setShowComments(true)}
-                        className="p-3 rounded-full bg-black/20 backdrop-blur-md border border-white/10 text-white transition-all active:scale-75"
+                        className="p-2 rounded-full bg-black/20 backdrop-blur-md border border-white/10 text-white transition-all active:scale-75"
                     >
-                        <MessageCircle className="w-7 h-7" />
+                        <MessageCircle className="w-6 h-6" />
                     </button>
-                    <span className="text-white text-xs font-bold shadow-sm">{quix.comments_count || 0}</span>
+                    <span className="text-white text-[11px] font-bold shadow-sm">{quix.comments_count || 0}</span>
                 </div>
 
-                <div className="flex flex-col items-center gap-1">
+                <div className="flex flex-col items-center gap-0.5">
                     <button
                         onClick={handleRepost}
-                        className={cn("p-3 rounded-full bg-black/20 backdrop-blur-md border border-white/10 transition-all active:scale-75", isReposted ? "text-green-500" : "text-white")}
+                        className={cn("p-2 rounded-full bg-black/20 backdrop-blur-md border border-white/10 transition-all active:scale-75", isReposted ? "text-green-500" : "text-white")}
                     >
-                        <Repeat className="w-7 h-7" />
+                        <Repeat className="w-6 h-6" />
                     </button>
-                    <span className="text-white text-xs font-bold shadow-sm">{repostsCount}</span>
+                    <span className="text-white text-[11px] font-bold shadow-sm">{repostsCount}</span>
                 </div>
 
                 <button
                     onClick={handleSave}
-                    className={cn("p-3 rounded-full bg-black/20 backdrop-blur-md border border-white/10 transition-all active:scale-75", isSaved ? "text-yellow-500" : "text-white")}
+                    className={cn("p-2 rounded-full bg-black/20 backdrop-blur-md border border-white/10 transition-all active:scale-75", isSaved ? "text-yellow-500" : "text-white")}
                 >
-                    <Bookmark className={cn("w-7 h-7", isSaved && "fill-current")} />
+                    <Bookmark className={cn("w-6 h-6", isSaved && "fill-current")} />
                 </button>
 
                 <button
                     onClick={() => setShowShareSheet(true)}
-                    className="p-3 rounded-full bg-black/20 backdrop-blur-md border border-white/10 text-white transition-all active:scale-75"
+                    className="p-2 rounded-full bg-black/20 backdrop-blur-md border border-white/10 text-white transition-all active:scale-75"
                 >
-                    <Share2 className="w-7 h-7" />
+                    <Share2 className="w-6 h-6" />
                 </button>
 
                 <QuixOptionsSheet
@@ -371,9 +371,9 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
 
                 <button
                     onClick={handleAddToStory}
-                    className="p-3 rounded-full bg-gradient-to-tr from-orange-500 to-pink-500 text-black transition-all active:scale-75 shadow-lg shadow-orange-500/20"
+                    className="p-2.5 rounded-full bg-gradient-to-tr from-orange-500 to-pink-500 text-black transition-all active:scale-75 shadow-lg shadow-orange-500/20 mt-2"
                 >
-                    <Plus className="w-7 h-7 font-black" />
+                    <Plus className="w-6 h-6 font-black" />
                 </button>
             </div>
 
@@ -390,15 +390,14 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
                 onOpenChange={setShowComments}
             />
 
-            {/* Bottom Info Bar */}
-            <div className="absolute bottom-6 left-4 right-16 z-20">
-                <div className="flex items-center gap-3 mb-3">
-                    <Link href={`/profile/${quix.user_id}`} className="flex items-center gap-3">
-                        <Avatar className="w-10 h-10 border-2 border-white/20">
+            <div className="absolute bottom-6 left-4 pr-16 z-20 max-w-[80%]">
+                <div className="flex items-center gap-2 mb-2">
+                    <Link href={`/profile/${quix.user_id}`} className="flex items-center gap-2">
+                        <Avatar className="w-8 h-8 border border-white/20">
                             <AvatarImage src={quix.profiles?.avatar_url} />
-                            <AvatarFallback className="bg-zinc-800 text-white">{quix.profiles?.username?.[0]}</AvatarFallback>
+                            <AvatarFallback className="bg-zinc-800 text-white text-xs">{quix.profiles?.username?.[0]}</AvatarFallback>
                         </Avatar>
-                        <span className="text-white font-bold tracking-tight">@{quix.profiles?.username}</span>
+                        <span className="text-white font-bold tracking-tight text-sm">@{quix.profiles?.username}</span>
                     </Link>
                     {user?.id !== quix.user_id && !isFollowing && (
                         <Button
