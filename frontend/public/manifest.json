@@ -1,7 +1,7 @@
 {
     "name": "Connect",
     "short_name": "Connect",
-    "description": "India Ka Apna Social Media",
+    "description": "Connect with the World",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#000000",

@@ -22,7 +22,7 @@ export function SplashLoader() {
             <div className="absolute bottom-12 text-zinc-400 font-display font-medium tracking-[0.3em] uppercase text-[10px] animate-pulse">
                 Connect
             </div>
-            <p className="text-xs text-zinc-500 mt-2 font-mono">India Ka Apna Social Media</p>
+            <p className="text-xs text-zinc-500 mt-2 font-mono">Connect with the World</p>
         </div>
     );
 }

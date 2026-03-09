@@ -92,8 +92,8 @@ function SearchPageContent() {
                     <h1 className="text-4xl font-display font-black text-gradient tracking-tightest">
                         Search_
                     </h1>
-                    <p className="text-[10px] font-mono font-black text-zinc-600 uppercase tracking-[0.4em] mt-2 ml-1">
-                        Scanning Central_Datavault
+                    <p className="text-[12px] font-medium text-zinc-500 mt-2 ml-1">
+                        Find people and posts on ConnectSphere
                     </p>
                 </header>
 
@@ -199,7 +199,7 @@ function SearchPageContent() {
                             <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center border border-white/5 mx-auto mb-4">
                                 <Search className="w-8 h-8 text-white" />
                             </div>
-                            <p className="font-display font-black text-xs uppercase tracking-[0.4em]">Awaiting Input Sequence_</p>
+                            <p className="text-sm font-medium text-zinc-500">Type above to search...</p>
                         </div>
                     )}
                 </div>
@@ -219,8 +219,8 @@ export default function SearchPage() {
 function EmptyState() {
     return (
         <div className="glass-panel p-16 rounded-[2.5rem] text-center border-premium border-dashed opacity-60">
-            <h3 className="font-display font-black text-xl uppercase tracking-widest text-zinc-500 italic">404_ENT_NOT_FOUND</h3>
-            <p className="text-sm font-mono text-zinc-700 mt-2 uppercase tracking-widest">No results found!</p>
+            <h3 className="font-display font-bold text-xl text-zinc-500">No results found</h3>
+            <p className="text-sm font-medium text-zinc-700 mt-2">Try searching for something else!</p>
         </div>
     );
 }
