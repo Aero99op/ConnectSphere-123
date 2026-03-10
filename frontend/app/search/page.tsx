@@ -2,8 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect, Suspense } from "react";
-import { supabase } from "@/lib/supabase";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, Loader2, Compass, LayoutGrid, Users } from "lucide-react";
 import Link from "next/link";
@@ -16,67 +15,38 @@ function SearchPageContent() {
     const [postResults, setPostResults] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<"users" | "posts">("users");
     const [loading, setLoading] = useState(true);
+    const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+    const fetchResults = async (searchQuery: string) => {
+        setLoading(true);
+        try {
+            const url = searchQuery.trim()
+                ? `/api/search?q=${encodeURIComponent(searchQuery)}&type=all`
+                : `/api/search?type=all`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('Search failed');
+            const data = await res.json();
+            setUserResults(data.users || []);
+            setPostResults(data.posts || []);
+        } catch (err) {
+            console.error('Search error:', err);
+            setUserResults([]);
+            setPostResults([]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchInitial = async () => {
-            setLoading(true);
-            const { data: users } = await supabase.from("profiles").select("*").limit(20);
-            setUserResults(users || []);
-
-            const { data: posts } = await supabase
-                .from("posts")
-                .select("*, profiles(full_name)")
-                .order('created_at', { ascending: false })
-                .limit(20);
-            setPostResults(posts || []);
-
-            setLoading(false);
-        };
-        fetchInitial();
+        fetchResults("");
     }, []);
 
-    const handleSearch = async (val: string) => {
+    const handleSearch = (val: string) => {
         setQuery(val);
-        setLoading(true);
-
-        if (val.trim() === "") {
-            // Re-fetch initial or clear? Let's re-fetch small initial list
-            const { data: users } = await supabase.from("profiles").select("*").limit(20);
-            setUserResults(users || []);
-            const { data: posts } = await supabase.from("posts").select("*, profiles(username, full_name, avatar_url)").limit(20);
-            const mappedPosts = (posts || []).map(p => ({
-                ...p,
-                username: (p.profiles as any)?.username || "User",
-                avatar_url: (p.profiles as any)?.avatar_url || ""
-            }));
-            setPostResults(mappedPosts);
-            setLoading(false);
-            return;
-        }
-
-        // Search Users
-        const { data: users } = await supabase
-            .from("profiles")
-            .select("*")
-            .or(`username.ilike.%${val}%,full_name.ilike.%${val}%`)
-            .limit(20);
-        setUserResults(users || []);
-
-        // Search Posts
-        const { data: posts } = await supabase
-            .from("posts")
-            .select("*, profiles(username, full_name, avatar_url)")
-            .or(`caption.ilike.%${val}%,title.ilike.%${val}%`)
-            .limit(20);
-
-        const mappedPosts = (posts || []).map(p => ({
-            ...p,
-            username: (p.profiles as any)?.username || "User",
-            avatar_url: (p.profiles as any)?.avatar_url || ""
-        }));
-        setPostResults(mappedPosts);
-
-        setLoading(false);
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+            fetchResults(val);
+        }, 300);
     };
 
     return (
