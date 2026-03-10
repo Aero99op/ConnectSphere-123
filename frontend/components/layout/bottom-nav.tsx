@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Home, Compass, PlusSquare, Play, MessageSquare, Bell, User, Settings, Search } from "lucide-react";
+import { Home, Compass, PlusSquare, Play, MessageSquare, Bell, User, Settings, Search, AlertTriangle } from "lucide-react";
 import { useTranslation } from "@/components/providers/language-provider";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -42,7 +42,7 @@ function BottomNavContent() {
         { href: "/quix", icon: Play, label: t('nav.quix') },
         { href: "/create", icon: PlusSquare, label: t('nav.create') },
         { href: "/messages", icon: MessageSquare, label: t('nav.messages') },
-        { href: "/notifications", icon: Bell, label: t('nav.notifications') },
+        { href: "/report", icon: AlertTriangle, label: "Report" },
         { href: user ? `/profile/${user.id}` : "/login", icon: User, label: t('nav.profile') },
         { href: "/settings", icon: Settings, label: t('nav.settings') },
     ];
