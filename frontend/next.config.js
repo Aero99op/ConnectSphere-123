@@ -31,6 +31,25 @@ const nextConfig = {
     experimental: {
         workerThreads: false,
         cpus: 1,
+        serverComponentsExternalPackages: ['mongoose', 'bcryptjs', 'async_hooks'],
+    },
+    webpack: (config, { isServer, nextRuntime }) => {
+        if (nextRuntime === 'edge') {
+            config.resolve.fallback = {
+                ...config.resolve.fallback,
+                async_hooks: false,
+                fs: false,
+                path: false,
+                crypto: false,
+                stream: false,
+                querystring: false,
+                zlib: false,
+                url: false,
+                net: false,
+                tls: false,
+            };
+        }
+        return config;
     },
     compiler: {
         removeConsole: process.env.NODE_ENV === 'production'
