@@ -1,9 +1,6 @@
 import { SignJWT } from 'jose';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
 /**
  * Sign a Supabase-compatible JWT with the Supabase JWT secret.
  * This makes `auth.uid()` in RLS policies return our custom user ID.
@@ -116,6 +113,8 @@ export async function legacyHash(password: string): Promise<string> {
  * Create an authenticated Supabase client using a custom JWT.
  */
 export function createAuthenticatedSupabaseClient(accessToken: string) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
     return createClient(supabaseUrl, supabaseAnonKey, {
         global: {
             headers: {
@@ -137,7 +136,9 @@ export function createAuthenticatedSupabaseClient(accessToken: string) {
  * Create an admin Supabase client using the service role key.
  */
 export function createAdminSupabaseClient() {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl) throw new Error('NEXT_PUBLIC_SUPABASE_URL is not set');
     if (!serviceRoleKey) throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set');
 
     return createClient(supabaseUrl, serviceRoleKey, {
