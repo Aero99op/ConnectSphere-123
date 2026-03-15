@@ -185,7 +185,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             // Added current Cloudflare origin explicitly
             if (
                 url.startsWith("http://localhost:3000") ||
-                url.startsWith("https://connectsphere-123.pages.dev")
+                url.startsWith("https://connectsphere-1234.pages.dev")
             ) {
                 return url;
             }

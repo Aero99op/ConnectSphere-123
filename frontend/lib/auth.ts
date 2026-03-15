@@ -6,9 +6,12 @@ import { createClient } from '@supabase/supabase-js';
  * This makes `auth.uid()` in RLS policies return our custom user ID.
  * Server-side only — never expose the secret to the browser.
  */
-export async function signSupabaseJWT(userId: string, email: string, role: string = 'authenticated') {
+export async function signSupabaseJWT(userId: string, email: string, role: string = 'authenticated'): Promise<string | null> {
     const secret = process.env.SUPABASE_JWT_SECRET;
-    if (!secret) throw new Error('SUPABASE_JWT_SECRET is not set');
+    if (!secret) {
+        console.error('⚠️ SUPABASE_JWT_SECRET is not set — skipping Supabase JWT signing');
+        return null;
+    }
 
     const secretKey = new TextEncoder().encode(secret);
 
@@ -136,10 +139,16 @@ export function createAuthenticatedSupabaseClient(accessToken: string) {
  * Create an admin Supabase client using the service role key.
  */
 export function createAdminSupabaseClient() {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!supabaseUrl) throw new Error('NEXT_PUBLIC_SUPABASE_URL is not set');
-    if (!serviceRoleKey) throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set');
+    if (!supabaseUrl) {
+        console.error('⚠️ NEXT_PUBLIC_SUPABASE_URL is not set — admin Supabase client unavailable');
+        throw new Error('NEXT_PUBLIC_SUPABASE_URL is not set');
+    }
+    if (!serviceRoleKey) {
+        console.error('⚠️ SUPABASE_SERVICE_ROLE_KEY is not set — admin Supabase client unavailable');
+        throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set');
+    }
 
     return createClient(supabaseUrl, serviceRoleKey, {
         auth: {
