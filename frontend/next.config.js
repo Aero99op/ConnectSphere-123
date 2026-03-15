@@ -31,7 +31,7 @@ const nextConfig = {
     experimental: {
         workerThreads: false,
         cpus: 1,
-        serverComponentsExternalPackages: ['mongoose', 'bcryptjs', 'async_hooks'],
+        serverComponentsExternalPackages: ['mongoose', 'bcryptjs'],
     },
     webpack: (config, { isServer, nextRuntime }) => {
         if (nextRuntime === 'edge') {
