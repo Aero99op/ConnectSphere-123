@@ -1,15 +1,9 @@
-console.log(">>> MIDDLEWARE MODULE LOADING...");
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
-// import { crypto } from 'next/dist/compiled/@edge-runtime/primitives/crypto' // DELETED: Causes build error
-// Use global 'crypto' instead, which is available in Edge Runtime.
-
 
 const rateLimit = new Map();
 
 async function checkRateLimit(ip: string) {
-    // 1. Rate Limiting (Simple In-Memory for single instance/dev)
-    // Structured to be async-ready for future Redis integration
     const limit = 100;
     const windowMs = 60 * 1000;
     const now = Date.now();
@@ -27,9 +21,7 @@ async function checkRateLimit(ip: string) {
     return record.count <= limit;
 }
 
-export default async function middleware(req: any) {
-    try {
-        const handler = auth(async (req: any) => {
+export default auth(async (req: any) => {
     const res = NextResponse.next()
 
     // Secure IP Extraction (Cloudflare / Proxies)
@@ -114,7 +106,7 @@ export default async function middleware(req: any) {
             https://accounts.google.com 
             https://api.telegram.org
             https://ipapi.co
-            ${process.env.BACKEND_URL || ''};
+            \${process.env.BACKEND_URL || ''};
         frame-src 'self' https://accounts.google.com;
         media-src 'self' blob: https://*.supabase.co https://*.catbox.moe https://files.catbox.moe;
         object-src 'none';
@@ -122,7 +114,7 @@ export default async function middleware(req: any) {
         form-action 'self';
         frame-ancestors 'none';
         upgrade-insecure-requests;
-    `.replace(/\s{2,}/g, ' ').trim();
+    `.replace(/\\s{2,}/g, ' ').trim();
 
     // Standard Security Headers
     res.headers.set('Content-Security-Policy', cspHeader);
@@ -135,20 +127,7 @@ export default async function middleware(req: any) {
     res.headers.set('X-XSS-Protection', '1; mode=block');
 
     return res
-        });
-        return await handler(req, undefined as any);
-    } catch (e: any) {
-        return new NextResponse(
-            JSON.stringify({
-                global_error: "CRITICAL EDGE CRASH",
-                message: e.message,
-                stack: e.stack,
-                name: e.name
-            }, null, 2),
-            { status: 500, headers: { 'Content-Type': 'application/json' } }
-        );
-    }
-}
+})
 
 export const config = {
     matcher: [
