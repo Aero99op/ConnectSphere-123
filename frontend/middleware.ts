@@ -114,7 +114,7 @@ export default auth(async (req: any) => {
         form-action 'self';
         frame-ancestors 'none';
         upgrade-insecure-requests;
-    `.replace(/\\s{2,}/g, ' ').trim();
+    `.replace(/\s{2,}/g, ' ').trim();
 
     // Standard Security Headers
     res.headers.set('Content-Security-Policy', cspHeader);
@@ -131,6 +131,6 @@ export default auth(async (req: any) => {
 
 export const config = {
     matcher: [
-        '/((?!api/debug-env|_next/static|_next/image|favicon.ico).*)',
+        '/((?!_next/static|_next/image|favicon.ico).*)',
     ],
 }
