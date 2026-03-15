@@ -1,3 +1,4 @@
+console.log(">>> MIDDLEWARE MODULE LOADING...");
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
 // import { crypto } from 'next/dist/compiled/@edge-runtime/primitives/crypto' // DELETED: Causes build error
