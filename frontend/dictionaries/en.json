@@ -105,6 +105,9 @@
         "help_desc": "Find solutions and get support",
         "about": "About ConnectSphere",
         "about_desc": "Version 1.0 (Beta Edition)",
+        "entertainment_title": "Entertainment & Fun",
+        "games": "Community Games",
+        "games_desc": "Play high-fidelity mini games",
         "logout": "Logout"
     }
 }

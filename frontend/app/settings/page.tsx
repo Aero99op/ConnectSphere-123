@@ -18,7 +18,8 @@ import {
     Loader2,
     Users,
     MessageCircle,
-    Compass
+    Compass,
+    Gamepad2
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -63,6 +64,12 @@ export default function SettingsPage() {
             items: [
                 { icon: Globe, label: t('settings.creator'), description: t('settings.creator_desc'), href: "/settings/content/creator" },
                 { icon: HelpCircle, label: t('settings.reports'), description: t('settings.reports_desc'), href: "/settings/content/reports" },
+            ]
+        },
+        {
+            title: t('settings.entertainment_title'),
+            items: [
+                { icon: Gamepad2, label: t('settings.games'), description: t('settings.games_desc'), href: "/settings/games" },
             ]
         },
         {

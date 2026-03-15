@@ -105,6 +105,9 @@
         "help_desc": "Jugaad aur pareshani ka hal",
         "about": "About ConnectSphere",
         "about_desc": "Version 1.0 (Beta Edition)",
+        "entertainment_title": "Entertainment aur Mast-Maza",
+        "games": "Community Khel-Kood",
+        "games_desc": "High-fidelity mini games khelo",
         "logout": "Logout (Bahar Niklo)"
     }
 }
