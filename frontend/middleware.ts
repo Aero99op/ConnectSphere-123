@@ -152,12 +152,6 @@ export default async function middleware(req: any) {
 
 export const config = {
     matcher: [
-        '/',
-        '/dashboard/:path*',
-        '/create/:path*',
-        '/profile/:path*',
-        '/report',
-        '/login',
-        '/api/:path*'
+        '/((?!api/debug-env|_next/static|_next/image|favicon.ico).*)',
     ],
 }

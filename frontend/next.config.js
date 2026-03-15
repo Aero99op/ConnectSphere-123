@@ -39,13 +39,6 @@ const nextConfig = {
                 async_hooks: false,
                 fs: false,
                 path: false,
-                crypto: false,
-                stream: false,
-                querystring: false,
-                zlib: false,
-                url: false,
-                net: false,
-                tls: false,
             };
         }
         return config;
