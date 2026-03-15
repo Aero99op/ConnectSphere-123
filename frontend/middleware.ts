@@ -26,7 +26,9 @@ async function checkRateLimit(ip: string) {
     return record.count <= limit;
 }
 
-export default auth(async (req: any) => {
+export default async function middleware(req: any) {
+    try {
+        const handler = auth(async (req: any) => {
     const res = NextResponse.next()
 
     // Secure IP Extraction (Cloudflare / Proxies)
@@ -132,7 +134,20 @@ export default auth(async (req: any) => {
     res.headers.set('X-XSS-Protection', '1; mode=block');
 
     return res
-})
+        });
+        return await handler(req, undefined as any);
+    } catch (e: any) {
+        return new NextResponse(
+            JSON.stringify({
+                global_error: "CRITICAL EDGE CRASH",
+                message: e.message,
+                stack: e.stack,
+                name: e.name
+            }, null, 2),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+        );
+    }
+}
 
 export const config = {
     matcher: [

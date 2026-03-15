@@ -3,11 +3,6 @@ import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
 import { signSupabaseJWT, createAdminSupabaseClient, emailToUUID, hashPassword, legacyHash } from '@/lib/auth';
 
-// Ensure trust host is globally defined for Edge runtime (Cloudflare NextAuth bug)
-if (!process.env.AUTH_TRUST_HOST) {
-    process.env.AUTH_TRUST_HOST = "true";
-}
-
 export const { handlers, signIn, signOut, auth } = NextAuth({
     providers: [
         Google({
