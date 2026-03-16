@@ -131,8 +131,63 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- ========================================
 -- MED-008 FIX: Prevent duplicate DM conversations
--- A partial unique index prevents creating multiple DMs between the same 2 users
+-- Merges existing duplicate DMs and adds a unique index to prevent future duplicates.
 -- ========================================
+
+-- Step 1: Deduplicate existing DM conversations by merging messages to the newest conversation
+DO $$
+DECLARE
+    dup_record RECORD;
+    winner_id uuid;
+BEGIN
+    FOR dup_record IN 
+        SELECT LEAST(user1_id, user2_id) as u1, GREATEST(user1_id, user2_id) as u2
+        FROM public.conversations
+        WHERE is_group = false OR is_group IS NULL
+        GROUP BY LEAST(user1_id, user2_id), GREATEST(user1_id, user2_id)
+        HAVING COUNT(*) > 1
+    LOOP
+        -- Get the most recently created conversation as the winner
+        SELECT id INTO winner_id
+        FROM public.conversations
+        WHERE LEAST(user1_id, user2_id) = dup_record.u1 
+          AND GREATEST(user1_id, user2_id) = dup_record.u2
+          AND (is_group = false OR is_group IS NULL)
+        ORDER BY created_at DESC
+        LIMIT 1;
+
+        -- Move messages from losers to winner
+        UPDATE public.messages
+        SET conversation_id = winner_id
+        WHERE conversation_id IN (
+            SELECT id FROM public.conversations
+            WHERE LEAST(user1_id, user2_id) = dup_record.u1 
+              AND GREATEST(user1_id, user2_id) = dup_record.u2
+              AND (is_group = false OR is_group IS NULL)
+              AND id != winner_id
+        );
+
+        -- Delete participants of losers
+        DELETE FROM public.conversation_participants
+        WHERE conversation_id IN (
+            SELECT id FROM public.conversations
+            WHERE LEAST(user1_id, user2_id) = dup_record.u1 
+              AND GREATEST(user1_id, user2_id) = dup_record.u2
+              AND (is_group = false OR is_group IS NULL)
+              AND id != winner_id
+        );
+
+        -- Delete loser conversations
+        DELETE FROM public.conversations
+        WHERE LEAST(user1_id, user2_id) = dup_record.u1 
+          AND GREATEST(user1_id, user2_id) = dup_record.u2
+          AND (is_group = false OR is_group IS NULL)
+          AND id != winner_id;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Step 2: Create the unique index to prevent future duplicates
 CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_dm_conversation 
 ON public.conversations (LEAST(user1_id, user2_id), GREATEST(user1_id, user2_id))
 WHERE is_group = false OR is_group IS NULL;
