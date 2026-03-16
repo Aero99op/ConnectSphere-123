@@ -20,7 +20,7 @@ export default function SnakeGame() {
     const [score, setScore] = useState(0);
     const [gameOver, setGameOver] = useState(false);
     const [speed, setSpeed] = useState(INITIAL_SPEED);
-    
+
     const gameLoopRef = useRef<NodeJS.Timeout>();
     const lastDirectionRef = useRef<Point>({ x: 0, y: -1 });
 
@@ -131,7 +131,7 @@ export default function SnakeGame() {
                     </div>
                     <div className="p-3 rounded-2xl glass border-premium flex flex-col items-center">
                         <Timer className="w-4 h-4 text-zinc-500 mb-1" />
-                        <span className="text-xl font-bold">{Math.floor(1000/speed)} fps</span>
+                        <span className="text-xl font-bold">{Math.floor(1000 / speed)} fps</span>
                     </div>
                 </div>
 
@@ -146,9 +146,9 @@ export default function SnakeGame() {
 
                             return (
                                 <div key={i} className={`w-full h-full rounded-sm transition-colors duration-200 
-                                    ${isSnakeHead ? 'bg-green-400 shadow-[0_0_10px_rgba(74,222,128,0.5)] z-10' : 
-                                      isSnakeBody ? 'bg-green-600/60' : 
-                                      isFood ? 'bg-red-500 animate-pulse' : 'bg-black/20'}`}>
+                                    ${isSnakeHead ? 'bg-green-400 shadow-[0_0_10px_rgba(74,222,128,0.5)] z-10' :
+                                        isSnakeBody ? 'bg-green-600/60' :
+                                            isFood ? 'bg-red-500 animate-pulse' : 'bg-black/20'}`}>
                                 </div>
                             );
                         })}
