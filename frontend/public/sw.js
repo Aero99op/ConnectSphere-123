@@ -40,6 +40,16 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
+    // For navigation requests (like page refreshes), try to serve the cached root
+    if (event.request.mode === 'navigate') {
+        event.respondWith(
+            fetch(event.request).catch(() => {
+                return caches.match('/');
+            })
+        );
+        return;
+    }
+
     event.respondWith(
         caches.match(event.request).then((response) => {
             const fetchPromise = fetch(event.request).then((networkResponse) => {
