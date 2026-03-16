@@ -12,9 +12,15 @@ function edgeSanitize(input: string): string {
     let s = input;
     // Strip null bytes
     s = s.replace(/\0/g, '');
-    // Decode HTML entities that could hide tags
-    s = s.replace(/&#x([0-9a-f]+);?/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
-    s = s.replace(/&#(\d+);?/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)));
+    // SECURITY FIX (MED-007): Decode HTML entities in a loop to catch double/triple encoding
+    let prev = '';
+    for (let i = 0; i < 3 && s !== prev; i++) {
+        prev = s;
+        s = s.replace(/&#x([0-9a-f]+);?/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+        s = s.replace(/&#(\d+);?/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)));
+        s = s.replace(/&lt;/gi, '<').replace(/&gt;/gi, '>');
+        s = s.replace(/&amp;/gi, '&');
+    }
     // Strip angle brackets and script-related patterns
     s = s.replace(/[<>]/g, '');
     s = s.replace(/javascript\s*:/gi, '');
@@ -93,12 +99,13 @@ export async function POST(req: NextRequest) {
 
         if (error) {
             console.error('Onboarding update error:', error);
-            return NextResponse.json({ error: error.message }, { status: 500 });
+            // SECURITY FIX (LOW-003): Never leak internal DB error messages
+            return NextResponse.json({ error: 'Failed to save onboarding data' }, { status: 500 });
         }
 
         return NextResponse.json({ success: true });
     } catch (err: any) {
         console.error('Onboarding POST error:', err);
-        return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Server error' }, { status: 500 });
     }
 }

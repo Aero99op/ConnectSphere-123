@@ -45,7 +45,8 @@ export async function emailToUUID(email: string, salt?: string): Promise<string>
 
         // Use global salt if available to prevent deterministic ID mapping
         // Passing an explicit empty string "" bypasses the global salt (used for legacy checks)
-        const finalSalt = salt !== undefined ? salt : (process.env.NEXT_PUBLIC_UUID_SALT || '');
+        // SECURITY FIX (CRIT-002): Use server-only UUID_SALT — never NEXT_PUBLIC_ prefix
+        const finalSalt = salt !== undefined ? salt : (process.env.UUID_SALT || '');
         const nameBytes = new TextEncoder().encode((email.toLowerCase().trim() + finalSalt));
 
         const combined = new Uint8Array(16 + nameBytes.length);

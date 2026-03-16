@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createAdminSupabaseClient } from '@/lib/auth';
+import { createAdminSupabaseClient, emailToUUID } from '@/lib/auth';
 import { auth } from '@/auth';
 
 export const runtime = 'edge';
@@ -12,27 +12,31 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { searchParams } = new URL(request.url);
-        const email = searchParams.get('email');
-        const id = searchParams.get('id');
-
-        if (!email || !id) return NextResponse.json({ error: "Missing email or id" }, { status: 400 });
-
-        // SECURITY: Only allow fixing your own profile
-        if (session.user.email !== email) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        const email = session.user.email;
+        if (!email) {
+            return NextResponse.json({ error: 'No email in session' }, { status: 400 });
         }
+
+        // SECURITY FIX (HIGH-003): Compute ID from email — never accept from query params
+        const id = await emailToUUID(email);
 
         const adminSupabase = createAdminSupabaseClient();
 
-        // Check if exists
-        const { data: existing } = await adminSupabase.from('profiles').select('id').eq('id', id).maybeSingle();
-
-        if (existing) {
+        // Check if exists (try salted first, then legacy)
+        let { data: existing } = await adminSupabase.from('profiles').select('id').eq('id', id).maybeSingle();
+        
+        if (!existing) {
+            // Try legacy unsalted UUID
+            const legacyId = await emailToUUID(email, "");
+            const { data: legacyExisting } = await adminSupabase.from('profiles').select('id').eq('id', legacyId).maybeSingle();
+            if (legacyExisting) {
+                return NextResponse.json({ message: "Profile already exists (legacy), no fix needed!" });
+            }
+        } else {
             return NextResponse.json({ message: "Profile already exists, no fix needed!" });
         }
 
-        // Force insert
+        // Force insert with computed ID
         const { error } = await adminSupabase.from('profiles').insert({
             id: id,
             email: email,

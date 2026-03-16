@@ -13,6 +13,15 @@ export async function GET(request: Request) {
         await supabase.auth.exchangeCodeForSession(code)
     }
 
-    // URL to redirect to after sign in process completes
-    return NextResponse.redirect(requestUrl.origin)
+    // SECURITY FIX (HIGH-007): Validate redirect origin against allowlist
+    const allowedOrigins = [
+        'https://connectsphere-123.pages.dev',
+        'http://localhost:3000',
+    ];
+    
+    const redirectOrigin = allowedOrigins.includes(requestUrl.origin) 
+        ? requestUrl.origin 
+        : (process.env.NEXTAUTH_URL || 'https://connectsphere-123.pages.dev');
+
+    return NextResponse.redirect(redirectOrigin)
 }

@@ -39,8 +39,16 @@ export function sanitizeInput(input: string): string {
         });
     }
 
-    // Server-side (Edge) Fallback: Extremely simple tag stripping for safety
-    return input.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-                .replace(/on\w+="[^"]*"/gi, "")
-                .replace(/on\w+='[^']*'/gi, "");
+    // Server-side (Edge) Fallback: Comprehensive HTML sanitization (CRIT-003 FIX)
+    // 1. Strip ALL HTML tags completely (not just script)
+    let sanitized = input.replace(/<[^>]*>/g, '');
+    // 2. Encode any remaining angle brackets
+    sanitized = sanitized.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // 3. Strip javascript: protocol patterns
+    sanitized = sanitized.replace(/javascript\s*:/gi, '');
+    // 4. Strip all event handler patterns (on*)
+    sanitized = sanitized.replace(/on\w+\s*=/gi, '');
+    // 5. Strip data: URIs that could execute code
+    sanitized = sanitized.replace(/data\s*:\s*text\/html/gi, '');
+    return sanitized;
 }

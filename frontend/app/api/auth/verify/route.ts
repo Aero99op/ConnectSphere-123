@@ -77,7 +77,8 @@ export async function GET(req: Request) {
 
             if (insertError) {
                 console.error('Verify Signup Insert Error:', insertError);
-                return NextResponse.redirect(new URL(`/login?error=Failed to create account: ${insertError.message}`, req.url));
+                // SECURITY FIX (LOW-003): Never leak internal DB error details to client
+                return NextResponse.redirect(new URL(`/login?error=Failed to create account. Please try again.`, req.url));
             }
         } else {
             // LOGIN FLOW: Just update timestamp

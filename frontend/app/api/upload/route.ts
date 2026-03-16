@@ -24,10 +24,16 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'File too large. Max 50MB.' }, { status: 413 });
         }
 
-        // SECURITY: Validate file type
+        // SECURITY FIX (HIGH-005): Validate file type — reject empty MIME types too
         const allowedTypes = ['image/', 'video/', 'audio/', 'application/pdf'];
-        const isAllowed = allowedTypes.some(t => file.type.startsWith(t));
-        if (!isAllowed && file.type) {
+        const isAllowed = file.type && allowedTypes.some(t => file.type.startsWith(t));
+        
+        // Also check file extension as backup
+        const fileName = (file as any).name || '';
+        const allowedExtensions = /\.(jpg|jpeg|png|gif|webp|mp4|mov|webm|mp3|wav|ogg|pdf)$/i;
+        const hasAllowedExt = fileName ? allowedExtensions.test(fileName) : true; // Skip if no name
+        
+        if (!isAllowed || !hasAllowedExt) {
             return NextResponse.json({ error: 'File type not allowed' }, { status: 415 });
         }
 

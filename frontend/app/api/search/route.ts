@@ -6,8 +6,11 @@ export const runtime = 'edge';
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
-        const query = searchParams.get('q') || '';
+        const rawQuery = searchParams.get('q') || '';
         const type = searchParams.get('type') || 'all'; // 'users', 'posts', or 'all'
+
+        // SECURITY FIX (HIGH-001): Escape ILIKE special characters to prevent filter injection
+        const query = rawQuery.replace(/[\\%_]/g, (char) => `\\${char}`);
 
         const supabase = createServerSupabase();
 
@@ -15,7 +18,7 @@ export async function GET(request: NextRequest) {
         let posts: any[] = [];
 
         if (type === 'users' || type === 'all') {
-            if (query.trim()) {
+            if (rawQuery.trim()) {
                 const { data, error } = await supabase
                     .from('profiles')
                     .select('id, username, full_name, avatar_url, bio')
@@ -40,7 +43,7 @@ export async function GET(request: NextRequest) {
         }
 
         if (type === 'posts' || type === 'all') {
-            if (query.trim()) {
+            if (rawQuery.trim()) {
                 const { data, error } = await supabase
                     .from('posts')
                     .select('*, profiles(username, full_name, avatar_url)')
