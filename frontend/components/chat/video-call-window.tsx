@@ -108,7 +108,7 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
 
         // Fetch remote user details for UI
         const fetchUser = async () => {
-            const { data } = await supabase.from('profiles').select('*').eq('id', recipientId).single();
+            const { data } = await supabase.from('profiles').select('id, username, full_name, avatar_url').eq('id', recipientId).single();
             if (data && !isCleaningUp) setRemoteUserProfile(data);
         };
         fetchUser();

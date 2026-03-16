@@ -2,13 +2,16 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
 
 const rateLimit = new Map();
+// SECURITY FIX (VULN-007): Separate aggressive rate limit for auth endpoints
+const authRateLimit = new Map();
 
-async function checkRateLimit(ip: string) {
-    const limit = 100;
+async function checkRateLimit(ip: string, isAuthRoute: boolean = false) {
+    const limit = isAuthRoute ? 10 : 100; // Auth: 10/min, General: 100/min
     const windowMs = 60 * 1000;
     const now = Date.now();
+    const store = isAuthRoute ? authRateLimit : rateLimit;
 
-    const record = rateLimit.get(ip) ?? { count: 0, startTime: now };
+    const record = store.get(ip) ?? { count: 0, startTime: now };
 
     if (now - record.startTime > windowMs) {
         record.count = 1;
@@ -17,7 +20,14 @@ async function checkRateLimit(ip: string) {
         record.count++;
     }
 
-    rateLimit.set(ip, record);
+    store.set(ip, record);
+    // Cleanup old entries to prevent memory leak on edge
+    if (store.size > 10000) {
+        const cutoff = now - windowMs;
+        for (const [key, val] of store) {
+            if (val.startTime < cutoff) store.delete(key);
+        }
+    }
     return record.count <= limit;
 }
 
@@ -37,9 +47,10 @@ export default auth(async (req: any) => {
         ip = req.ip
     }
 
-    // 1. Rate Limiting
+    // 1. Rate Limiting (VULN-007: Auth routes get stricter limits)
     if (req.nextUrl.pathname.startsWith('/api')) {
-        const isAllowed = await checkRateLimit(ip);
+        const isAuthRoute = req.nextUrl.pathname.startsWith('/api/auth');
+        const isAllowed = await checkRateLimit(ip, isAuthRoute);
         if (!isAllowed) {
             return new NextResponse(JSON.stringify({ error: "Too Many Requests" }), {
                 status: 429,
@@ -70,8 +81,8 @@ export default auth(async (req: any) => {
     }
 
     // Catch-All Protected APIs
-    // Explicitly add any API paths that MUST require auth to this list
-    const protectedApiPaths = ['/api/user', '/api/settings'];
+    // SECURITY FIX (VULN-003/010): ice-servers + onboarding require auth at middleware level
+    const protectedApiPaths = ['/api/user', '/api/settings', '/api/ice-servers', '/api/onboarding'];
     const isProtectedApi = protectedApiPaths.some(path => req.nextUrl.pathname.startsWith(path))
 
     if (isProtectedApi && !token) {
@@ -84,37 +95,22 @@ export default auth(async (req: any) => {
     // 3. Inject Security Headers
     // CSP Configuration — No nonce (Next.js on Cloudflare can't inject nonces into hydration scripts)
     // Using 'unsafe-inline' for scripts is required for Next.js compatibility on Edge
-    const cspHeader = `
-        default-src 'self';
-        script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com;
-        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-        img-src 'self' blob: data: 
-            https://*.googleusercontent.com 
-            https://api.dicebear.com 
-            https://*.supabase.co 
-            https://*.unsplash.com 
-            https://*.catbox.moe
-            https://files.catbox.moe
-            https://i.imgur.com;
-        font-src 'self' https://fonts.gstatic.com;
-        connect-src 'self' 
-            https://*.supabase.co 
-            wss://*.supabase.co 
-            https://*.pages.dev 
-            https://*.apinator.io 
-            wss://*.apinator.io 
-            https://accounts.google.com 
-            https://api.telegram.org
-            https://ipapi.co
-            \${process.env.BACKEND_URL || ''};
-        frame-src 'self' https://accounts.google.com;
-        media-src 'self' blob: https://*.supabase.co https://*.catbox.moe https://files.catbox.moe;
-        object-src 'none';
-        base-uri 'self';
-        form-action 'self';
-        frame-ancestors 'none';
-        upgrade-insecure-requests;
-    `.replace(/\s{2,}/g, ' ').trim();
+    const backendUrl = process.env.BACKEND_URL || '';
+    const cspHeader = [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "img-src 'self' blob: data: https://*.googleusercontent.com https://api.dicebear.com https://*.supabase.co https://*.unsplash.com https://*.catbox.moe https://files.catbox.moe https://i.imgur.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.pages.dev https://*.apinator.io wss://*.apinator.io https://accounts.google.com https://api.telegram.org https://ipapi.co${backendUrl ? ' ' + backendUrl : ''}`,
+        "frame-src 'self' https://accounts.google.com",
+        "media-src 'self' blob: https://*.supabase.co https://*.catbox.moe https://files.catbox.moe",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+        "upgrade-insecure-requests"
+    ].join('; ');
 
     // Standard Security Headers
     res.headers.set('Content-Security-Policy', cspHeader);

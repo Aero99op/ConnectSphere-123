@@ -617,7 +617,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             return;
         }
 
-        const { data: profile } = await supabase.from('profiles').select('*').eq('id', currentUserId).single();
+        const { data: profile } = await supabase.from('profiles').select('id, username, full_name, avatar_url').eq('id', currentUserId).single();
         const callerName = profile?.full_name || profile?.username || "Someone";
         const callerAvatar = profile?.avatar_url || "https://github.com/shadcn.png";
 

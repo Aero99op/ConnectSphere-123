@@ -26,7 +26,8 @@ function RightSidebarContent() {
             // 1. Fetch current user profile
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('*')
+                // SECURITY FIX (VULN-004): Only fetch public-safe fields, not '*'
+                .select('id, username, full_name, avatar_url, bio, karma_points, is_onboarded')
                 .eq('id', authUser.id)
                 .single();
 
@@ -44,7 +45,8 @@ function RightSidebarContent() {
             // 3. Fetch 4 random suggestions excluding already followed and self
             // Note: For a real large-scale app, we might use an RPC call or simpler query logic,
             // but for this demo, fetching a handful of profiles and selecting 4 works.
-            let query = supabase.from('profiles').select('*').limit(20);
+            // SECURITY FIX (VULN-004): Only fetch public-safe fields for suggestions
+            let query = supabase.from('profiles').select('id, username, full_name, avatar_url, bio').limit(20);
 
             // Supabase doesn't natively support NOT IN with an empty array elegantly if not careful,
             // so we add it dynamically.
@@ -128,7 +130,7 @@ function RightSidebarContent() {
                                 {currentUser.username}
                             </span>
                             <span className="text-zinc-500 text-xs font-medium capitalize">
-                                {currentUser.role} Account
+                                Member
                             </span>
                         </div>
                     </Link>
@@ -163,7 +165,7 @@ function RightSidebarContent() {
                                                 {user.username}
                                             </span>
                                             <span className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest opacity-60 truncate">
-                                                {user.role}
+                                                Member
                                             </span>
                                         </div>
                                     </Link>

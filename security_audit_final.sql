@@ -12,12 +12,12 @@
 -- Ensure RLS is enabled
 ALTER TABLE IF EXISTS public.auth_otps ENABLE ROW LEVEL SECURITY;
 
--- Drop any permissive anon policies that might exist
+-- Drop any existing policy with the same name before creating
+DROP POLICY IF EXISTS "deny_anon_auth_otps" ON public.auth_otps;
 DROP POLICY IF EXISTS "anon_read_auth_otps" ON public.auth_otps;
 DROP POLICY IF EXISTS "Allow anon read" ON public.auth_otps;
 
 -- Explicit DENY for anon role on auth_otps
--- (RLS with no matching policy = denied, but belt-and-suspenders)
 CREATE POLICY "deny_anon_auth_otps" ON public.auth_otps
   FOR ALL
   USING (auth.role() != 'anon');
@@ -31,6 +31,7 @@ REVOKE ALL ON public.auth_otps FROM anon;
 
 ALTER TABLE IF EXISTS public.verification_tokens ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "deny_anon_verification_tokens" ON public.verification_tokens;
 DROP POLICY IF EXISTS "anon_read_verification_tokens" ON public.verification_tokens;
 DROP POLICY IF EXISTS "Allow anon read" ON public.verification_tokens;
 
@@ -55,6 +56,7 @@ REVOKE EXECUTE ON FUNCTION public.cleanup_expired_otps() FROM anon;
 
 ALTER TABLE IF EXISTS public.audit_logs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "deny_anon_audit_logs" ON public.audit_logs;
 DROP POLICY IF EXISTS "anon_read_audit_logs" ON public.audit_logs;
 
 CREATE POLICY "deny_anon_audit_logs" ON public.audit_logs
@@ -81,5 +83,62 @@ REVOKE INSERT, UPDATE, DELETE ON public.profiles FROM anon;
 
 -- Test 3: This should return EMPTY when run as anon:
 -- SELECT * FROM public.verification_tokens LIMIT 1;
+
+-- ========================================
+-- VULN-011 FIX: Dedicated call_logs table for call metadata
+-- Moves call logs out of the freeform 'messages' table
+-- ========================================
+
+CREATE TABLE IF NOT EXISTS public.call_logs (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
+    caller_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    call_type TEXT NOT NULL CHECK (call_type IN ('audio', 'video')),
+    duration INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Enable RLS
+ALTER TABLE public.call_logs ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Users can only see call logs for conversations they are part of
+DROP POLICY IF EXISTS "Users can view call logs for their conversations" ON public.call_logs;
+CREATE POLICY "Users can view call logs for their conversations" ON public.call_logs
+    FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.conversation_participants cp
+            WHERE cp.conversation_id = call_logs.conversation_id
+            AND cp.user_id = auth.uid()
+        )
+        OR
+        EXISTS (
+            SELECT 1 FROM public.conversations c
+            WHERE c.id = call_logs.conversation_id
+            AND (c.user1_id = auth.uid() OR c.user2_id = auth.uid())
+        )
+    );
+
+-- Policy: Users can only insert call logs for conversations they are part of
+DROP POLICY IF EXISTS "Users can insert call logs for their conversations" ON public.call_logs;
+CREATE POLICY "Users can insert call logs for their conversations" ON public.call_logs
+    FOR INSERT
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.conversation_participants cp
+            WHERE cp.conversation_id = call_logs.conversation_id
+            AND cp.user_id = auth.uid()
+        )
+        OR
+        EXISTS (
+            SELECT 1 FROM public.conversations c
+            WHERE c.id = call_logs.conversation_id
+            AND (c.user1_id = auth.uid() OR c.user2_id = auth.uid())
+        )
+    );
+
+-- Fast lookup indexes
+CREATE INDEX IF NOT EXISTS idx_call_logs_conversation_id ON public.call_logs(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_call_logs_caller_id ON public.call_logs(caller_id);
 
 -- 🛡️ DATABASE SECURITY AUDIT FIXES COMPLETE

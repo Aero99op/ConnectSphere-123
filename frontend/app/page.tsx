@@ -144,7 +144,7 @@ function HomeFeedContent() {
 
             if (authUser) {
                 try {
-                    const { data } = await supabase.from('profiles').select('*').eq('id', authUser.id).maybeSingle();
+                    const { data } = await supabase.from('profiles').select('id, username, full_name, avatar_url, role').eq('id', authUser.id).maybeSingle();
                     setUserProfile(data);
 
                     if (data?.role === 'official') {
@@ -181,7 +181,7 @@ function HomeFeedContent() {
         const channel = client.subscribe(`private-profiles-${authUser.id}`);
         channel.bind('profile_updated', async (payload: any) => {
             console.log("[Feed] Local profile update received! Syncing header...");
-            const { data } = await supabase.from('profiles').select('*').eq('id', authUser.id).maybeSingle();
+            const { data } = await supabase.from('profiles').select('id, username, full_name, avatar_url, role').eq('id', authUser.id).maybeSingle();
             if (data) {
                 setUserProfile(data);
             }

@@ -65,7 +65,7 @@ export function DepartmentDashboard() {
                 return;
             }
 
-            const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).single();
+            const { data: profile } = await supabase.from('profiles').select('id, username, full_name, avatar_url, role, assigned_area, email').eq('id', authUser.id).single();
             if (profile?.role !== 'official') {
                 window.location.href = '/';
                 return;

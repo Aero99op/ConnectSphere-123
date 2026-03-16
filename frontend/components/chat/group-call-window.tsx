@@ -133,7 +133,7 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
                     if (peerConnectionsRef.current.has(joinedUserId)) return;
 
                     console.log("New user joined group call:", joinedUserId);
-                    const { data: profileData } = await supabase.from('profiles').select('*').eq('id', joinedUserId).single();
+                    const { data: profileData } = await supabase.from('profiles').select('id, username, full_name, avatar_url').eq('id', joinedUserId).single();
                     if (profileData) {
                         setParticipants(prev => {
                             if (prev.find(p => p.id === joinedUserId)) return prev;

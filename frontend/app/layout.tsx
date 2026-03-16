@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     alternates: {
         canonical: '/',
     },
-    manifest: '/manifest.json', // 🔱 Removed crossOrigin="use-credentials" requirement
+    // SECURITY FIX (VULN-008): manifest moved to manual <link> in <head> to avoid crossorigin="use-credentials"
     icons: {
         icon: '/logo.svg',
         shortcut: '/logo.svg',
@@ -79,6 +79,10 @@ export default function RootLayout({
 }) {
     return (
         <html lang="en" className={`dark ${interfaceFont.variable} ${displayFont.variable}`}>
+            <head>
+                {/* SECURITY FIX (VULN-008): Manual manifest link WITHOUT crossorigin="use-credentials" */}
+                <link rel="manifest" href="/manifest.json" />
+            </head>
             {/* body: h-screen w-screen overflow-hidden to allow page.tsx to handle scrolling */}
             <body className="antialiased font-sans bg-background text-foreground w-screen h-screen overflow-hidden m-0 p-0 selection:bg-primary/30">
                 <AuthProvider>

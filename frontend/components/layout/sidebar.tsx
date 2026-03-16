@@ -17,7 +17,7 @@ export function Sidebar() {
     useEffect(() => {
         const getUser = async () => {
             if (authUser) {
-                const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).maybeSingle();
+                const { data: profile } = await supabase.from('profiles').select('id, username, full_name, avatar_url, role').eq('id', authUser.id).maybeSingle();
                 setUser(profile);
             }
         };

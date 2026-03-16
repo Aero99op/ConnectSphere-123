@@ -145,11 +145,12 @@ export function CallManager() {
 
     const handleEndCall = async (duration: number) => {
         if (activeCallRef.current && activeCallRef.current.isCaller && activeCallRef.current.roomId) {
-            // Save call log message
-            await supabase.from("messages").insert({
+            // SECURITY FIX (VULN-011): Save call log metadata to dedicated table instead of messages
+            await supabase.from("call_logs").insert({
                 conversation_id: activeCallRef.current.roomId,
-                sender_id: userId,
-                content: `[CALL_LOG]:${activeCallRef.current.callType}:${duration}`
+                caller_id: userId,
+                call_type: activeCallRef.current.callType,
+                duration: duration
             });
         }
         setActiveCall(null);
