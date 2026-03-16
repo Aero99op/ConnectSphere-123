@@ -1,9 +1,11 @@
 import NextAuth, { CredentialsSignin } from "next-auth"
 import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
+import { authConfig } from "./auth.config"
 import { signSupabaseJWT, createAdminSupabaseClient, emailToUUID, hashPassword, legacyHash } from '@/lib/auth';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+    ...authConfig,
     providers: [
         Google({
             clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -19,7 +21,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             credentials: {
                 email: { label: 'Email', type: 'email' },
                 password: { label: 'Password', type: 'password' },
-                action: { label: 'Action', type: 'text' }, // "login" or "signup"
+                action: { label: 'Action', type: 'text' },
                 fullName: { label: 'Full Name', type: 'text' },
                 role: { label: 'Role', type: 'text' },
             },
@@ -30,7 +32,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     const email = (credentials.email as string).toLowerCase().trim();
                     const inputHash = await hashPassword(credentials.password as string);
 
-                    // 1. Try modern salted UUID
                     const userId = await emailToUUID(email);
                     const adminSupabase = createAdminSupabaseClient();
 
@@ -40,9 +41,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         .eq('id', userId)
                         .maybeSingle();
 
-                    // 2. Legacy Fallback (Unsalted UUID)
                     if (!profile) {
-                        const legacyId = await emailToUUID(email, ""); // No salt
+                        const legacyId = await emailToUUID(email, "");
                         const { data: legacyProfile } = await adminSupabase
                             .from('profiles')
                             .select('id, email, full_name, avatar_url, password_hash, role, email_verified')
@@ -52,16 +52,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     }
 
                     if (!profile || !profile.email_verified || !profile.password_hash) {
-                        console.error("Authorize: Profile not found or not verified");
                         return null;
                     }
 
-                    // 3. Password Check (Modern PBKDF2 or Legacy SHA-256)
                     const isModernMatch = inputHash === profile.password_hash;
                     const isLegacyMatch = await legacyHash(credentials.password as string) === profile.password_hash;
 
                     if (!isModernMatch && !isLegacyMatch) {
-                        console.error("Authorize: Password mismatch");
                         return null;
                     }
 
@@ -73,16 +70,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     };
                 } catch (err) {
                     console.error("🚨 CRITICAL CRASH in authorize:", err);
-                    return null; // Return null instead of throwing to NEVER trigger the 'Configuration' error
+                    return null;
                 }
             },
         }),
     ],
     callbacks: {
+        ...authConfig.callbacks,
         async signIn({ user, account }) {
             try {
                 if (account?.provider === 'google' && user.email) {
-                    // 1. Try salted UUID (Modern)
                     const saltedId = await emailToUUID(user.email);
                     const adminSupabase = createAdminSupabaseClient();
 
@@ -92,7 +89,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         .eq('id', saltedId)
                         .maybeSingle();
 
-                    // 2. Try legacy UUID (Fallback)
                     let finalUserId = saltedId;
                     if (!existingProfile) {
                         const legacyId = await emailToUUID(user.email, "");
@@ -109,7 +105,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     }
 
                     if (!existingProfile) {
-                        const { error: insertError } = await adminSupabase.from('profiles').insert({
+                        await adminSupabase.from('profiles').insert({
                             id: finalUserId,
                             email: user.email,
                             username: user.email.split('@')[0] + Math.floor(Math.random() * 1000),
@@ -118,10 +114,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                             is_onboarded: false,
                             avatar_url: user.image || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name || user.email)}`,
                         });
-
-                        if (insertError) {
-                            console.error("Profile creation error during Google Auth:", insertError);
-                        }
                     }
                     user.id = finalUserId;
                 }
@@ -130,24 +122,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             }
             return true;
         },
-        async jwt({ token, user, account }) {
+        async jwt({ token, user }) {
             try {
-                // On initial sign in, use the ID already determined by authorize or signIn callback
                 if (user) {
-                    token.userId = user.id; // Correct: already handled legacy fallback
+                    token.userId = user.id;
                     token.email = user.email;
                     token.name = user.name;
                     token.picture = user.image;
 
-                    // Sign a Supabase-compatible JWT
                     if (process.env.SUPABASE_JWT_SECRET) {
                         token.supabaseAccessToken = await signSupabaseJWT(user.id as string, user.email!);
-                    } else {
-                        console.warn("🚨 SUPABASE_JWT_SECRET is missing! Supabase real-time/RLS might fail.");
                     }
                 }
 
-                // Refresh Supabase JWT if it's about to expire
                 const supabaseTokenExp = token.supabaseTokenExp as number | undefined;
                 const sixDaysMs = 6 * 24 * 60 * 60 * 1000;
 
@@ -165,7 +152,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             return token;
         },
         async session({ session, token }) {
-            // Pass custom data to the client session
             if (session?.user) {
                 (session.user as any).id = token.userId as string;
                 (session as any).supabaseAccessToken = token.supabaseAccessToken;
@@ -173,50 +159,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             return session;
         },
         async redirect({ url, baseUrl }) {
-            // Allows relative callback URLs (e.g. /homefeed, /profile)
             if (url.startsWith("/")) return `${baseUrl}${url}`;
-
-            // Ensure our specific domains with ANY sub URL are explicitly allowed
-            // Added current Cloudflare origin explicitly
             if (
                 url.startsWith("http://localhost:3000") ||
                 url.startsWith("https://connectsphere-123.pages.dev")
             ) {
                 return url;
             }
-
-            // Fallback for same origin
             try {
                 if (new URL(url).origin === baseUrl) return url;
-            } catch (error) {
-                // Ignore URL parsing errors and fallback to safety
-            }
-
+            } catch (error) {}
             return baseUrl;
         },
     },
-    pages: {
-        signIn: '/login',
-        error: '/login',
-    },
-    session: {
-        strategy: 'jwt',
-        maxAge: 30 * 24 * 60 * 60, // 30 Days (Standard Hardened Security)
-    },
-    // Hardened Cookie Configuration (Finding-004 FIX)
-    cookies: {
-        sessionToken: {
-            name: process.env.NODE_ENV === 'production' ? `__Secure-authjs.session-token` : `authjs.session-token`,
-            options: {
-                httpOnly: true,
-                sameSite: "strict", // Prevent cross-site session probing
-                path: "/",
-                secure: process.env.NODE_ENV === 'production',
-            },
-        },
-    },
-    basePath: "/api/auth",
-    secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
-    trustHost: true,
-    debug: process.env.NODE_ENV === 'development',
 });
+
