@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Trophy, Zap, Puzzle, Hash, Rocket, Activity, Target, ShieldAlert, Cpu, Gem, Grid, MousePointer2, Type, Brain, Globe, Ghost } from "lucide-react";
+import { ArrowLeft, Trophy, Zap, Puzzle, Hash, Rocket, Activity, Target, ShieldAlert, Cpu, Gem, Grid, MousePointer2, Type, Brain, Globe, Ghost, Shield } from "lucide-react";
 import { useTranslation } from "@/components/providers/language-provider";
 import React from "react";
 
@@ -12,13 +12,13 @@ export default function GamesLandingPage() {
     const games = [
         { id: "cyber-racer", name: "Cyber Racer", desc: "High-speed neon reaction racing.", icon: Zap, color: "bg-cyan-500", href: "/settings/games/cyber-racer", genre: "Action" },
         { id: "galaxy-shooter", name: "Galaxy Shooter", desc: "Defend the sector from invaders.", icon: Target, color: "bg-indigo-600", href: "/settings/games/galaxy-shooter", genre: "Arcade" },
-        { id: "vortex-runner", name: "Vortex Runner", desc: "3D perspective tunnel runner.", icon: Rocket, color: "bg-purple-600", href: "/settings/games/vortex-runner", genre: "Arcade" },
+        { id: "neon-drift", name: "Neon Drift", desc: "High-speed retro-future racing.", icon: Rocket, color: "bg-cyan-500", href: "/settings/games/neon-drift", genre: "Racing" },
         { id: "neon-pong", name: "Neon Pong", desc: "Classic arcade with a glow twist.", icon: Activity, color: "bg-rose-500", href: "/settings/games/neon-pong", genre: "Classic" },
         { id: "sudoku", name: "Zen Sudoku", desc: "Minimalist luxury strategy.", icon: Brain, color: "bg-indigo-400", href: "/settings/games/sudoku", genre: "Strategy" },
         { id: "minesweeper", name: "Cyber Mines", desc: "Tactical data reconstruction.", icon: ShieldAlert, color: "bg-emerald-500", href: "/settings/games/minesweeper", genre: "Puzzle" },
         { id: "mahjong", name: "Crystal Mahjong", desc: "Ethereal tile matching.", icon: Gem, color: "bg-blue-400", href: "/settings/games/mahjong", genre: "Board" },
         { id: "astro-breakout", name: "Astro Breakout", desc: "Stellar brick demolition.", icon: Globe, color: "bg-blue-600", href: "/settings/games/astro-breakout", genre: "Arcade" },
-        { id: "hangman", name: "Phantom Hangman", desc: "Mysterious identity decryption.", icon: Ghost, color: "bg-zinc-400", href: "/settings/games/hangman", genre: "Word" },
+        { id: "void-guardian", name: "Void Guardian", desc: "Intense stellar survival protocol.", icon: Shield, color: "bg-indigo-600", href: "/settings/games/void-guardian", genre: "Action" },
         { id: "tic-tac-toe", name: "Neon Tic-Tac-Toe", desc: "Matrix grid system parity.", icon: Grid, color: "bg-cyan-400", href: "/settings/games/tic-tac-toe", genre: "Strategy" },
         { id: "word-guess", name: "Word Guess", desc: "Linguistic matrix decryption.", icon: Type, color: "bg-teal-500", href: "/settings/games/word-guess", genre: "Word" },
         { id: "2048", name: "2048", desc: "Merge the logical numbers.", icon: Hash, color: "bg-orange-500", href: "/settings/games/2048", genre: "Logic" },
