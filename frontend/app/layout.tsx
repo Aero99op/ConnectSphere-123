@@ -19,7 +19,8 @@ const displayFont = Outfit({ subsets: ['latin'], variable: '--font-outfit' })
 const siteConfig = {
     name: 'Connect',
     description: 'India\'s Premiere Social Media Platform',
-    url: 'https://connectsphere.app', // Internal domain stays same
+    // SECURITY FIX (LOW-02): Use actual deployed URL for canonical
+    url: process.env.NEXT_PUBLIC_SITE_URL || 'https://connectsphere-123.pages.dev',
     ogImage: '/og-image.png',
 }
 

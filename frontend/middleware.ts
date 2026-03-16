@@ -125,6 +125,10 @@ export default auth(async (req: any) => {
     res.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
     res.headers.set('X-DNS-Prefetch-Control', 'on');
     res.headers.set('X-XSS-Protection', '1; mode=block');
+    // SECURITY FIX (HIGH-04): Cross-Origin-Opener-Policy against Spectre-class attacks
+    res.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+    // SECURITY FIX (MED-04): Explicitly strip framework fingerprint
+    res.headers.delete('X-Powered-By');
 
     return res
 })

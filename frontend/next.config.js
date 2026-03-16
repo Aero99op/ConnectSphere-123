@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
+const crypto = require('crypto');
+
 const nextConfig = {
+    // SECURITY FIX (MED-04): Suppress X-Powered-By header
+    poweredByHeader: false,
+    // SECURITY FIX (MED-04): Randomize build ID to prevent version fingerprinting
+    generateBuildId: async () => crypto.randomBytes(16).toString('hex'),
     images: {
         remotePatterns: [
             {

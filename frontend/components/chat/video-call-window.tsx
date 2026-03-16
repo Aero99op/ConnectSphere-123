@@ -18,12 +18,26 @@ interface VideoCallWindowProps {
     currentUserId: string;
 }
 
-const ICE_SERVERS = {
+// SECURITY FIX (HIGH-05): ICE servers fetched from /api/ice-servers (not hardcoded)
+// Supports TURN servers for IP privacy when configured server-side
+const DEFAULT_ICE_SERVERS = {
     iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:global.stun.twilio.com:3478" }
     ],
 };
+
+async function fetchIceServers(): Promise<RTCConfiguration> {
+    try {
+        const res = await fetch('/api/ice-servers');
+        if (res.ok) {
+            return await res.json();
+        }
+    } catch (e) {
+        console.warn('[VideoCall] Failed to fetch ICE servers, using fallback', e);
+    }
+    return DEFAULT_ICE_SERVERS;
+}
+
 
 export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onEndCall, initialMinimized = false, currentUserId }: VideoCallWindowProps) {
     const { supabase } = useAuth();
@@ -191,7 +205,9 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
             const stream = await initMedia();
             if (!stream || isCleaningUp) return;
 
-            peerConnection.current = new RTCPeerConnection(ICE_SERVERS);
+            // SECURITY FIX (HIGH-05): Fetch ICE config from server (supports TURN)
+            const iceConfig = await fetchIceServers();
+            peerConnection.current = new RTCPeerConnection(iceConfig);
 
             stream.getTracks().forEach((track) => {
                 peerConnection.current?.addTrack(track, stream);

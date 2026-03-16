@@ -51,7 +51,8 @@ export async function GET() {
 
         if (error) {
             console.error('Onboarding check error:', error);
-            return NextResponse.json({ isOnboarded: true, profileExists: false }, { status: 200 });
+            // SECURITY FIX (HIGH-02): Return 500, not 200, on DB errors
+            return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
         }
 
         if (!data) {
@@ -64,7 +65,8 @@ export async function GET() {
         });
     } catch (err) {
         console.error('Onboarding API error:', err);
-        return NextResponse.json({ isOnboarded: true, profileExists: false }, { status: 200 });
+        // SECURITY FIX (HIGH-02): Return 500, not 200, on catch errors
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }
 
