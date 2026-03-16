@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Trophy, Zap, Puzzle, Hash, Rocket, Activity, Target, ShieldAlert, Cpu, Gem, Grid, MousePointer2, Type, Brain, Globe, Ghost } from "lucide-react";
 import { useTranslation } from "@/components/providers/language-provider";
+import React from "react";
 
 export default function GamesLandingPage() {
     const router = useRouter();

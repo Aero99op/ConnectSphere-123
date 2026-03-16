@@ -12,6 +12,8 @@ import { LanguageProvider } from '@/components/providers/language-provider'
 import { OnboardingGuard } from '@/components/providers/onboarding-guard'
 import { ApinatorProvider } from '@/components/providers/apinator-provider'
 import { PresenceProvider } from '@/components/providers/presence-provider'
+import { PWAProvider } from '@/components/providers/pwa-provider'
+import React from 'react'
 
 const interfaceFont = Inter({ subsets: ['latin'], variable: '--font-inter' })
 const displayFont = Outfit({ subsets: ['latin'], variable: '--font-outfit' })
@@ -90,31 +92,33 @@ export default function RootLayout({
                         <OnboardingGuard>
                             <ApinatorProvider>
                                 <PresenceProvider>
-                                    <div className="fixed inset-0 bg-[radial-gradient(circle_at_2px_2px,_rgba(255,255,255,0.02)_1px,_transparent_0)] bg-[size:40px_40px] pointer-events-none" />
+                                    <PWAProvider>
+                                        <div className="fixed inset-0 bg-[radial-gradient(circle_at_2px_2px,_rgba(255,255,255,0.02)_1px,_transparent_0)] bg-[size:40px_40px] pointer-events-none" />
 
-                                    {/* 🚀 Premium Splash Screen */}
-                                    <SplashLoader />
+                                        {/* 🚀 Premium Splash Screen */}
+                                        <SplashLoader />
 
-                                    {/* Real-time Interaction Alerts 🔔 */}
-                                    <NotificationListener />
+                                        {/* Real-time Interaction Alerts 🔔 */}
+                                        <NotificationListener />
 
-                                    {/* Global Home Button for Citizen Mode */}
-                                    <GlobalHomeButton />
+                                        {/* Global Home Button for Citizen Mode */}
+                                        <GlobalHomeButton />
 
-                                    {/* Video Call Manager (Global Listener) */}
-                                    <CallManager />
+                                        {/* Video Call Manager (Global Listener) */}
+                                        <CallManager />
 
-                                    {/* Main Content - Full Width & Centered */}
-                                    <main className="w-full h-full overflow-y-auto pb-24 transition-all duration-300">
-                                        <div className="mx-auto w-full h-full max-w-5xl">
-                                            {children}
-                                        </div>
-                                    </main>
+                                        {/* Main Content - Full Width & Centered */}
+                                        <main className="w-full h-full overflow-y-auto pb-24 transition-all duration-300">
+                                            <div className="mx-auto w-full h-full max-w-5xl">
+                                                {children}
+                                            </div>
+                                        </main>
 
-                                    {/* Navigation Dock - Now a fixed footer managed internally by BottomNav */}
-                                    <BottomNav />
+                                        {/* Navigation Dock - Now a fixed footer managed internally by BottomNav */}
+                                        <BottomNav />
 
-                                    <Toaster position="top-center" />
+                                        <Toaster position="top-center" />
+                                    </PWAProvider>
                                 </PresenceProvider>
                             </ApinatorProvider>
                         </OnboardingGuard>

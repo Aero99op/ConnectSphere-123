@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { getApinatorClient } from "@/lib/apinator";
 
 import { FileUpload } from "@/components/ui/file-upload";
+import { syncPosts, syncStories, getLocalPosts, getLocalStories, saveLocalProfile, getLocalProfile } from "@/lib/offline-sync";
 
 function HomeFeedContent() {
     const { user: authUser, supabase } = useAuth();
@@ -30,8 +31,22 @@ function HomeFeedContent() {
 
     const router = useRouter();
 
+    const [isOffline, setIsOffline] = useState(false);
+
     const fetchStories = async (currentUserId: string | null) => {
-        // Fetch stories that haven't expired
+        // 1. Load from local DB first
+        const localStories = await getLocalStories();
+        if (localStories.length > 0) {
+             setStories([{
+                id: 'add-story-btn',
+                user_id: currentUserId,
+                username: 'Your Story',
+                avatar_url: userProfile?.avatar_url || '',
+                isAddButton: true
+            }, ...localStories]);
+        }
+
+        // 2. Fetch stories that haven't expired
         const { data, error } = await supabase
             .from("stories")
             .select(`
@@ -49,6 +64,9 @@ function HomeFeedContent() {
                 username: story.profiles?.username || "User",
                 avatar_url: story.profiles?.avatar_url
             }));
+            
+            // 3. Sync to local DB
+            await syncStories(formattedStories);
         }
 
         // Always put "Add Story" fake object at index 0 for UI purposes
@@ -61,17 +79,26 @@ function HomeFeedContent() {
         };
 
         // If no real stories exist, throw in some mocks so the UI doesn't look empty for the demo
-        if (formattedStories.length === 0) {
+        if (formattedStories.length === 0 && localStories.length === 0) {
             formattedStories = [
                 { id: 'mock-2', username: 'Riya', avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Riya', media_urls: ["https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=800&q=80"], caption: "Selfie time! 📸" },
                 { id: 'mock-3', username: 'Amit', avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Amit', media_urls: ["https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&q=80"], caption: "Nature is healing 🌿" }
             ];
         }
 
-        setStories([myAddStoryCard, ...formattedStories]);
+        if (formattedStories.length > 0) {
+            setStories([myAddStoryCard, ...formattedStories]);
+        }
     };
 
     const fetchPosts = async () => {
+        // 1. Load from local DB first
+        const localPosts = await getLocalPosts();
+        if (localPosts.length > 0) {
+            setPosts(localPosts);
+            setLoading(false);
+        }
+
         const { data, error } = await supabase
             .from("posts")
             .select(`
@@ -88,9 +115,12 @@ function HomeFeedContent() {
                 username: post.profiles?.username || "Anonymous",
                 avatar_url: post.profiles?.avatar_url
             }));
+
+            // 2. Sync to local DB
+            await syncPosts(formattedPosts);
         }
 
-        if (formattedPosts.length === 0) {
+        if (formattedPosts.length === 0 && localPosts.length === 0) {
             formattedPosts = [
                 {
                     id: "dummy-1",
@@ -104,35 +134,13 @@ function HomeFeedContent() {
                     media_type: "image",
                     likes_count: 5420,
                     profiles: { full_name: "Team Connect" }
-                },
-                {
-                    id: "dummy-2",
-                    user_id: "system-2",
-                    username: "Rahul Kumar",
-                    avatar_url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Rahul",
-                    caption: "Just used the new 'Civic Reports' feature to complain about the massive pothole near Brigade Road. The interface is super clean and it even auto-detected my location! 🛣️📍 Hope the BMC fixes it soon.",
-                    media_urls: ["https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=800&q=80"],
-                    thumbnail_url: "",
-                    media_type: "image",
-                    likes_count: 850,
-                    profiles: { full_name: "Rahul Kumar" }
-                },
-                {
-                    id: "dummy-3",
-                    user_id: "system-3",
-                    username: "Priya Sharma",
-                    avatar_url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Priya",
-                    caption: "Beautiful sunset at Marine Drive today! 🌅 The vibes here are just unmatched. Who else is enjoying the weekend?",
-                    media_urls: ["https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=800&q=80"],
-                    thumbnail_url: "",
-                    media_type: "image",
-                    likes_count: 1205,
-                    profiles: { full_name: "Priya Sharma" }
                 }
             ];
         }
 
-        setPosts(formattedPosts);
+        if (formattedPosts.length > 0) {
+            setPosts(formattedPosts);
+        }
         setLoading(false);
     };
 
@@ -142,14 +150,29 @@ function HomeFeedContent() {
         const init = async () => {
             setLoading(true);
 
+            // Network status listeners
+            setIsOffline(!navigator.onLine);
+            const handleOnline = () => setIsOffline(false);
+            const handleOffline = () => setIsOffline(true);
+            window.addEventListener('online', handleOnline);
+            window.addEventListener('offline', handleOffline);
+
             if (authUser) {
                 try {
-                    const { data } = await supabase.from('profiles').select('id, username, full_name, avatar_url, role').eq('id', authUser.id).maybeSingle();
-                    setUserProfile(data);
+                    // 1. Try local profile
+                    const localProfile = await getLocalProfile(authUser.id);
+                    if (localProfile) setUserProfile(localProfile);
 
-                    if (data?.role === 'official') {
-                        router.push('/dashboard');
-                        return;
+                    const { data } = await supabase.from('profiles').select('id, username, full_name, avatar_url, role').eq('id', authUser.id).maybeSingle();
+                    if (data) {
+                        setUserProfile(data);
+                        // 2. Sync to local profile
+                        await saveLocalProfile(authUser.id, data);
+
+                        if (data?.role === 'official') {
+                            router.push('/dashboard');
+                            return;
+                        }
                     }
                 } catch (e) {
                     console.error("Failed to load user profile for Feed routing:", e);
@@ -158,8 +181,6 @@ function HomeFeedContent() {
 
             // Normal feed initialization
             await Promise.all([fetchPosts(), fetchStories(authUser?.id || null)]);
-
-            // Feed uses pull-to-refresh pattern — no realtime needed (already unlimited)
 
             setIsInitializing(false);
         };
@@ -170,6 +191,8 @@ function HomeFeedContent() {
             if (feedChannel) {
                 supabase.removeChannel(feedChannel);
             }
+            window.removeEventListener('online', () => setIsOffline(false));
+            window.removeEventListener('offline', () => setIsOffline(true));
         };
     }, [authUser, router]);
 
@@ -270,6 +293,12 @@ function HomeFeedContent() {
                             Connect
                         </h1>
                         <div className="flex items-center gap-3">
+                            {isOffline && (
+                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 animate-pulse">
+                                    <AlertTriangle className="w-4 h-4" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Offline</span>
+                                </div>
+                            )}
                             <Link href="/notifications" className="relative p-2.5 rounded-2xl glass border-premium hover:bg-white/10 transition-all group active:scale-95 shadow-premium-sm">
                                 <Bell className="w-6 h-6 text-zinc-400 group-hover:text-primary group-hover:scale-110 transition-all" />
                                 <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-primary border-2 border-black rounded-full animate-pulse shadow-[0_0_10px_rgba(255,165,0,0.5)]" />
