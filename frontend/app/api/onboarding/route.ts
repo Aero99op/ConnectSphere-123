@@ -94,7 +94,8 @@ export async function POST(req: NextRequest) {
             .from('profiles')
             .upsert({
                 id: userId,
-                email: session.user.email,
+                // Omit email here to avoid schema cache errors if the column 
+                // hasn't been added yet. It should be handled during first login.
                 country: edgeSanitize(country.trim()),
                 age: parseInt(age),
                 interests: interests,
