@@ -88,32 +88,21 @@ export async function POST(req: NextRequest) {
 
         const adminSupabase = createAdminSupabaseClient();
 
-        // Use UPSERT instead of UPDATE to handle cases where the profile record 
-        // wasn't created during sign-in (e.g. database glitch or RLS failure).
-        const { data: upsertData, error: upsertError } = await adminSupabase
+        const { error } = await adminSupabase
             .from('profiles')
-            .upsert({
-                id: userId,
-                email: session.user.email,
-                full_name: session.user.name || session.user.email?.split('@')[0],
-                username: session.user.email?.split('@')[0] + Math.floor(Math.random() * 100),
+            .update({
                 country: edgeSanitize(country.trim()),
                 age: parseInt(age),
                 interests: interests,
                 is_onboarded: true,
-                role: 'citizen', // Default for onboarding users
                 personalization: { setup_date: new Date().toISOString() },
-            }, {
-                onConflict: 'id'
             })
-            .select('id')
-            .maybeSingle();
+            .eq('id', userId);
 
-        if (upsertError || !upsertData) {
-            console.error('Onboarding upsert error:', upsertError, 'Affected User:', userId);
-            return NextResponse.json({ 
-                error: 'Failed to save onboarding data. Please try again.' 
-            }, { status: 500 });
+        if (error) {
+            console.error('Onboarding update error:', error);
+            // SECURITY FIX (LOW-003): Never leak internal DB error messages
+            return NextResponse.json({ error: 'Failed to save onboarding data' }, { status: 500 });
         }
 
         return NextResponse.json({ success: true });

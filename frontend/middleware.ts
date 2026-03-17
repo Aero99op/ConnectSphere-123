@@ -9,8 +9,8 @@ const rateLimit = new Map();
 const authRateLimit = new Map();
 
 async function checkRateLimit(ip: string, isAuthRoute: boolean = false) {
-    const limit = isAuthRoute ? 1000 : 100; // Auth: 1000/10min, General: 100/min
-    const windowMs = isAuthRoute ? 10 * 60 * 1000 : 60 * 1000;
+    const limit = isAuthRoute ? 10 : 100; // Auth: 10/min, General: 100/min
+    const windowMs = 60 * 1000;
     const now = Date.now();
     const store = isAuthRoute ? authRateLimit : rateLimit;
 
