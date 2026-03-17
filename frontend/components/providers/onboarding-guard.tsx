@@ -46,7 +46,8 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
                 if (!data.isOnboarded && pathname !== '/onboarding') {
                     router.replace('/onboarding');
                 } else if (data.isOnboarded && pathname === '/onboarding') {
-                    router.replace('/');
+                    // Force a hard navigation to clear state if needed, or just replace
+                    window.location.href = '/';
                 }
             } catch (error) {
                 console.error("Error checking onboarding status", error);

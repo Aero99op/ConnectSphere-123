@@ -65,9 +65,12 @@ self.addEventListener('fetch', (event) => {
                 // Update cache with fresh version
                 if (networkResponse && networkResponse.status === 200) {
                     const responseToCache = networkResponse.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(event.request, responseToCache);
-                    });
+                    const requestUrl = new URL(event.request.url);
+                    if (requestUrl.protocol === 'http:' || requestUrl.protocol === 'https:') {
+                        caches.open(CACHE_NAME).then((cache) => {
+                            cache.put(event.request, responseToCache);
+                        });
+                    }
                 }
                 return networkResponse;
             }).catch((err) => {

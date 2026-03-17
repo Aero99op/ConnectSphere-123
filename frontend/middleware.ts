@@ -9,7 +9,7 @@ const rateLimit = new Map();
 const authRateLimit = new Map();
 
 async function checkRateLimit(ip: string, isAuthRoute: boolean = false) {
-    const limit = isAuthRoute ? 10 : 100; // Auth: 10/min, General: 100/min
+    const limit = isAuthRoute ? 1000 : 100; // Auth: UNLIMITED (1000/min), General: 100/min
     const windowMs = 60 * 1000;
     const now = Date.now();
     const store = isAuthRoute ? authRateLimit : rateLimit;
@@ -75,7 +75,12 @@ export default auth(async (req: any) => {
 
     // Root path redirection for unauthenticated users
     if (req.nextUrl.pathname === '/' && !token) {
+        // Only redirect to role-selection if NOT logged in
         return NextResponse.redirect(new URL('/role-selection', req.url))
+    }
+
+    if (req.nextUrl.pathname === '/role-selection' && token) {
+        return NextResponse.redirect(new URL('/', req.url))
     }
 
     // Auth Routes (Login) - Redirect to Feed if already logged in
