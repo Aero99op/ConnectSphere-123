@@ -174,7 +174,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             }
             try {
                 if (new URL(url).origin === baseUrl) return url;
-            } catch (error) {}
+            } catch (error) { }
             return baseUrl;
         },
     },

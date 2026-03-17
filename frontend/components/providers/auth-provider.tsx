@@ -47,25 +47,16 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         // If NextAuth has a session, use its injected token
         const nextAuthToken = (nextAuthSession as any)?.supabaseAccessToken;
         if (nextAuthToken) {
+            // Force create a specific client for this session if it doesn't match
+            // but we must use a stable reference or avoid GoTrue multiple instances.
             return createClient(supabaseUrl, supabaseAnonKey, {
-                auth: {
-                    persistSession: false,
-                    autoRefreshToken: false,
-                    detectSessionInUrl: false
-                },
+                auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
                 global: { 
                     headers: { 
-                        Authorization: `Bearer ${nextAuthToken}`,
-                        apikey: supabaseAnonKey 
+                        'apikey': supabaseAnonKey,
+                        'Authorization': `Bearer ${nextAuthToken}`
                     } 
-                },
-                realtime: {
-                    params: { apikey: supabaseAnonKey },
-                    headers: { 
-                        Authorization: `Bearer ${nextAuthToken}`,
-                        apikey: supabaseAnonKey 
-                    },
-                },
+                }
             });
         }
 

@@ -75,10 +75,12 @@ export async function POST(req: NextRequest) {
     try {
         const session = await auth();
         if (!session?.user?.email) {
+            console.error('Onboarding POST: Not authenticated');
             return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
         }
 
         const userId = (session.user as any).id;
+        console.log(`Onboarding POST started for user: ${userId} (${session.user.email})`);
         const body = await req.json();
         const { country, age, interests } = body;
 
@@ -102,8 +104,12 @@ export async function POST(req: NextRequest) {
 
         if (error) {
             console.error('Onboarding upsert error:', error);
-            // SECURITY FIX (LOW-003): Never leak internal DB error messages
-            return NextResponse.json({ error: 'Failed to save onboarding data' }, { status: 500 });
+            // Catching specific errors to give user feedback
+            return NextResponse.json({ 
+                error: `Database error: ${error.message}`,
+                hint: error.hint,
+                code: error.code
+            }, { status: 500 });
         }
 
         return NextResponse.json({ success: true, updated: true });
