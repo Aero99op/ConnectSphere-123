@@ -88,26 +88,32 @@ export async function POST(req: NextRequest) {
 
         const adminSupabase = createAdminSupabaseClient();
 
-        // Ensure record exists or just update. 
-        // We use select to confirm if the ID actually matched a record.
-        const { data: updateData, error: updateError } = await adminSupabase
+        // Use UPSERT instead of UPDATE to handle cases where the profile record 
+        // wasn't created during sign-in (e.g. database glitch or RLS failure).
+        const { data: upsertData, error: upsertError } = await adminSupabase
             .from('profiles')
-            .update({
+            .upsert({
+                id: userId,
+                email: session.user.email,
+                full_name: session.user.name || session.user.email?.split('@')[0],
+                username: session.user.email?.split('@')[0] + Math.floor(Math.random() * 100),
                 country: edgeSanitize(country.trim()),
                 age: parseInt(age),
                 interests: interests,
                 is_onboarded: true,
+                role: 'citizen', // Default for onboarding users
                 personalization: { setup_date: new Date().toISOString() },
+            }, {
+                onConflict: 'id'
             })
-            .eq('id', userId)
             .select('id')
             .maybeSingle();
 
-        if (updateError || !updateData) {
-            console.error('Onboarding update error or no record found:', updateError, 'Affected User:', userId);
+        if (upsertError || !upsertData) {
+            console.error('Onboarding upsert error:', upsertError, 'Affected User:', userId);
             return NextResponse.json({ 
-                error: updateError ? 'Failed to save onboarding data' : 'User profile not found. Please try logging in again.' 
-            }, { status: updateError ? 500 : 404 });
+                error: 'Failed to save onboarding data. Please try again.' 
+            }, { status: 500 });
         }
 
         return NextResponse.json({ success: true });

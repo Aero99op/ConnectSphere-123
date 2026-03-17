@@ -105,7 +105,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     }
 
                     if (!existingProfile) {
-                        await adminSupabase.from('profiles').insert({
+                        console.log(`[Auth] Creating new profile for: ${user.email} (ID: ${finalUserId})`);
+                        const { error: insertError } = await adminSupabase.from('profiles').insert({
                             id: finalUserId,
                             email: user.email,
                             username: user.email.split('@')[0] + Math.floor(Math.random() * 1000),
@@ -114,11 +115,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                             is_onboarded: false,
                             avatar_url: user.image || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name || user.email)}`,
                         });
+                        
+                        if (insertError) {
+                            console.error("[Auth] ❌ Profile creation FAILED:", insertError);
+                            // We don't block login, but the onboarding API will now handle the missing profile via UPSERT
+                        }
                     }
                     user.id = finalUserId;
                 }
             } catch (err) {
-                console.error("Critical error in NextAuth signIn callback:", err);
+                console.error("🚨 Critical error in NextAuth signIn callback:", err);
             }
             return true;
         },
