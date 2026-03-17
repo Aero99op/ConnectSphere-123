@@ -74,7 +74,7 @@ export default function OnboardingPage() {
             }
 
             toast.success("Welcome aboard! Let's get started. 🚀");
-            window.location.href = "/";
+            router.push("/");
         } catch (error: any) {
             console.error(error);
             toast.error(error.message || "Failed to save details.");

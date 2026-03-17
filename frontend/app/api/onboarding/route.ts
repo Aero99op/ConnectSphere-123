@@ -88,7 +88,9 @@ export async function POST(req: NextRequest) {
 
         const adminSupabase = createAdminSupabaseClient();
 
-        const { error } = await adminSupabase
+        // Ensure record exists or just update. 
+        // We use select to confirm if the ID actually matched a record.
+        const { data: updateData, error: updateError } = await adminSupabase
             .from('profiles')
             .update({
                 country: edgeSanitize(country.trim()),
@@ -97,12 +99,15 @@ export async function POST(req: NextRequest) {
                 is_onboarded: true,
                 personalization: { setup_date: new Date().toISOString() },
             })
-            .eq('id', userId);
+            .eq('id', userId)
+            .select('id')
+            .maybeSingle();
 
-        if (error) {
-            console.error('Onboarding update error:', error);
-            // SECURITY FIX (LOW-003): Never leak internal DB error messages
-            return NextResponse.json({ error: 'Failed to save onboarding data' }, { status: 500 });
+        if (updateError || !updateData) {
+            console.error('Onboarding update error or no record found:', updateError, 'Affected User:', userId);
+            return NextResponse.json({ 
+                error: updateError ? 'Failed to save onboarding data' : 'User profile not found. Please try logging in again.' 
+            }, { status: updateError ? 500 : 404 });
         }
 
         return NextResponse.json({ success: true });
