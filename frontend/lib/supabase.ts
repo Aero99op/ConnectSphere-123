@@ -19,6 +19,11 @@ export const getSupabase = () => {
                 persistSession: false,
                 autoRefreshToken: false,
                 detectSessionInUrl: false,
+            },
+            global: {
+                headers: {
+                    'apikey': supabaseAnonKey
+                }
             }
         });
     }

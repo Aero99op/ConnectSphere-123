@@ -105,14 +105,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     }
 
                     if (!existingProfile) {
+                        const username = user.email.split('@')[0] + Math.floor(Math.random() * 10000);
+                        const fullName = user.name || user.email.split('@')[0] || 'Desi User';
+                        
+                        console.log(`[Auth] Creating new profile: ID=${finalUserId}, Email=${user.email}, Name=${fullName}, Username=${username}`);
+
                         const { error: insertError } = await adminSupabase.from('profiles').insert({
                             id: finalUserId,
                             email: user.email,
-                            username: user.email.split('@')[0] + Math.floor(Math.random() * 10000),
-                            full_name: user.name || user.email.split('@')[0],
+                            username: username,
+                            full_name: fullName,
                             role: 'citizen',
                             is_onboarded: false,
-                            avatar_url: user.image || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name || user.email)}`,
+                            avatar_url: user.image || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName)}`,
                         });
 
                         if (insertError) {

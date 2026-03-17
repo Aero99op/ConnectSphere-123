@@ -66,7 +66,7 @@ self.addEventListener('fetch', (event) => {
                 if (networkResponse && networkResponse.status === 200) {
                     const responseToCache = networkResponse.clone();
                     const requestUrl = new URL(event.request.url);
-                    if (requestUrl.protocol === 'http:' || requestUrl.protocol === 'https:') {
+                    if ((requestUrl.protocol === 'http:' || requestUrl.protocol === 'https:') && event.request.method === 'GET') {
                         caches.open(CACHE_NAME).then((cache) => {
                             cache.put(event.request, responseToCache);
                         });
