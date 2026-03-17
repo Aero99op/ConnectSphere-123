@@ -219,7 +219,7 @@ export default function TetrisGame() {
                                 }
                                 return (
                                     <div key={`${x}-${y}`} className={`w-full h-full rounded-sm ${color || 'bg-black/20'} transition-colors duration-100 relative`}>
-                                        {color && <div className="absolute inset-x-0 top-0 h-1/2 bg-white/20 skew-y-[-10deg] translate-y-[-50%]" />}
+                                        {color && <div className="absolute inset-x-0 top-0 h-1/2 bg-white/10 skew-y-[-10deg] translate-y-[-50%]" />}
                                     </div>
                                 );
                             })
@@ -238,7 +238,43 @@ export default function TetrisGame() {
                     )}
                 </div>
 
-                <p className="text-zinc-500 text-center text-xs">
+                {/* Mobile Controls */}
+                <div className="md:hidden flex flex-col gap-4">
+                    <div className="flex justify-center gap-4">
+                        <button 
+                            onMouseDown={() => handleRotate()}
+                            onTouchStart={(e) => { e.preventDefault(); handleRotate(); }}
+                            className="w-16 h-16 glass rounded-2xl border-premium flex items-center justify-center active:scale-95 transition-all bg-white/5"
+                        >
+                            <RotateCcw className="w-8 h-8 text-purple-400" />
+                        </button>
+                    </div>
+                    <div className="flex justify-center gap-4">
+                        <button 
+                            onMouseDown={() => move(-1)}
+                            onTouchStart={(e) => { e.preventDefault(); move(-1); }}
+                            className="w-16 h-16 glass rounded-2xl border-premium flex items-center justify-center active:scale-95 transition-all bg-white/5 text-2xl font-black"
+                        >
+                            ←
+                        </button>
+                        <button 
+                            onMouseDown={() => drop()}
+                            onTouchStart={(e) => { e.preventDefault(); drop(); }}
+                            className="w-16 h-16 glass rounded-2xl border-premium flex items-center justify-center active:scale-95 transition-all bg-white/5 text-2xl font-black"
+                        >
+                            ↓
+                        </button>
+                        <button 
+                            onMouseDown={() => move(1)}
+                            onTouchStart={(e) => { e.preventDefault(); move(1); }}
+                            className="w-16 h-16 glass rounded-2xl border-premium flex items-center justify-center active:scale-95 transition-all bg-white/5 text-2xl font-black"
+                        >
+                            →
+                        </button>
+                    </div>
+                </div>
+
+                <p className="text-zinc-500 text-center text-xs hidden md:block">
                     <span className="text-white font-bold">Arrow Keys</span> to Move/Rotate. <br/>
                     <span className="text-white font-bold">Space</span> to Pause.
                 </p>

@@ -102,7 +102,10 @@ export default function NeonDrift() {
     }, [score, highScore]);
 
     return (
-        <div className={`flex w-full min-h-screen text-white relative flex-col items-center justify-center overflow-hidden bg-black md:pl-20 lg:pl-64 transition-transform ${shake ? 'animate-shake' : ''}`}>
+        <div 
+            className={`flex w-full min-h-screen text-white relative flex-col items-center justify-center overflow-hidden bg-black md:pl-20 lg:pl-64 transition-transform ${shake ? 'animate-shake' : ''}`}
+            style={{ touchAction: 'none' }}
+        >
             {/* Super High-Fidelity Background */}
             <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute inset-0 bg-gradient-to-b from-purple-900/20 via-black to-black" />
@@ -194,7 +197,7 @@ export default function NeonDrift() {
                         <div className="absolute inset-0 z-[100] bg-black/60 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in">
                             <Gauge className="w-20 h-20 text-cyan-400 mb-6 animate-pulse" />
                             <h2 className="text-3xl font-black italic text-white mb-2 tracking-tighter uppercase">Neon Drift Ready</h2>
-                            <p className="text-zinc-400 mb-8 max-w-xs text-center text-xs px-10">Use Arrow Keys to drift between lanes. Avoid all energy barriers at max velocity.</p>
+                            <p className="text-zinc-400 mb-8 max-w-xs text-center text-xs px-10">Use Arrow Keys or on-screen buttons to drift between lanes. Avoid all energy barriers.</p>
                             <button onClick={startGame} className="group relative px-12 py-4 bg-cyan-500 text-black font-black uppercase tracking-widest rounded-full overflow-hidden hover:scale-105 transition-all">
                                 <span className="relative z-10 text-white">Engage Drive</span>
                                 <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-cyan-400 scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-500" />
@@ -217,55 +220,65 @@ export default function NeonDrift() {
                     )}
                 </div>
 
-                {/* Dashboard */}
-                <div className="grid grid-cols-3 gap-4">
-                    <div className="p-6 glass rounded-[2rem] border-premium bg-cyan-500/5 flex flex-col">
-                        <span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Traversed</span>
-                        <div className="flex items-end gap-2">
-                            <span className="text-3xl font-black text-cyan-400">{score}</span>
-                            <span className="text-xs font-bold text-zinc-600 mb-1">Meters</span>
+                {/* Dashboard & Mobile Controls */}
+                <div className="flex flex-col gap-4">
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="p-6 glass rounded-[2rem] border-premium bg-cyan-500/5 flex flex-col">
+                            <span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Traversed</span>
+                            <div className="flex items-end gap-2">
+                                <span className="text-3xl font-black text-cyan-400">{score}</span>
+                                <span className="text-xs font-bold text-zinc-600 mb-1">Meters</span>
+                            </div>
+                        </div>
+                        <div className="p-6 glass rounded-[2rem] border-premium bg-purple-500/5 flex flex-col">
+                            <span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Velocity</span>
+                            <div className="flex items-end gap-2">
+                                <span className="text-3xl font-black text-purple-400">{Math.floor(speed * 10000)}</span>
+                                <span className="text-xs font-bold text-zinc-600 mb-1">KM/H</span>
+                            </div>
+                        </div>
+                        <div className="p-6 glass rounded-[2rem] border-premium bg-amber-500/5 flex flex-col">
+                            <span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Max Record</span>
+                            <div className="flex items-end gap-2">
+                                <span className="text-3xl font-black text-amber-400">{highScore}</span>
+                                <span className="text-xs font-bold text-zinc-600 mb-1">Meters</span>
+                            </div>
                         </div>
                     </div>
-                    <div className="p-6 glass rounded-[2rem] border-premium bg-purple-500/5 flex flex-col">
-                        <span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Velocity</span>
-                        <div className="flex items-end gap-2">
-                            <span className="text-3xl font-black text-purple-400">{Math.floor(speed * 10000)}</span>
-                            <span className="text-xs font-bold text-zinc-600 mb-1">KM/H</span>
-                        </div>
-                    </div>
-                    <div className="p-6 glass rounded-[2rem] border-premium bg-amber-500/5 flex flex-col">
-                        <span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Max Record</span>
-                        <div className="flex items-end gap-2">
-                            <span className="text-3xl font-black text-amber-400">{highScore}</span>
-                            <span className="text-xs font-bold text-zinc-600 mb-1">Meters</span>
-                        </div>
+
+                    {/* Mobile On-Screen Controls */}
+                    <div className="flex gap-4 md:hidden">
+                        <button 
+                            onMouseDown={() => setLane(l => Math.max(0, l - 1))}
+                            onTouchStart={(e) => { e.preventDefault(); setLane(l => Math.max(0, l - 1)); }}
+                            className="flex-1 h-20 glass rounded-[2rem] border-premium bg-white/5 active:bg-white/10 flex items-center justify-center transition-all active:scale-95"
+                        >
+                            <ArrowLeft className="w-8 h-8 text-cyan-400" />
+                        </button>
+                        <button 
+                            onMouseDown={() => setLane(l => Math.min(2, l + 1))}
+                            onTouchStart={(e) => { e.preventDefault(); setLane(l => Math.min(2, l + 1)); }}
+                            className="flex-1 h-20 glass rounded-[2rem] border-premium bg-white/5 active:bg-white/10 flex items-center justify-center transition-all active:scale-95"
+                        >
+                            <ArrowLeft className="w-8 h-8 text-cyan-400 rotate-180" />
+                        </button>
                     </div>
                 </div>
+                <style jsx>{`
+                    @keyframes grid {
+                        from { transform: translateY(0); }
+                        to { transform: translateY(100px); }
+                    }
+                    @keyframes shake {
+                        0%, 100% { transform: translateX(0); }
+                        25% { transform: translateX(-5px); }
+                        75% { transform: translateX(5px); }
+                    }
+                    .animate-shake {
+                        animation: shake 0.1s ease-in-out infinite;
+                    }
+                `}</style>
             </div>
-
-            <style jsx>{`
-                @keyframes grid-scroll {
-                    from { background-position: 0 0; }
-                    to { background-position: 0 100px; }
-                }
-                .animate-grid {
-                    animation: grid-scroll 2s linear infinite;
-                }
-                @keyframes shake {
-                    0%, 100% { transform: translate(0, 0); }
-                    10%, 30%, 50%, 70%, 90% { transform: translate(-4px, 0); }
-                    20%, 40%, 60%, 80% { transform: translate(4px, 0); }
-                }
-                .animate-shake {
-                    animation: shake 0.2s cubic-bezier(.36,.07,.19,.97) both;
-                }
-                .perspective-1000 { perspective: 1000px; }
-                .rotate-x-65 { transform: rotateX(65deg); }
-                @keyframes blur-pulse {
-                    0%, 100% { opacity: 0.1; }
-                    50% { opacity: 0.3; }
-                }
-            `}</style>
         </div>
     );
 }

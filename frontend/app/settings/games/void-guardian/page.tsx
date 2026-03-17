@@ -141,7 +141,10 @@ export default function VoidGuardian() {
     };
 
     return (
-        <div className="flex w-full min-h-screen text-white relative flex-col items-center justify-center overflow-hidden bg-[#020205] md:pl-20 lg:pl-64">
+        <div 
+            className="flex w-full min-h-screen text-white relative flex-col items-center justify-center overflow-hidden bg-[#020205] md:pl-20 lg:pl-64"
+            style={{ touchAction: 'none' }}
+        >
             {/* Deep Space Background */}
             <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,#1e1b4b_0%,transparent_100%)] opacity-30" />
