@@ -54,7 +54,9 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
                 global: { 
                     headers: { 
                         'apikey': supabaseAnonKey,
-                        'Authorization': `Bearer ${nextAuthToken}`
+                        'Authorization': `Bearer ${nextAuthToken}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     } 
                 }
             });
