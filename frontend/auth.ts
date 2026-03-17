@@ -105,15 +105,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     }
 
                     if (!existingProfile) {
-                        await adminSupabase.from('profiles').insert({
+                        const { error: insertError } = await adminSupabase.from('profiles').insert({
                             id: finalUserId,
                             email: user.email,
-                            username: user.email.split('@')[0] + Math.floor(Math.random() * 1000),
+                            username: user.email.split('@')[0] + Math.floor(Math.random() * 10000),
                             full_name: user.name || user.email.split('@')[0],
                             role: 'citizen',
                             is_onboarded: false,
                             avatar_url: user.image || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name || user.email)}`,
                         });
+
+                        if (insertError) {
+                            console.error("🚨 FAILED TO CREATE PROFILE during signIn:", insertError);
+                            // If it's a conflict or error, we still want the user to be able to sign in
+                            // but this is likely why onboarding fails later.
+                        }
                     }
                     user.id = finalUserId;
                 }

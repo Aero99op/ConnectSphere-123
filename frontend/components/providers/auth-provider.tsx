@@ -53,10 +53,18 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
                     autoRefreshToken: false,
                     detectSessionInUrl: false
                 },
-                global: { headers: { Authorization: `Bearer ${nextAuthToken}` } },
+                global: { 
+                    headers: { 
+                        Authorization: `Bearer ${nextAuthToken}`,
+                        apikey: supabaseAnonKey 
+                    } 
+                },
                 realtime: {
                     params: { apikey: supabaseAnonKey },
-                    headers: { Authorization: `Bearer ${nextAuthToken}` },
+                    headers: { 
+                        Authorization: `Bearer ${nextAuthToken}`,
+                        apikey: supabaseAnonKey 
+                    },
                 },
             });
         }

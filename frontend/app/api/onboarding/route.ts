@@ -90,22 +90,23 @@ export async function POST(req: NextRequest) {
 
         const { error } = await adminSupabase
             .from('profiles')
-            .update({
+            .upsert({
+                id: userId,
+                email: session.user.email,
                 country: edgeSanitize(country.trim()),
                 age: parseInt(age),
                 interests: interests,
                 is_onboarded: true,
                 personalization: { setup_date: new Date().toISOString() },
-            })
-            .eq('id', userId);
+            }, { onConflict: 'id' });
 
         if (error) {
-            console.error('Onboarding update error:', error);
+            console.error('Onboarding upsert error:', error);
             // SECURITY FIX (LOW-003): Never leak internal DB error messages
             return NextResponse.json({ error: 'Failed to save onboarding data' }, { status: 500 });
         }
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ success: true, updated: true });
     } catch (err: any) {
         console.error('Onboarding POST error:', err);
         return NextResponse.json({ error: 'Server error' }, { status: 500 });

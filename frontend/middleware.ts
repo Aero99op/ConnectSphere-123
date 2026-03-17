@@ -109,7 +109,7 @@ export default auth(async (req: any) => {
         "script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "img-src 'self' blob: data: https://*.googleusercontent.com https://api.dicebear.com https://*.supabase.co https://*.unsplash.com https://*.catbox.moe https://files.catbox.moe https://i.imgur.com",
-        "font-src 'self' https://fonts.gstatic.com",
+        "font-src 'self' https://fonts.gstatic.com https://r2cdn.perplexity.ai",
         `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.pages.dev https://*.apinator.io wss://*.apinator.io https://accounts.google.com https://api.telegram.org https://ipapi.co${backendUrl ? ' ' + backendUrl : ''}`,
         "frame-src 'self' https://accounts.google.com",
         "media-src 'self' blob: https://*.supabase.co https://*.catbox.moe https://files.catbox.moe",
