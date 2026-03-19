@@ -192,18 +192,33 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
             };
 
             pc.ontrack = (event) => {
+                const stream = event.streams[0] || new MediaStream([event.track]);
+                
                 setParticipants(prev => {
                     const existing = prev.find(p => p.id === remoteId);
                     if (existing) {
-                        return prev.map(p => p.id === remoteId ? { ...p, stream: event.streams[0] } : p);
+                        const existingStream = existing.stream;
+                        if (!existingStream) {
+                            return prev.map(p => p.id === remoteId ? { ...p, stream } : p);
+                        } else if (existingStream !== stream && !existingStream.getTracks().includes(event.track)) {
+                            existingStream.addTrack(event.track);
+                        }
+                        return prev;
                     }
                     return prev;
                 });
 
                 setTimeout(() => {
                     const videoEl = remoteVideoRefs.current.get(remoteId);
-                    if (videoEl && !videoEl.srcObject) {
-                        videoEl.srcObject = event.streams[0];
+                    if (videoEl) {
+                        if (!videoEl.srcObject) {
+                            videoEl.srcObject = stream;
+                        } else if (videoEl.srcObject !== stream) {
+                            const currentStream = videoEl.srcObject as MediaStream;
+                            if (!currentStream.getTracks().includes(event.track)) {
+                                currentStream.addTrack(event.track);
+                            }
+                        }
                     }
                 }, 100);
             };

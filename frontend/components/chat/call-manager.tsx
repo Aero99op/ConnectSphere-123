@@ -18,13 +18,13 @@ export function CallManager() {
     const userId = user?.id || null;
 
     const activeCallRef = useRef<any>(null);
+    const ringTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     useEffect(() => { activeCallRef.current = activeCall; }, [activeCall]);
 
     // Apinator-based Call Signaling (BULLETPROOF V4 — SELF-HEALING SUBSCRIPTION)
     useEffect(() => {
         if (!userId) return;
         let isMounted = true;
-        let ringTimeout: NodeJS.Timeout;
         const channelName = `private-call-${userId}`;
 
         // Ensure channel is subscribed and has event handler bound
@@ -50,14 +50,26 @@ export function CallManager() {
                 console.log("[CallManager] 📞 incoming-call:", payload);
                 if (!activeCallRef.current && isMounted) {
                     setIncomingCall(payload);
-                    if (ringTimeout) clearTimeout(ringTimeout);
-                    ringTimeout = setTimeout(() => {
+                    if (ringTimeoutRef.current) clearTimeout(ringTimeoutRef.current);
+                    ringTimeoutRef.current = setTimeout(() => {
                         if (isMounted) {
                             setIncomingCall(null);
                             toast.info(`Missed call from ${payload.callerName || "Someone"}`);
                         }
                     }, 30000);
                 }
+            });
+
+            ch.unbind('cancel-call');
+            ch.bind('cancel-call', (data: any) => {
+                const payload = typeof data === 'string' ? JSON.parse(data) : data;
+                setIncomingCall((prev: any) => {
+                    if (prev && prev.roomId === payload.roomId) {
+                        if (ringTimeoutRef.current) clearTimeout(ringTimeoutRef.current);
+                        return null; // Close incoming call ringing window immediately
+                    }
+                    return prev;
+                });
             });
             console.log(`[CallManager] ✅ Subscribed: ${channelName}`);
             return true;
@@ -96,7 +108,7 @@ export function CallManager() {
 
         return () => {
             isMounted = false;
-            if (ringTimeout) clearTimeout(ringTimeout);
+            if (ringTimeoutRef.current) clearTimeout(ringTimeoutRef.current);
             clearInterval(channelDefenseInterval);
             // Global provider handles the connection, CallManager just unsubscribes from its channel
             const c = getApinatorClient();
@@ -128,6 +140,8 @@ export function CallManager() {
     const handleAcceptCall = () => {
         if (!incomingCall) return;
 
+        if (ringTimeoutRef.current) clearTimeout(ringTimeoutRef.current);
+
         setActiveCall({
             roomId: incomingCall.roomId,
             remoteUserId: incomingCall.callerId,
@@ -139,6 +153,7 @@ export function CallManager() {
     };
 
     const handleRejectCall = () => {
+        if (ringTimeoutRef.current) clearTimeout(ringTimeoutRef.current);
         setIncomingCall(null);
         // Optional: Send reject event back
     };

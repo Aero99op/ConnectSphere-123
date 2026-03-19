@@ -73,9 +73,9 @@ export function ApinatorProvider({ children }: { children: React.ReactNode }) {
                     connectingTicks = 0;
                 } else if (s === 'connecting') {
                     connectingTicks++;
-                    // Relaxed from 2 ticks (20s) to 3 ticks (30s) to allow slower connections
-                    // and avoid fighting with Supabase realtime multiplexing
-                    if (connectingTicks >= 3) {
+                    // Relaxed to 6 ticks (60s) to allow slower connections
+                    // and avoid false Deadlock detection on Edge Runtime
+                    if (connectingTicks >= 6) {
                         console.error("[ApinatorProvider] 🚨 Deadlock detected. Forcing socket recycle.");
                         apinatorClient.disconnect();
                         setTimeout(() => apinatorClient.connect(), 500);

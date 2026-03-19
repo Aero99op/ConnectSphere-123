@@ -214,13 +214,18 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
             });
 
             peerConnection.current.ontrack = (event) => {
-                const stream = event.streams[0] || new MediaStream([event.track]);
-
-                if (callType === 'video' && remoteVideoRef.current && !remoteVideoRef.current.srcObject) {
-                    remoteVideoRef.current.srcObject = stream;
-                    setConnectionStatus("connected");
-                } else if (callType === 'audio' && remoteAudioRef.current && !remoteAudioRef.current.srcObject) {
-                    remoteAudioRef.current.srcObject = stream;
+                const isVideo = callType === 'video';
+                const mediaElement = isVideo ? remoteVideoRef.current : remoteAudioRef.current;
+                
+                if (mediaElement) {
+                    if (!mediaElement.srcObject) {
+                        mediaElement.srcObject = event.streams[0] || new MediaStream([event.track]);
+                    } else if (event.streams[0] !== mediaElement.srcObject) {
+                        const currentStream = mediaElement.srcObject as MediaStream;
+                        if (!currentStream.getTracks().includes(event.track)) {
+                            currentStream.addTrack(event.track);
+                        }
+                    }
                     setConnectionStatus("connected");
                 }
             };
@@ -400,6 +405,19 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
         }
 
         if (sendEvent) {
+            // Cancel ringing for the recipient if we are the caller
+            if (!isIncoming) {
+                fetch('/api/apinator/trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        channel: `private-call-${recipientId}`,
+                        event: 'cancel-call',
+                        data: { roomId }
+                    })
+                }).catch(console.error);
+            }
+
             // Send end-call via Apinator
             fetch('/api/apinator/trigger', {
                 method: 'POST',
