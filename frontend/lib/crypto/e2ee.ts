@@ -4,7 +4,7 @@
  * Uses Web Crypto API: ECDH (P-384), ECDSA (P-384), AES-GCM (256-bit), HKDF + ML-KEM-768 (PQC)
  */
 // @ts-ignore
-import { ml_kem768 } from '@noble/post-quantum/ml-kem';
+import { ml_kem768 } from '@noble/post-quantum/ml-kem.js';
 
 const DB_NAME = "CS_E2EE_KEYSTORE";
 const STORE_NAME = "device_keys";
@@ -66,17 +66,17 @@ export async function generateDeviceKeys() {
     );
 
     // 3. ML-KEM-768 for Post-Quantum Key Encapsulation
-    const mlkemPair = ml_kem768.generateKeyPair();
+    const { publicKey, secretKey } = ml_kem768.keygen();
 
     // Save Private Keys to IndexedDB
     await keyStore.saveKey("ecdh_private", ecdhPair.privateKey);
     await keyStore.saveKey("ecdsa_private", ecdsaPair.privateKey);
-    await keyStore.saveKey("mlkem_private", mlkemPair.secretKey as any);
+    await keyStore.saveKey("mlkem_private", secretKey as any);
 
     // Export Public Keys logic (we'll save these to Supabase)
     const ecdhPublicJwk = await crypto.subtle.exportKey("jwk", ecdhPair.publicKey);
     const ecdsaPublicJwk = await crypto.subtle.exportKey("jwk", ecdsaPair.publicKey);
-    const mlkemPublicB64 = bufferToBase64(mlkemPair.publicKey);
+    const mlkemPublicB64 = bufferToBase64(publicKey);
 
     return { ecdhPublicJwk, ecdsaPublicJwk, mlkemPublic: mlkemPublicB64 };
 }
@@ -200,9 +200,21 @@ export async function encryptMessageAndSign(
         let pqcCiphertextB64 = null;
         
         if (keys.mlkem) {
-            const { ciphertext, sharedSecret } = ml_kem768.encapsulate(new Uint8Array(base64ToBuffer(keys.mlkem)));
-            wrappingKey = await deriveHybridWrappingKey(myEcdhPrivateKey, theirEcdhPublic, sharedSecret);
-            pqcCiphertextB64 = bufferToBase64(ciphertext);
+            const recipientMlKemPublicKey = base64ToBuffer(keys.mlkem);
+            let pqkCiphertext = "";
+            let mlKemSharedSecret = new Uint8Array(32); // fallback empty
+
+            try {
+                // encapsulate() returns { cipherText, sharedSecret }
+                const kemData = ml_kem768.encapsulate(new Uint8Array(recipientMlKemPublicKey));
+                const cipherText = kemData.cipherText;
+                mlKemSharedSecret = new Uint8Array(kemData.sharedSecret);
+                pqkCiphertext = bufferToBase64(cipherText);
+            } catch (err) {
+                console.error("ML-KEM Encapsulation failed:", err);
+            }
+            wrappingKey = await deriveHybridWrappingKey(myEcdhPrivateKey, theirEcdhPublic, mlKemSharedSecret);
+            pqcCiphertextB64 = pqkCiphertext;
         } else {
             wrappingKey = await deriveWrappingKey(myEcdhPrivateKey, theirEcdhPublic);
         }
@@ -268,7 +280,7 @@ export async function decryptMessageAndVerify(
             new Uint8Array(base64ToBuffer(encryptedKeyObject.pqcCiphertext!)), 
             myMlkemPrivateKey
         );
-        wrappingKey = await deriveHybridWrappingKey(myEcdhPrivateKey, senderEcdhPublic, pqcSharedSecret);
+        wrappingKey = await deriveHybridWrappingKey(myEcdhPrivateKey, senderEcdhPublic, new Uint8Array(pqcSharedSecret));
     } else {
         wrappingKey = await deriveWrappingKey(myEcdhPrivateKey, senderEcdhPublic);
     }
