@@ -61,10 +61,17 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     const lastTypingSignalRef = useRef<number>(0);
     const groupParticipantsRef = useRef<string[]>([]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [sendReadReceipts, setSendReadReceipts] = useState<boolean>(true);
 
     // Apinator-based Realtime Chat (UNLIMITED connections)
     useEffect(() => {
         let isMounted = true;
+        
+        // Check my read receipt preference
+        supabase.from('profiles').select('send_read_receipts').eq('id', currentUserId).single().then(({data}) => {
+            if (data && isMounted) setSendReadReceipts(data.send_read_receipts !== false);
+        });
+
         fetchMessages();
 
         // Trigger read when user enters chat OR window is focused
@@ -1141,9 +1148,9 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                                                 {/* Read Receipts (Ticks) for outgoing messages */}
                                                 {isMe && !msg.content?.startsWith("[CALL_LOG]:") && (
                                                     <div className="absolute right-0 -bottom-4 flex items-center gap-0.5">
-                                                        {msg.is_read ? (
+                                                        {msg.is_read && sendReadReceipts ? (
                                                             <CheckCheck className="w-3.5 h-3.5 text-[#ff9933]" />
-                                                        ) : msg.is_delivered ? (
+                                                        ) : (msg.is_delivered || msg.is_read) ? (
                                                             <CheckCheck className="w-3.5 h-3.5 text-zinc-500 opacity-70" />
                                                         ) : (
                                                             <Check className="w-3.5 h-3.5 text-zinc-500 opacity-70" />

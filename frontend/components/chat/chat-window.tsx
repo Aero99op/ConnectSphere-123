@@ -41,7 +41,11 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
     const { isUserOnline, isGhostModeActive } = usePresence();
     const [isUploadingMedia, setIsUploadingMedia] = useState(false);
     const [isRecipientOnlineFromDB, setIsRecipientOnlineFromDB] = useState(false);
+    
+    // Refs for optimization
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const lastScrollHeight = useRef<number>(0);
+    const [sendReadReceipts, setSendReadReceipts] = useState<boolean>(true);
 
     useEffect(() => {
         fetchMessages();
@@ -458,6 +462,29 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
         }
     };
 
+    // E2EE Setup (Key Store Check)
+    useEffect(() => {
+        let isMounted = true;
+        
+        // Check my read receipt preference
+        supabase.from('profiles').select('send_read_receipts').eq('id', currentUserId).single().then(({data}) => {
+            if (data && isMounted) setSendReadReceipts(data.send_read_receipts !== false);
+        });
+
+        const checkKeys = async () => {
+            const ecdsa = await keyStore.getKey("ecdsa_private");
+            const ecdh = await keyStore.getKey("ecdh_private");
+            if (!ecdsa || !ecdh) {
+                toast.error("Security Error: Device keys not found! Please re-login.");
+            }
+        };
+        checkKeys();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [currentUserId, supabase]);
+
     const startVideoCall = async () => {
         if (isGroup) {
             toast.info("Group video calls coming soon!");
@@ -609,13 +636,12 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                                                 {msg.content}
                                             </span>
                                         )}
-
                                         {/* Read Receipts (Ticks) for outgoing messages */}
                                         {isMe && !msg.content?.startsWith("[CALL_LOG]:") && (
                                             <div className="absolute right-0 -bottom-4 flex items-center gap-0.5">
-                                                {msg.is_read ? (
+                                                {msg.is_read && sendReadReceipts ? (
                                                     <CheckCheck className="w-3.5 h-3.5 text-[#ff9933]" />
-                                                ) : msg.is_delivered ? (
+                                                ) : (msg.is_delivered || msg.is_read) ? (
                                                     <CheckCheck className="w-3.5 h-3.5 text-zinc-500 opacity-70" />
                                                 ) : (
                                                     <Check className="w-3.5 h-3.5 text-zinc-500 opacity-70" />

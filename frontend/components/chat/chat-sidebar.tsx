@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MessageCircle, Search, Edit, Users, ChevronLeft, Loader2 } from "lucide-react";
+import { MessageCircle, Search, Edit, Users, ChevronLeft, Loader2, Settings } from "lucide-react";
 import { NewChatDialog } from "./new-chat-dialog";
 import { CreateGroupDialog } from "./create-group-dialog";
 import { cn } from "@/lib/utils";
 import { getApinatorClient } from "@/lib/apinator";
+import { ChatSettingsDialog } from "./chat-settings-dialog";
 import Link from "next/link";
 
 interface ChatSidebarProps {
@@ -22,6 +23,7 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
     const userId = authUser?.id || null;
     const [showNewChat, setShowNewChat] = useState(false);
     const [showCreateGroup, setShowCreateGroup] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => {
@@ -177,6 +179,13 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
                     </div>
                     <div className="flex items-center gap-1">
                         <button
+                            onClick={() => setShowSettings(true)}
+                            className="p-2.5 hover:bg-white/10 rounded-full text-zinc-400 hover:text-white transition-colors"
+                            title="Chat Settings"
+                        >
+                            <Settings className="w-5 h-5" />
+                        </button>
+                        <button
                             onClick={() => setShowCreateGroup(true)}
                             className="p-2.5 hover:bg-white/10 rounded-full text-cyan-400 transition-colors"
                             title="Nayi Mandli"
@@ -281,6 +290,10 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
                         if (userId) fetchConversations(userId);
                     }}
                 />
+            )}
+
+            {showSettings && (
+                <ChatSettingsDialog onClose={() => setShowSettings(false)} />
             )}
         </div>
     );
