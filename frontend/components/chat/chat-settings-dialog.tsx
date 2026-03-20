@@ -24,11 +24,9 @@ export function ChatSettingsDialog({ onClose }: ChatSettingsDialogProps) {
     useEffect(() => {
         if (!user?.id) return;
         
-        supabase.from('profiles')
-            .select('send_read_receipts, hide_online_status, ghost_mode_until')
-            .eq('id', user.id)
-            .single()
-            .then(({ data }) => {
+        fetch(`/api/chat/settings?userId=${user.id}`)
+            .then(res => res.json())
+            .then(data => {
                 if (data) {
                     setSendReadReceipts(data.send_read_receipts !== false); // default true
                     
@@ -36,20 +34,26 @@ export function ChatSettingsDialog({ onClose }: ChatSettingsDialogProps) {
                     setGhostMode(!!isGhost);
                 }
                 setLoading(false);
+            })
+            .catch(err => {
+                console.error(err);
+                setLoading(false);
             });
-    }, [user, supabase]);
+    }, [user]);
 
     const handleToggleReadReceipts = async (checked: boolean) => {
         if (!user?.id) return;
         setSendReadReceipts(checked);
         setSaving(true);
         
-        const { error } = await supabase
-            .from('profiles')
-            .update({ send_read_receipts: checked })
-            .eq('id', user.id);
+        const res = await fetch('/api/chat/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id, settings: { send_read_receipts: checked } })
+        });
+        const data = await res.json();
             
-        if (error) {
+        if (!res.ok || data.error) {
             toast.error("Settings save fail ho gayi");
             setSendReadReceipts(!checked);
         } else {
@@ -75,12 +79,14 @@ export function ChatSettingsDialog({ onClose }: ChatSettingsDialogProps) {
             updates.is_online = true; // come back online
         }
         
-        const { error } = await supabase
-            .from('profiles')
-            .update(updates)
-            .eq('id', user.id);
+        const res = await fetch('/api/chat/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id, settings: updates })
+        });
+        const data = await res.json();
             
-        if (error) {
+        if (!res.ok || data.error) {
             toast.error("Ghost mode update fail");
             setGhostMode(!checked);
         } else {

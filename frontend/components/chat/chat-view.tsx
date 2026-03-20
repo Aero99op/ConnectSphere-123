@@ -68,9 +68,9 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         let isMounted = true;
         
         // Check my read receipt preference
-        supabase.from('profiles').select('send_read_receipts').eq('id', currentUserId).single().then(({data}) => {
+        fetch(`/api/chat/settings?userId=${currentUserId}`).then(r => r.json()).then(data => {
             if (data && isMounted) setSendReadReceipts(data.send_read_receipts !== false);
-        });
+        }).catch(console.error);
 
         fetchMessages();
 
@@ -382,15 +382,19 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
 
         // Fetch recipient's last_seen if not a group
         if (!isGroup && recipientId) {
-            supabase.from('profiles').select('is_online, last_seen, hide_online_status, ghost_mode_until').eq('id', recipientId).single()
+            supabase.from('profiles').select('is_online, last_seen').eq('id', recipientId).single()
                 .then(({ data }) => {
                     if (data) {
                         setRecipientLastSeen(data.last_seen);
                         setIsRecipientOnlineFromDB(data.is_online);
-                        setRecipientHideStatus(data.hide_online_status);
-                        setRecipientGhostUntil(data.ghost_mode_until);
                     }
                 });
+            fetch(`/api/chat/settings?userId=${recipientId}`).then(r => r.json()).then(data => {
+                if (data) {
+                    setRecipientHideStatus(data.hide_online_status || false);
+                    setRecipientGhostUntil(data.ghost_mode_until || null);
+                }
+            }).catch(console.error);
         }
         const { data, error } = await supabase
             .from("messages")

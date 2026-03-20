@@ -190,15 +190,20 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
             .subscribe();
 
         // Initial check for is_online and privacy
-        supabase.from('profiles').select('is_online, last_seen, hide_online_status, ghost_mode_until').eq('id', recipientId).single()
+        supabase.from('profiles').select('is_online, last_seen').eq('id', recipientId).single()
             .then(({ data }) => {
                 if (data) {
                     setIsRecipientOnlineFromDB(data.is_online);
                     setRecipientLastSeen(data.last_seen);
-                    setRecipientHideStatus(data.hide_online_status);
-                    setRecipientGhostUntil(data.ghost_mode_until);
                 }
             });
+            
+        fetch(`/api/chat/settings?userId=${recipientId}`).then(r => r.json()).then(data => {
+            if (data) {
+                setRecipientHideStatus(data.hide_online_status || false);
+                setRecipientGhostUntil(data.ghost_mode_until || null);
+            }
+        }).catch(console.error);
 
         return () => {
             window.removeEventListener('focus', handleFocus);
@@ -467,9 +472,9 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
         let isMounted = true;
         
         // Check my read receipt preference
-        supabase.from('profiles').select('send_read_receipts').eq('id', currentUserId).single().then(({data}) => {
+        fetch(`/api/chat/settings?userId=${currentUserId}`).then(r => r.json()).then(data => {
             if (data && isMounted) setSendReadReceipts(data.send_read_receipts !== false);
-        });
+        }).catch(console.error);
 
         const checkKeys = async () => {
             const ecdsa = await keyStore.getKey("ecdsa_private");
