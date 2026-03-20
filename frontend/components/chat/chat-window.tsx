@@ -11,6 +11,14 @@ import { FileUpload } from "@/components/ui/file-upload";
 import { usePresence } from "@/components/providers/presence-provider";
 import { formatLastSeen } from "@/lib/utils/presence";
 import { downloadAndMergeChunks } from "@/lib/utils/chunk-uploader";
+import {
+    encryptMessageAndSign,
+    decryptMessageAndVerify,
+    encryptFileBlob,
+    keyStore
+} from "@/lib/crypto/e2ee";
+import { uploadToCatbox } from "@/lib/catbox";
+import { EncryptedMedia } from "./encrypted-media";
 
 interface ChatWindowProps {
     conversationId: string;
@@ -28,7 +36,9 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
     const [newMessage, setNewMessage] = useState("");
     const [loading, setLoading] = useState(true);
     const [recipientLastSeen, setRecipientLastSeen] = useState<string | null>(null);
-    const { isUserOnline } = usePresence();
+    const [recipientHideStatus, setRecipientHideStatus] = useState(false);
+    const [recipientGhostUntil, setRecipientGhostUntil] = useState<string | null>(null);
+    const { isUserOnline, isGhostModeActive } = usePresence();
     const [isUploadingMedia, setIsUploadingMedia] = useState(false);
     const [isRecipientOnlineFromDB, setIsRecipientOnlineFromDB] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -55,8 +65,23 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
 
         channel.bind('new-message', (data: any) => {
             const newMsg = typeof data === 'string' ? JSON.parse(data) : data;
+
             // Skip own messages (already added optimistically)
             if (newMsg.sender_id === currentUserId) return;
+
+            // Track delivery
+            supabase.rpc('mark_message_delivered', { msg_id: newMsg.id }).then(() => {
+                fetch('/api/apinator/trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        channel: `private-chat-${conversationId}`,
+                        event: 'messages-delivered',
+                        data: { reader_id: currentUserId, msg_id: newMsg.id }
+                    })
+                }).catch(console.error);
+            });
+
             setMessages((prev) => {
                 if (prev.some(m => m.id === newMsg.id)) return prev;
                 return [...prev, newMsg];
@@ -82,6 +107,17 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
             }
         });
 
+        channel.bind('messages-delivered', (data: any) => {
+            const payload = typeof data === 'string' ? JSON.parse(data) : data;
+            if (payload.reader_id === recipientId) {
+                setMessages(prev => prev.map(m => {
+                    if (m.sender_id !== currentUserId || m.is_read || m.is_delivered) return m;
+                    if (payload.msg_id && m.id !== payload.msg_id) return m;
+                    return { ...m, is_delivered: true };
+                }));
+            }
+        });
+
         console.log(`[ChatWindow] Subscribed to Apinator channel: private-chat-${conversationId}`);
 
         // Subscribe to recipient profile updates
@@ -93,16 +129,23 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                 (payload) => {
                     setRecipientLastSeen(payload.new.last_seen);
                     setIsRecipientOnlineFromDB(payload.new.is_online);
+                    setRecipientHideStatus(payload.new.hide_online_status);
+                    setRecipientGhostUntil(payload.new.ghost_mode_until);
                     // Force re-render for presence update
                     setMessages((prev: any[]) => [...prev]);
                 }
             )
             .subscribe();
 
-        // Initial check for is_online
-        supabase.from('profiles').select('is_online').eq('id', recipientId).single()
+        // Initial check for is_online and privacy
+        supabase.from('profiles').select('is_online, last_seen, hide_online_status, ghost_mode_until').eq('id', recipientId).single()
             .then(({ data }) => {
-                if (data) setIsRecipientOnlineFromDB(data.is_online);
+                if (data) {
+                    setIsRecipientOnlineFromDB(data.is_online);
+                    setRecipientLastSeen(data.last_seen);
+                    setRecipientHideStatus(data.hide_online_status);
+                    setRecipientGhostUntil(data.ghost_mode_until);
+                }
             });
 
         return () => {
@@ -121,7 +164,7 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
     };
 
     const markMessagesAsRead = async () => {
-        if (isGroup) return;
+        if (isGroup || isGhostModeActive) return;
 
         await supabase.rpc('mark_messages_as_read', { conv_id: conversationId });
 
@@ -159,32 +202,159 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
             .order("created_at", { ascending: true });
 
         if (!error && data) {
+            // DECRYPTION LOGIC
+            try {
+                const myEcdhPrivate = await keyStore.getKey("ecdh_private");
+                const myMlkemPrivate = await keyStore.getKey("mlkem_private") as unknown as Uint8Array | undefined;
+                if (myEcdhPrivate) {
+                    for (let i = 0; i < data.length; i++) {
+                        const m = data[i];
+                        if (m.iv && m.signature && m.encrypted_keys && m.encrypted_keys[currentUserId]) {
+                            try {
+                                const decryptedPayload = await decryptMessageAndVerify(
+                                    m.content,
+                                    m.iv,
+                                    m.signature,
+                                    m.encrypted_keys[currentUserId],
+                                    m.sender.ecdsa_public_key,
+                                    m.sender.ecdh_public_key,
+                                    myEcdhPrivate,
+                                    myMlkemPrivate
+                                );
+                                const payload = JSON.parse(decryptedPayload);
+                                m.content = payload.text;
+                                if (payload.fileKeys) {
+                                    m.e2e_file_keys = payload.fileKeys;
+                                }
+                            } catch (decErr) {
+                                console.error("Decryption failed for msg", m.id, decErr);
+                                m.content = "🚫 [Secured / Tampered Message]";
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("E2E setup error during fetch", e);
+            }
+
             setMessages(data);
-            if (!isGroup) markMessagesAsRead();
+            if (!isGroup) {
+                // Batch mask as delivered
+                supabase.rpc('mark_messages_delivered_in_conv', { conv_id: conversationId }).then(() => {
+                    // Send apinator signal for batch delivery
+                    fetch('/api/apinator/trigger', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            channel: `private-chat-${conversationId}`,
+                            event: 'messages-delivered',
+                            data: { reader_id: currentUserId }
+                        })
+                    }).catch(console.error);
+                });
+                
+                // Mark as read after fetching (if not ghost)
+                if (!isGhostModeActive) {
+                    markMessagesAsRead();
+                }
+            }
         }
         setLoading(false);
     };
 
-    const handleSend = async (fileData?: { urls: string[], thumb?: string, name?: string }) => {
+    const handleSend = async (fileData?: { urls: string[], thumb?: string, name?: string, fileBlob?: File }) => {
         if (!newMessage.trim() && !fileData) return;
 
         const msgContent = newMessage.trim();
         setNewMessage(""); // Optimistic clear
         setIsUploadingMedia(false);
 
+        let mediaUrl = null;
+        let fileKeysObj = null;
+
+        if (fileData?.fileBlob) {
+            setIsUploadingMedia(true);
+            try {
+                // If we get raw File object, we encrypt it for Catbox!
+                const { encryptedBlob, fileKeyB64, fileIvB64 } = await encryptFileBlob(fileData.fileBlob);
+                const encryptedFile = new File([encryptedBlob], "enc_" + fileData.fileBlob.name, { type: 'application/octet-stream' });
+                mediaUrl = await uploadToCatbox(encryptedFile);
+                fileKeysObj = {
+                    key: fileKeyB64,
+                    iv: fileIvB64,
+                    name: fileData.fileBlob.name
+                };
+            } catch (e) {
+                console.error("Encrypted Upload Failed", e);
+                toast.error("Media Encryption ya Upload Fail ho gaya.");
+                setIsUploadingMedia(false);
+                return;
+            }
+            setIsUploadingMedia(false);
+        } else if (fileData?.urls) {
+            // Fallback to chunks
+            mediaUrl = fileData.urls[0];
+        }
+
+        // ---------------- E2E ENCRYPTION ----------------
+        const rawPayloadStr = JSON.stringify({
+            text: msgContent || "",
+            fileKeys: fileKeysObj
+        });
+
+        // Current participant fetching for encryption keys
+        // (Assuming 1on1 for Window since Window doesn't have full group participants ref easily unless passed down)
+        const participantIds = isGroup ? [recipientId, currentUserId] : [recipientId, currentUserId];
+
+        const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, ecdh_public_key, ecdsa_public_key, mlkem_public_key')
+            .in('id', participantIds);
+
+        const recipientPublicKeys: Record<string, { ecdh: any, mlkem: string | null }> = {};
+        profiles?.forEach(p => {
+            if (p.ecdh_public_key) {
+                recipientPublicKeys[p.id] = {
+                    ecdh: JSON.parse(p.ecdh_public_key),
+                    mlkem: p.mlkem_public_key || null
+                };
+            }
+        });
+
+        const myEcdsa = await keyStore.getKey("ecdsa_private");
+        const myEcdh = await keyStore.getKey("ecdh_private");
+
+        if (!myEcdsa || !myEcdh) {
+            toast.error("Security Error: Device keys not found! Please re-login.");
+            return;
+        }
+
+        const { encryptedContent, iv, signature, encryptedKeys } = await encryptMessageAndSign(
+            rawPayloadStr,
+            recipientPublicKeys,
+            myEcdsa,
+            myEcdh
+        );
+
+        const newPayload: any = {
+            conversation_id: conversationId,
+            sender_id: currentUserId,
+            content: encryptedContent,
+            iv: iv,
+            signature: signature,
+            encrypted_keys: encryptedKeys,
+            file_urls: mediaUrl ? [mediaUrl] : (fileData?.urls || []),
+            thumbnail_url: fileData?.thumb || null,
+            file_name: fileData?.name || null
+        };
+        // ------------------------------------------------
+
         const { data, error } = await supabase
             .from("messages")
-            .insert({
-                conversation_id: conversationId,
-                sender_id: currentUserId,
-                content: msgContent || null,
-                file_urls: fileData?.urls || [],
-                thumbnail_url: fileData?.thumb || null,
-                file_name: fileData?.name || null
-            })
+            .insert(newPayload)
             .select(`
                 *,
-                sender:profiles!sender_id(username, full_name, avatar_url),
+                sender:profiles!sender_id(username, full_name, avatar_url, ecdh_public_key, ecdsa_public_key),
                 post:posts(*),
                 story:stories(*)
             `)
@@ -283,16 +453,16 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                     <div className="relative">
                         <Avatar className="h-8 w-8 border border-white/50">
                             <AvatarImage src={recipientAvatar} />
-                            <AvatarFallback>{recipientName[0]}</AvatarFallback>
+                            <AvatarFallback>{recipientName?.[0]}</AvatarFallback>
                         </Avatar>
-                        {!isGroup && isUserOnline(recipientId) && (
+                        {!isGroup && isUserOnline(recipientId) && !recipientHideStatus && (!recipientGhostUntil || new Date(recipientGhostUntil) < new Date()) && (
                             <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-black rounded-full" />
                         )}
                     </div>
                     <div className="flex flex-col">
                         <span className="font-semibold text-sm truncate max-w-[120px]">{recipientName}</span>
                         <span className="text-[10px] text-white/70">
-                            {isGroup ? "Group Chat" : (isUserOnline(recipientId) ? "Online" : formatLastSeen(recipientLastSeen))}
+                            {isGroup ? "Group Chat" : ((recipientHideStatus || (recipientGhostUntil && new Date(recipientGhostUntil) > new Date())) ? "Last seen hidden" : (isUserOnline(recipientId) ? "Online" : formatLastSeen(recipientLastSeen)))}
                         </span>
                     </div>
                 </div>
@@ -343,10 +513,11 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                                     )}>
                                         {/* Chunked Media Rendering */}
                                         {msg.file_urls && msg.file_urls.length > 0 && (
-                                            <ChatMediaBubble
+                                            <EncryptedMedia
                                                 urls={msg.file_urls}
                                                 thumbnail={msg.thumbnail_url}
-                                                name={msg.file_name}
+                                                fileName={msg.file_name}
+                                                e2eKeys={msg.e2e_file_keys}
                                             />
                                         )}
 
@@ -389,7 +560,7 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                                             <div className="absolute right-0 -bottom-4 flex items-center gap-0.5">
                                                 {msg.is_read ? (
                                                     <CheckCheck className="w-3.5 h-3.5 text-[#ff9933]" />
-                                                ) : (isUserOnline(recipientId) || isRecipientOnlineFromDB) ? (
+                                                ) : msg.is_delivered ? (
                                                     <CheckCheck className="w-3.5 h-3.5 text-zinc-500 opacity-70" />
                                                 ) : (
                                                     <Check className="w-3.5 h-3.5 text-zinc-500 opacity-70" />

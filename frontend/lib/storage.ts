@@ -40,6 +40,12 @@ async function uploadViaProxy(file: File | Blob): Promise<string> {
 async function uploadDirect(file: File | Blob): Promise<string> {
     const formData = new FormData();
     formData.append("reqtype", "fileupload");
+    
+    // Add userhash if exposed to client (optional)
+    if (process.env.NEXT_PUBLIC_CATBOX_USER_HASH) {
+        formData.append("userhash", process.env.NEXT_PUBLIC_CATBOX_USER_HASH);
+    }
+    
     formData.append("fileToUpload", file);
 
     const response = await fetch("https://catbox.moe/user/api.php", {

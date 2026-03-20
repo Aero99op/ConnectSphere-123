@@ -12,6 +12,14 @@ import { usePresence } from "@/components/providers/presence-provider";
 import { formatLastSeen } from "@/lib/utils/presence";
 import { AddGroupMembersDialog } from "./add-group-members-dialog";
 import Image from "next/image";
+import { 
+    encryptMessageAndSign, 
+    decryptMessageAndVerify, 
+    encryptFileBlob, 
+    keyStore 
+} from "@/lib/crypto/e2ee";
+import { EncryptedMedia } from "./encrypted-media";
+
 
 interface PresenceUser {
     userId: string;
@@ -34,7 +42,9 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     const [newMessage, setNewMessage] = useState("");
     const [loading, setLoading] = useState(true);
     const [recipientLastSeen, setRecipientLastSeen] = useState<string | null>(null);
-    const { isUserOnline } = usePresence();
+    const [recipientHideStatus, setRecipientHideStatus] = useState(false);
+    const [recipientGhostUntil, setRecipientGhostUntil] = useState<string | null>(null);
+    const { isUserOnline, isGhostModeActive } = usePresence();
     const [showAddMembers, setShowAddMembers] = useState(false);
     const [isRecipientOnlineFromDB, setIsRecipientOnlineFromDB] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
@@ -72,31 +82,45 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             const chatChannelName = `private-chat-${conversationId}`;
             const channel = client.subscribe(chatChannelName);
 
-            channel.bind('new-message', async (data: any) => {
-                const newMsg = typeof data === 'string' ? JSON.parse(data) : data;
-                if (isMounted) {
-                    setMessages((prev) => {
-                        // Prevent duplicates and handle optimistic replacement
-                        if (prev.some(m => m.id === newMsg.id)) return prev;
-                        // Add message and sort chronologically to fix sequence race conditions
-                        const newArray = [...prev, newMsg];
-                        return newArray.sort((a, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-                    });
-                    scrollToBottom();
-                    // Mark as read if receiving a message while active
-                    if (newMsg.sender_id === recipientId) {
-                        markMessagesAsRead();
-                    }
-                }
+            channel.bind('new-message', (data: any) => {
+            const newMsg = typeof data === 'string' ? JSON.parse(data) : data;
 
-                if (newMsg.sender_id !== currentUserId && !newMsg.sender) {
-                    const { data: senderProfile } = await supabase.from('profiles').select('username, full_name, avatar_url').eq('id', newMsg.sender_id).single();
+            // Skip own messages (already added optimistically)
+            if (newMsg.sender_id === currentUserId) return;
+
+            // Track delivery
+            supabase.rpc('mark_message_delivered', { msg_id: newMsg.id }).then(() => {
+                fetch('/api/apinator/trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        channel: `private-chat-${conversationId}`,
+                        event: 'messages-delivered',
+                        data: { reader_id: currentUserId, msg_id: newMsg.id }
+                    })
+                }).catch(console.error);
+            });
+
+            setMessages((prev) => {
+                if (prev.some(m => m.id === newMsg.id)) return prev;
+                return [...prev, newMsg];
+            });
+
+            if (isMounted) {
+                // Mark as read if receiving a message while active
+                if (newMsg.sender_id === recipientId) {
+                    markMessagesAsRead();
+                }
+            }
+
+            if (newMsg.sender_id !== currentUserId && !newMsg.sender) {
+                supabase.from('profiles').select('username, full_name, avatar_url').eq('id', newMsg.sender_id).single().then(({ data: senderProfile }) => {
                     if (senderProfile && isMounted) {
                         setMessages(prev => prev.map(m => m.id === newMsg.id ? { ...m, sender: senderProfile } : m));
                     }
-                }
-            });
-
+                });
+            }
+        });
             channel.bind('message-confirmed', (data: any) => {
                 const payload = typeof data === 'string' ? JSON.parse(data) : data;
                 if (isMounted) {
@@ -113,6 +137,17 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                     setMessages(prev => prev.map(m =>
                         m.sender_id === currentUserId && !m.is_read ? { ...m, is_read: true } : m
                     ));
+                }
+            });
+
+            channel.bind('messages-delivered', (data: any) => {
+                const payload = typeof data === 'string' ? JSON.parse(data) : data;
+                if (isMounted && payload.reader_id === recipientId) {
+                    setMessages(prev => prev.map(m => {
+                        if (m.sender_id !== currentUserId || m.is_read || m.is_delivered) return m;
+                        if (payload.msg_id && m.id !== payload.msg_id) return m;
+                        return { ...m, is_delivered: true };
+                    }));
                 }
             });
 
@@ -193,6 +228,8 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                         if (isMounted) {
                             setRecipientLastSeen(payload.new.last_seen);
                             setIsRecipientOnlineFromDB(payload.new.is_online);
+                            setRecipientHideStatus(payload.new.hide_online_status);
+                            setRecipientGhostUntil(payload.new.ghost_mode_until);
                             // Force re-render
                             setMessages((prev: any[]) => [...prev]);
                         }
@@ -240,7 +277,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
                     const msgId = entry.target.getAttribute('data-message-id');
-                    if (msgId) {
+                    if (msgId && !isGhostModeActive) { // Suppress read receipt in ghost mode
                         markMessageAsRead(msgId);
                         observer.unobserve(entry.target);
                     }
@@ -261,7 +298,6 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(msgId);
         if (!isUUID) return;
 
-        // Optimistic UI update
         setMessages(prev => prev.map(m => m.id === msgId ? { ...m, is_read: true } : m));
 
         const { error } = await supabase
@@ -269,6 +305,17 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             .update({ is_read: true })
             .eq('id', msgId);
 
+        if (!error && !isGhostModeActive) { // also send real-time event when marking specific msg
+            fetch('/api/apinator/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channel: `private-chat-${conversationId}`,
+                    event: 'messages-read',
+                    data: { reader_id: currentUserId }
+                })
+            }).catch(console.error);
+        }
         if (error) {
             console.error("Failed to mark as read", error);
         }
@@ -283,16 +330,21 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
 
         // Fetch recipient's last_seen if not a group
         if (!isGroup && recipientId) {
-            supabase.from('profiles').select('last_seen').eq('id', recipientId).single()
+            supabase.from('profiles').select('is_online, last_seen, hide_online_status, ghost_mode_until').eq('id', recipientId).single()
                 .then(({ data }) => {
-                    if (data) setRecipientLastSeen(data.last_seen);
+                    if (data) {
+                        setRecipientLastSeen(data.last_seen);
+                        setIsRecipientOnlineFromDB(data.is_online);
+                        setRecipientHideStatus(data.hide_online_status);
+                        setRecipientGhostUntil(data.ghost_mode_until);
+                    }
                 });
         }
         const { data, error } = await supabase
             .from("messages")
             .select(`
                 *,
-                sender:profiles!sender_id(username, full_name, avatar_url),
+                sender:profiles!sender_id(username, full_name, avatar_url, ecdh_public_key, ecdsa_public_key),
                 post:posts(*),
                 story:stories(*)
             `)
@@ -300,17 +352,58 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             .order("created_at", { ascending: true });
 
         if (!error && data) {
+            // DECRYPTION LOGIC
+            try {
+                const myEcdhPrivate = await keyStore.getKey("ecdh_private");
+                const myMlkemPrivate = await keyStore.getKey("mlkem_private") as unknown as Uint8Array | undefined;
+                if (myEcdhPrivate) {
+                    for (let i = 0; i < data.length; i++) {
+                        const m = data[i];
+                        if (m.iv && m.signature && m.encrypted_keys && m.encrypted_keys[currentUserId]) {
+                            try {
+                                const decryptedPayload = await decryptMessageAndVerify(
+                                    m.content,
+                                    m.iv,
+                                    m.signature,
+                                    m.encrypted_keys[currentUserId],
+                                    m.sender.ecdsa_public_key,
+                                    m.sender.ecdh_public_key,
+                                    myEcdhPrivate,
+                                    myMlkemPrivate
+                                );
+                                // Parse the E2E JSON payload
+                                const payload = JSON.parse(decryptedPayload);
+                                m.content = payload.text;
+                                if (payload.fileKeys) {
+                                    m.e2e_file_keys = payload.fileKeys;
+                                }
+                            } catch (decErr) {
+                                console.error("Decryption failed for msg", m.id, decErr);
+                                m.content = "🚫 [Secured / Tampered Message]";
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("E2E setup error during fetch", e);
+            }
+
             setMessages(data);
-            // Mark as read after fetching
+            
             if (!isGroup) {
-                supabase.rpc('mark_messages_as_read', { conv_id: conversationId }).then();
+                // Batch mask as delivered
+                supabase.rpc('mark_messages_delivered_in_conv', { conv_id: conversationId }).then();
+                // Mark as read after fetching (if not ghost)
+                if (!isGhostModeActive) {
+                    supabase.rpc('mark_messages_as_read', { conv_id: conversationId }).then();
+                }
             }
         }
         setLoading(false);
     };
 
     const markMessagesAsRead = async () => {
-        if (isGroup) return;
+        if (isGroup || isGhostModeActive) return;
 
         // 1. Update DB
         const { error } = await supabase.rpc('mark_messages_as_read', { conv_id: conversationId });
@@ -411,10 +504,21 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         }
 
         let mediaUrl = null;
+        let fileKeysObj = null;
+
         if (selectedMedia) {
             setIsUploading(true);
             try {
-                mediaUrl = await uploadToCatbox(selectedMedia);
+                // E2EE File Blob Encryption
+                const { encryptedBlob, fileKeyB64, fileIvB64 } = await encryptFileBlob(selectedMedia);
+                // Create a File from Blob with original name for Catbox
+                const encryptedFile = new File([encryptedBlob], "enc_" + selectedMedia.name, { type: 'application/octet-stream' });
+                mediaUrl = await uploadToCatbox(encryptedFile);
+                fileKeysObj = {
+                    key: fileKeyB64,
+                    iv: fileIvB64,
+                    name: selectedMedia.name
+                };
             } catch (err) {
                 console.error("Upload failed", err);
                 toast.error("Media upload fail ho gaya. Jugad band hua shayad.");
@@ -428,12 +532,58 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         const mediaFile = selectedMedia;
         cancelMediaSelect();
 
+        // ---------------- E2E ENCRYPTION ----------------
+        // 1. Prepare JSON payload
+        const rawPayloadStr = JSON.stringify({
+            text: msgContent || "",
+            fileKeys: fileKeysObj
+        });
+
+        // 2. Fetch all recipient public keys
+        const participantIds = isGroup ? groupParticipantsRef.current : [recipientId, currentUserId];
+        if (!participantIds.includes(currentUserId)) participantIds.push(currentUserId);
+        
+        const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, ecdh_public_key, ecdsa_public_key, mlkem_public_key')
+            .in('id', participantIds);
+
+        const recipientPublicKeys: Record<string, {ecdh: any, mlkem: string | null}> = {};
+        profiles?.forEach(p => {
+            if (p.ecdh_public_key) {
+                recipientPublicKeys[p.id] = {
+                    ecdh: JSON.parse(p.ecdh_public_key),
+                    mlkem: p.mlkem_public_key || null
+                };
+            }
+        });
+
+        // 3. Encrypt & Sign
+        const myEcdsa = await keyStore.getKey("ecdsa_private");
+        const myEcdh = await keyStore.getKey("ecdh_private");
+        
+        if (!myEcdsa || !myEcdh) {
+            toast.error("Security Error: Device keys not found! Please re-login.");
+            return;
+        }
+
+        const { encryptedContent, iv, signature, encryptedKeys } = await encryptMessageAndSign(
+            rawPayloadStr,
+            recipientPublicKeys,
+            myEcdsa,
+            myEcdh
+        );
+
         const newPayload: any = {
             conversation_id: conversationId,
             sender_id: currentUserId,
-            content: msgContent || "",
+            content: encryptedContent,  // Encrypted cipher text
+            iv: iv,
+            signature: signature,
+            encrypted_keys: encryptedKeys,
             file_urls: mediaUrl ? [mediaUrl] : []
         };
+        // ------------------------------------------------
 
         if (mediaFile) {
             newPayload.file_name = mediaFile.name;
@@ -696,9 +846,9 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                     <div className="relative group cursor-pointer">
                         <Avatar className="h-9 w-9 border border-white/10 ring-2 ring-transparent group-hover:ring-orange-500/30 transition-all">
                             <AvatarImage src={recipientAvatar} />
-                            <AvatarFallback className="bg-zinc-800 text-zinc-400">{recipientName[0]}</AvatarFallback>
+                            <AvatarFallback className="bg-zinc-800 text-zinc-400">{recipientName?.[0]}</AvatarFallback>
                         </Avatar>
-                        {!isGroup && isUserOnline(recipientId) && <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-black rounded-full" />}
+                        {!isGroup && isUserOnline(recipientId) && !recipientHideStatus && (!recipientGhostUntil || new Date(recipientGhostUntil) < new Date()) && <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-black rounded-full" />}
                     </div>
                     <div className="flex flex-col justify-center -space-y-0.5">
                         <span className="font-bold text-[15px] text-white tracking-tight">{recipientName}</span>
@@ -706,9 +856,9 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                             <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Mandli</span>
                         ) : (
                             <span className={cn("text-[11px] font-medium transition-colors",
-                                typingUsers.size > 0 ? "text-orange-400" : (isUserOnline(recipientId) ? "text-green-400" : "text-zinc-400")
+                                typingUsers.size > 0 ? "text-orange-400" : (isUserOnline(recipientId) && !recipientHideStatus && (!recipientGhostUntil || new Date(recipientGhostUntil) < new Date()) ? "text-green-400" : "text-zinc-400")
                             )}>
-                                {typingUsers.size > 0 ? "typing..." : (isUserOnline(recipientId) ? "Online" : formatLastSeen(recipientLastSeen))}
+                                {typingUsers.size > 0 ? "typing..." : ((recipientHideStatus || (recipientGhostUntil && new Date(recipientGhostUntil) > new Date())) ? "Last seen hidden" : (isUserOnline(recipientId) ? "Online" : formatLastSeen(recipientLastSeen)))}
                             </span>
                         )}
                     </div>
@@ -878,45 +1028,13 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                                                     >
                                                         {/* Media Rendering */}
                                                         {!msg.is_deleted && msg.file_urls && msg.file_urls.length > 0 && (
-                                                            <div className="mb-2 w-full max-w-[240px] md:max-w-[320px] rounded-lg overflow-hidden bg-black/20">
-                                                                {msg.file_name?.toLowerCase().match(/\.(jpeg|jpg|gif|png|webp|bmp)$/i) || msg.file_urls[0].toLowerCase().match(/\.(jpeg|jpg|gif|png|webp|bmp)$/i) ? (
-                                                                    <div
-                                                                        className="relative w-[240px] h-[320px] md:w-[320px] md:h-[400px] cursor-zoom-in"
-                                                                        onClick={(e) => { e.stopPropagation(); setFullScreenImage(msg.file_urls[0]); }}
-                                                                    >
-                                                                        <Image
-                                                                            src={msg.file_urls[0]}
-                                                                            alt={msg.file_name || "MMS Image"}
-                                                                            fill
-                                                                            className="object-cover hover:opacity-95 transition-opacity"
-                                                                            sizes="(max-width: 768px) 240px, 320px"
-                                                                            unoptimized={!msg.file_urls[0].includes('catbox.moe') && !msg.file_urls[0].includes('imgur.com') && !msg.file_urls[0].includes('tenor.com')}
-                                                                        />
-                                                                    </div>
-                                                                ) : msg.file_name?.toLowerCase().match(/\.(mp4|webm|ogg)$/i) || msg.file_urls[0].toLowerCase().match(/\.(mp4|webm|ogg)$/i) ? (
-                                                                    <video
-                                                                        src={msg.file_urls[0]}
-                                                                        controls
-                                                                        className="w-full max-h-[300px]"
-                                                                        preload="metadata"
-                                                                    />
-                                                                ) : msg.file_name?.toLowerCase().match(/\.(mp3|wav|ogg)$/i) || msg.file_urls[0].toLowerCase().match(/\.(mp3|wav|ogg)$/i) ? (
-                                                                    <div className="p-3 w-full bg-black/40 rounded-lg">
-                                                                        <div className="text-xs mb-2 opacity-80 truncate">{msg.file_name || "Audio Note"}</div>
-                                                                        <audio src={msg.file_urls[0]} controls className="w-full h-8" />
-                                                                    </div>
-                                                                ) : (
-                                                                    <a
-                                                                        href={msg.file_urls[0]}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        className="flex items-center gap-2 p-3 bg-black/40 hover:bg-black/60 transition-colors text-sm"
-                                                                        onClick={(e) => e.stopPropagation()}
-                                                                    >
-                                                                        <ImageIcon className="w-5 h-5 shrink-0 opacity-70" />
-                                                                        <span className="truncate flex-1">{msg.file_name || "Download Attachment"}</span>
-                                                                    </a>
-                                                                )}
+                                                             <div className="mb-2">
+                                                                <EncryptedMedia
+                                                                    urls={msg.file_urls}
+                                                                    thumbnail={msg.thumbnail_url}
+                                                                    fileName={msg.file_name}
+                                                                    e2eKeys={msg.e2e_file_keys}
+                                                                />
                                                             </div>
                                                         )}
 
@@ -968,7 +1086,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                                                     <div className="absolute right-0 -bottom-4 flex items-center gap-0.5">
                                                         {msg.is_read ? (
                                                             <CheckCheck className="w-3.5 h-3.5 text-[#ff9933]" />
-                                                        ) : (isUserOnline(recipientId) || isRecipientOnlineFromDB) ? (
+                                                        ) : msg.is_delivered ? (
                                                             <CheckCheck className="w-3.5 h-3.5 text-zinc-500 opacity-70" />
                                                         ) : (
                                                             <Check className="w-3.5 h-3.5 text-zinc-500 opacity-70" />

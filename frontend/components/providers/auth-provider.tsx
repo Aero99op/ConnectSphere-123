@@ -1,9 +1,10 @@
 "use client";
 
 import { SessionProvider, useSession, signOut as nextAuthSignOut } from 'next-auth/react';
-import { createContext, useContext, useMemo } from 'react';
+import { createContext, useContext, useMemo, useEffect } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { getSupabase } from '@/lib/supabase';
+import { hasDeviceKeys, generateDeviceKeys } from '@/lib/crypto/e2ee';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -79,6 +80,41 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         }
         return null;
     }, [nextAuthSession?.user]);
+
+    // E2EE Device Key Injection logic
+    useEffect(() => {
+        if (!unifiedUser || !supabaseContextClient) return;
+        
+        const initE2E = async () => {
+            try {
+                const hasKeys = await hasDeviceKeys();
+                if (!hasKeys) {
+                    console.log("[E2EE] Generating device keys for top hacker protection...");
+                    const { ecdhPublicJwk, ecdsaPublicJwk, mlkemPublic } = await generateDeviceKeys();
+                    
+                    const { error } = await supabaseContextClient
+                        .from('profiles')
+                        .update({ 
+                            ecdh_public_key: JSON.stringify(ecdhPublicJwk), 
+                            ecdsa_public_key: JSON.stringify(ecdsaPublicJwk),
+                            mlkem_public_key: mlkemPublic
+                        })
+                        .eq('id', unifiedUser.id);
+                        
+                    if (error) {
+                        console.error("[E2EE] Failed to upload public keys:", error);
+                    } else {
+                        console.log("[E2EE] Public keys secured in database.");
+                    }
+                }
+            } catch (err) {
+                console.error("[E2EE] Error initializing device keys:", err);
+            }
+        };
+
+        // Don't block app render, run async
+        initE2E();
+    }, [unifiedUser, supabaseContextClient]);
 
     const handleSignOut = async () => {
         // Sign out of both systems to be safe

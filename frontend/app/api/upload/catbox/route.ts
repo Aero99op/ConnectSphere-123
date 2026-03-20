@@ -40,6 +40,12 @@ export async function POST(request: Request) {
         // Re-construct FormData for Catbox
         const catboxFormData = new FormData();
         catboxFormData.append('reqtype', 'fileupload');
+        
+        // Use userhash from .env.local if available to link file to specific account
+        if (process.env.CATBOX_USER_HASH) {
+            catboxFormData.append('userhash', process.env.CATBOX_USER_HASH);
+        }
+        
         catboxFormData.append('fileToUpload', file, (file as any).name || 'upload.bin');
 
         const response = await fetch("https://catbox.moe/user/api.php", {

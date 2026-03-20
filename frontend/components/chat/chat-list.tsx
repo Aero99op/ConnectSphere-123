@@ -77,8 +77,8 @@ export function ChatList() {
                 group_name,
                 group_avatar,
                 updated_at,
-                user1:profiles!user1_id(id, full_name, username, avatar_url, last_seen, is_online),
-                user2:profiles!user2_id(id, full_name, username, avatar_url, last_seen, is_online)
+                user1:profiles!user1_id(id, full_name, username, avatar_url, last_seen, is_online, hide_online_status, ghost_mode_until),
+                user2:profiles!user2_id(id, full_name, username, avatar_url, last_seen, is_online, hide_online_status, ghost_mode_until)
             `)
             .order("updated_at", { ascending: false });
 
@@ -108,6 +108,8 @@ export function ChatList() {
                             avatar_url: otherUser?.avatar_url || "",
                             last_seen: otherUser?.last_seen || null,
                             is_online: otherUser?.is_online || false,
+                            hide_online_status: otherUser?.hide_online_status || false,
+                            ghost_mode_until: otherUser?.ghost_mode_until || null,
                             is_group: false
                         }
                     };
@@ -191,16 +193,18 @@ export function ChatList() {
                                             <AvatarImage src={chat.recipient.avatar_url} />
                                             <AvatarFallback>{chat.recipient.full_name?.[0]}</AvatarFallback>
                                         </Avatar>
-                                        {!chat.recipient.is_group && isUserOnline(chat.recipient.id) && (
+                                        {!chat.recipient.is_group && isUserOnline(chat.recipient.id) && !chat.recipient.hide_online_status && (!chat.recipient.ghost_mode_until || new Date(chat.recipient.ghost_mode_until) < new Date()) && (
                                             <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-black rounded-full" />
                                         )}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between">
                                             <p className="font-semibold text-sm text-white truncate">{chat.recipient.full_name}</p>
-                                            {!chat.recipient.is_group && !isUserOnline(chat.recipient.id) && (
+                                            {!chat.recipient.is_group && (!isUserOnline(chat.recipient.id) || chat.recipient.hide_online_status || (chat.recipient.ghost_mode_until && new Date(chat.recipient.ghost_mode_until) > new Date())) && (
                                                 <span className="text-[10px] text-zinc-500">
-                                                    {formatLastSeen(chat.recipient.last_seen)}
+                                                    {(chat.recipient.hide_online_status || (chat.recipient.ghost_mode_until && new Date(chat.recipient.ghost_mode_until) > new Date())) 
+                                                        ? 'Last seen hidden' 
+                                                        : formatLastSeen(chat.recipient.last_seen)}
                                                 </span>
                                             )}
                                         </div>

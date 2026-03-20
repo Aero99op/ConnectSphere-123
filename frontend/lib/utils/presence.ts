@@ -18,7 +18,8 @@ export function formatLastSeen(date: string | Date | null): string {
     }
 }
 
-export function getStatusText(isOnline: boolean, lastSeen: string | Date | null): string {
+export function getStatusText(isOnline: boolean, lastSeen: string | Date | null, isHidden?: boolean): string {
+    if (isHidden) return 'Last seen hidden';
     if (isOnline) return 'Online';
     return formatLastSeen(lastSeen);
 }

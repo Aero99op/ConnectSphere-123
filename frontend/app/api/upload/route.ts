@@ -39,6 +39,11 @@ export async function POST(req: NextRequest) {
 
         const catboxFormData = new FormData();
         catboxFormData.append('reqtype', 'fileupload');
+        
+        // Use userhash from .env.local if available to link file to specific account
+        if (process.env.CATBOX_USER_HASH) {
+            catboxFormData.append('userhash', process.env.CATBOX_USER_HASH);
+        }
 
         // Ensure the file has a filename, even if it's a blob
         const filename = (file as any).name || 'upload.bin';

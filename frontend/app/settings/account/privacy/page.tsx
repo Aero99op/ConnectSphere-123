@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ChevronLeft, Shield, Lock, EyeOff, UserCheck, Loader2 } from "lucide-react";
+import { ChevronLeft, Shield, Lock, EyeOff, UserCheck, Loader2, Ghost } from "lucide-react";
 import { useAuth } from "@/components/providers/auth-provider";
 
 export default function PrivacySettingsPage() {
@@ -10,6 +10,8 @@ export default function PrivacySettingsPage() {
     const userId = authUser?.id || null;
     const [isPrivate, setIsPrivate] = useState(false);
     const [hideOnlineStatus, setHideOnlineStatus] = useState(false);
+    const [ghostModeUntil, setGhostModeUntil] = useState<Date | null>(null);
+    const [ghostModeRemaining, setGhostModeRemaining] = useState<string | null>(null);
 
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState<string | null>(null); // To track which toggle is updating
@@ -19,26 +21,61 @@ export default function PrivacySettingsPage() {
         async function loadPrivacySettings() {
             try {
                 if (!authUser) { setIsLoading(false); return; }
-                // Attempt to fetch, defaults will be false if columns don't exist
                 const { data, error } = await supabase
                     .from('profiles')
-                    .select('is_private, hide_online_status')
+                    .select('is_private, hide_online_status, ghost_mode_until')
                     .eq('id', authUser.id)
                     .single();
 
                 if (data) {
                     setIsPrivate(data.is_private || false);
                     setHideOnlineStatus(data.hide_online_status || false);
+                    if (data.ghost_mode_until) {
+                        const expiry = new Date(data.ghost_mode_until);
+                        if (expiry > new Date()) {
+                            setGhostModeUntil(expiry);
+                        } else {
+                            // Already expired, clean it up
+                            supabase.from('profiles').update({ ghost_mode_until: null }).eq('id', authUser.id).then();
+                        }
+                    }
                 }
             } catch (error) {
                 console.error("Error loading privacy settings:", error);
-                // Fail silently if columns are missing
             } finally {
                 setIsLoading(false);
             }
         }
         loadPrivacySettings();
     }, [authUser, supabase]);
+
+    useEffect(() => {
+        if (!ghostModeUntil) {
+            setGhostModeRemaining(null);
+            return;
+        }
+
+        const interval = setInterval(() => {
+            const now = new Date();
+            if (now >= ghostModeUntil) {
+                setGhostModeUntil(null);
+                setGhostModeRemaining(null);
+                clearInterval(interval);
+            } else {
+                const diffTime = Math.abs(ghostModeUntil.getTime() - now.getTime());
+                const hours = Math.floor(diffTime / (1000 * 60 * 60));
+                const minutes = Math.floor((diffTime % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diffTime % (1000 * 60)) / 1000);
+
+                let timeStr = "";
+                if (hours > 0) timeStr += `${hours}h `;
+                timeStr += `${minutes}m ${seconds}s`;
+                setGhostModeRemaining(timeStr);
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [ghostModeUntil]);
 
     const toggleSetting = async (field: 'is_private' | 'hide_online_status', currentValue: boolean) => {
         if (!userId) return;
@@ -70,6 +107,41 @@ export default function PrivacySettingsPage() {
         } finally {
             setIsUpdating(null);
         }
+    };
+
+    const activateGhostMode = async (minutes: number) => {
+        if (!userId) return;
+        setIsUpdating('ghost_mode');
+        setMessage({ text: "", type: "" });
+
+        const expiry = new Date(Date.now() + minutes * 60000);
+
+        // Optimistic
+        setGhostModeUntil(expiry);
+
+        try {
+            const { error } = await supabase.from('profiles').update({ ghost_mode_until: expiry.toISOString() }).eq('id', userId);
+            if (error) throw error;
+        } catch (e) {
+            console.error("Ghost mode error:", e);
+            setGhostModeUntil(null);
+            setMessage({ text: "Ghost mode chalu nahi hua.", type: "error" });
+            setTimeout(() => setMessage({ text: "", type: "" }), 3000);
+        } finally {
+            setIsUpdating(null);
+        }
+    };
+
+    const deactivateGhostMode = async () => {
+        if (!userId) return;
+        setIsUpdating('ghost_mode');
+
+        setGhostModeUntil(null);
+
+        try {
+            await supabase.from('profiles').update({ ghost_mode_until: null }).eq('id', userId);
+        } catch (e) { }
+        setIsUpdating(null);
     };
 
     return (
@@ -146,6 +218,51 @@ export default function PrivacySettingsPage() {
                                     />
                                     <div className={`w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${hideOnlineStatus ? 'bg-primary' : ''}`}></div>
                                 </label>
+                            </div>
+
+                            {/* Ghost Mode (Timed) */}
+                            <div className="flex flex-col p-4 bg-black/40 rounded-2xl border border-white/5 gap-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <Ghost className={`w-6 h-6 ${ghostModeUntil ? 'text-orange-500' : 'text-zinc-500'}`} />
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-bold text-zinc-100">Ghost Mode (Timed)</span>
+                                            <span className="text-[10px] text-zinc-500">Read receipts band karo aur offline dikho.</span>
+                                        </div>
+                                    </div>
+                                    {ghostModeUntil && (
+                                        <button
+                                            onClick={deactivateGhostMode}
+                                            disabled={isUpdating === 'ghost_mode'}
+                                            className="text-[10px] uppercase font-bold tracking-widest bg-red-500/10 text-red-500 border border-red-500/20 px-3 py-1.5 rounded-lg active:scale-95 transition-all"
+                                        >
+                                            Turn Off
+                                        </button>
+                                    )}
+                                </div>
+
+                                {ghostModeUntil ? (
+                                    <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-3 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                                            <span className="text-xs text-orange-400 font-bold uppercase tracking-wide">Ghost Mode Active</span>
+                                        </div>
+                                        <span className="text-xs font-mono text-orange-300 font-bold">{ghostModeRemaining}</span>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-wrap gap-2 mt-1">
+                                        {[15, 30, 45, 60, 360, 720].map(mins => (
+                                            <button
+                                                key={mins}
+                                                onClick={() => activateGhostMode(mins)}
+                                                disabled={isUpdating === 'ghost_mode'}
+                                                className="bg-zinc-800/50 hover:bg-white/10 text-[11px] font-medium px-4 py-2 rounded-xl transition-colors border border-white/5 disabled:opacity-50"
+                                            >
+                                                {mins < 60 ? `${mins}m` : `${mins / 60}h`}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Two-Factor Auth (Static) */}
