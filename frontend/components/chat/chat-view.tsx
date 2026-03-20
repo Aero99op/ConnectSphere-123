@@ -637,7 +637,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
 
         // TURBO-LIVE: Trigger Apinator signal parallel to Supabase insert
         const tempId = Math.random().toString(36).substring(7);
-        const optimisticMsg = {
+        const apinatorMsg = {
             id: tempId,
             ...newPayload,
             sender: { username: "...", full_name: "Transmitting...", avatar_url: "" },
@@ -645,9 +645,15 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             is_optimistic: true
         };
 
+        const uiMsg = {
+            ...apinatorMsg,
+            content: msgContent || "",
+            e2e_file_keys: fileKeysObj
+        };
+
         // IMMEDIATE Optimistic UI Update for sender (Strictly Sorted)
         setMessages(prev => {
-            const newArray = [...prev, optimisticMsg];
+            const newArray = [...prev, uiMsg];
             return newArray.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
         });
         scrollToBottom();
@@ -659,7 +665,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             body: JSON.stringify({
                 channel: `private-chat-${conversationId}`,
                 event: 'new-message',
-                data: optimisticMsg
+                data: apinatorMsg
             })
         }).catch(console.error);
 
@@ -690,10 +696,16 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
             }).catch(console.error);
 
             // Optimistic UI: Add to local state immediately and sort
+            const finalUiMsg = {
+                ...insertedMsg,
+                content: msgContent || "",
+                e2e_file_keys: fileKeysObj
+            };
+
             setMessages(prev => {
                 const filtered = prev.filter(m => m.id !== tempId);
-                if (filtered.some(m => m.id === insertedMsg.id)) return filtered;
-                const newArray = [...filtered, insertedMsg];
+                if (filtered.some(m => m.id === finalUiMsg.id)) return filtered;
+                const newArray = [...filtered, finalUiMsg];
                 return newArray.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
             });
             scrollToBottom();

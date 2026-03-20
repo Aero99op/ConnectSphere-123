@@ -412,8 +412,15 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
             console.error("Failed to send", error);
             toast.error("Message send failed");
         } else if (data) {
+            // Modify 'data' for local UI before adding to messages
+            const uiMsg = {
+                ...data,
+                content: msgContent || "",
+                e2e_file_keys: fileKeysObj
+            };
+
             // Optimistic update for sender
-            setMessages((prev) => [...prev, data]);
+            setMessages((prev) => [...prev, uiMsg]);
             scrollToBottom();
 
             // 📡 Broadcast via Apinator (replaces PeerJS)
@@ -423,7 +430,7 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                 body: JSON.stringify({
                     channel: `private-chat-${conversationId}`,
                     event: 'new-message',
-                    data
+                    data: data // Send original DB record (ciphertext)
                 })
             }).catch(console.error);
 
