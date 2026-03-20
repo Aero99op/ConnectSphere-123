@@ -58,14 +58,76 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
         window.addEventListener('focus', handleFocus);
         if (document.hasFocus()) markMessagesAsRead();
 
-        // 📡 Apinator Real-time Subscription (replaces PeerJS)
-        const client = getApinatorClient();
-        if (!client) {
-            console.warn("[ChatWindow] Apinator client not available! Real-time disabled.");
-            return;
-        }
+        // 📡 Apinator Real-time Subscription (Self-Healing)
+        const channelName = `private-chat-${conversationId}`;
+        const ensureSubscription = () => {
+            const client = getApinatorClient();
+            if (!client || client.state === 'failed' || client.state === 'unavailable') return false;
+            
+            const ch = client.subscribe(channelName);
+            ch.unbind('new-message');
+            ch.bind('new-message', async (data: any) => {
+                let newMsg = typeof data === 'string' ? JSON.parse(data) : data;
+                if (newMsg.sender_id === currentUserId) return;
+                
+                const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(newMsg.id);
+                if (isUUID) {
+                    await supabase.rpc('mark_message_delivered', { msg_id: newMsg.id });
+                    fetch('/api/apinator/trigger', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            channel: `private-chat-${conversationId}`,
+                            event: 'messages-delivered',
+                            data: { reader_id: currentUserId, msg_id: newMsg.id }
+                        })
+                    }).catch(() => {});
+                }
+                
+                const decrypted = await processAndDecryptMessage(newMsg);
+                setMessages(prev => [...prev, decrypted]);
+                scrollToBottom();
+                if (document.hasFocus()) markMessagesAsRead();
+            });
 
-        const channel = client.subscribe(`private-chat-${conversationId}`);
+            ch.unbind('messages-delivered');
+            ch.bind('messages-delivered', (data: any) => {
+                const payload = typeof data === 'string' ? JSON.parse(data) : data;
+                if (payload.reader_id === recipientId) {
+                    setMessages(prev => prev.map(m => {
+                        if (m.sender_id !== currentUserId || m.is_read || m.is_delivered) return m;
+                        if (payload.msg_id && m.id !== payload.msg_id) return m;
+                        return { ...m, is_delivered: true };
+                    }));
+                }
+            });
+
+            ch.unbind('message-updated');
+            ch.bind('message-updated', (data: any) => {
+                const payload = typeof data === 'string' ? JSON.parse(data) : data;
+                setMessages(prev => prev.map(m => m.id === payload.tempId ? payload.actualMsg : m));
+            });
+
+            ch.unbind('messages-read');
+            ch.bind('messages-read', (data: any) => {
+                const payload = typeof data === 'string' ? JSON.parse(data) : data;
+                if (payload.reader_id === recipientId) {
+                    setMessages(prev => prev.map(m =>
+                        m.sender_id === currentUserId && !m.is_read ? { ...m, is_read: true } : m
+                    ));
+                }
+            });
+
+            return true;
+        };
+
+        const client = getApinatorClient();
+        if (client) {
+            ensureSubscription();
+            client.bind('state_change', (states: any) => {
+                if (states.current === 'connected') ensureSubscription();
+            });
+        }
 
         const processAndDecryptMessage = async (msg: any) => {
             if (msg.sender_id === currentUserId) return msg;
@@ -100,76 +162,6 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
             return msg;
         };
 
-        channel.bind('new-message', async (data: any) => {
-            let newMsg = typeof data === 'string' ? JSON.parse(data) : data;
-
-            // Skip own messages (already added optimistically)
-            if (newMsg.sender_id === currentUserId) return;
-
-            // Track delivery gracefully (only for real UUIDs)
-            const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(newMsg.id);
-            if (isUUID) {
-                supabase.rpc('mark_message_delivered', { msg_id: newMsg.id }).then(() => {
-                    fetch('/api/apinator/trigger', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            channel: `private-chat-${conversationId}`,
-                            event: 'messages-delivered',
-                            data: { reader_id: currentUserId, msg_id: newMsg.id }
-                        })
-                    }).catch(console.error);
-                });
-            }
-
-            // Decrypt before adding to state
-            newMsg = await processAndDecryptMessage(newMsg);
-
-            setMessages((prev) => {
-                if (prev.some(m => m.id === newMsg.id)) return prev;
-                return [...prev, newMsg];
-            });
-            scrollToBottom();
-            // Mark as read if receiving message while active
-            if (newMsg.sender_id === recipientId) {
-                markMessagesAsRead();
-            }
-        });
-
-        channel.bind('message-confirmed', (data: any) => {
-            const payload = typeof data === 'string' ? JSON.parse(data) : data;
-            setMessages(prev => {
-                const existingMsg = prev.find(m => m.id === payload.tempId);
-                let actualMsg = payload.actualMsg;
-                if (existingMsg) {
-                    // Preserve decrypted content & file keys so sender/receiver don't flash ciphertext
-                    actualMsg.content = existingMsg.content;
-                    actualMsg.e2e_file_keys = existingMsg.e2e_file_keys;
-                }
-                return prev.map(m => m.id === payload.tempId ? actualMsg : m);
-            });
-        });
-
-        channel.bind('messages-read', (data: any) => {
-            const payload = typeof data === 'string' ? JSON.parse(data) : data;
-            if (payload.reader_id === recipientId) {
-                setMessages(prev => prev.map(m =>
-                    m.sender_id === currentUserId && !m.is_read ? { ...m, is_read: true } : m
-                ));
-            }
-        });
-
-        channel.bind('messages-delivered', (data: any) => {
-            const payload = typeof data === 'string' ? JSON.parse(data) : data;
-            if (payload.reader_id === recipientId) {
-                setMessages(prev => prev.map(m => {
-                    if (m.sender_id !== currentUserId || m.is_read || m.is_delivered) return m;
-                    if (payload.msg_id && m.id !== payload.msg_id) return m;
-                    return { ...m, is_delivered: true };
-                }));
-            }
-        });
-
         console.log(`[ChatWindow] Subscribed to Apinator channel: private-chat-${conversationId}`);
 
         // Subscribe to recipient profile updates
@@ -202,6 +194,8 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
             if (data) {
                 setRecipientHideStatus(data.hide_online_status || false);
                 setRecipientGhostUntil(data.ghost_mode_until || null);
+                // Also respect recipient's read receipt setting
+                if (data.send_read_receipts === false) setSendReadReceipts(false);
             }
         }).catch(console.error);
 

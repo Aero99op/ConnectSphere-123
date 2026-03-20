@@ -32,9 +32,10 @@ export function CallManager() {
             const client = getApinatorClient();
             if (!client) return false;
 
-            // If connected, subscribe; if not, it'll auto-subscribe when connected
-            if (client.state !== 'connected') {
-                console.log(`[CallManager] ⏳ Waiting for connection... (state: ${client.state})`);
+            // Apinator handles the queue internally if we subscribe while 'connecting'.
+            // Only skip if explicitly failed or disconnected.
+            if (client.state === 'failed' || client.state === 'unavailable') {
+                console.log(`[CallManager] ⏳ Apinator unavailable (state: ${client.state})`);
                 return false;
             }
 

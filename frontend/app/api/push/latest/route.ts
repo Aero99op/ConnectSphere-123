@@ -27,10 +27,9 @@ export async function GET() {
             `)
             .eq('is_read', false)
             .neq('sender_id', userId)
-            .contains('conversation_id', '-') // Assuming conversation_id exists
             .order('created_at', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
 
         if (unreadMsg) {
             const sender: any = Array.isArray(unreadMsg.sender) ? unreadMsg.sender[0] : unreadMsg.sender;

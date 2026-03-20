@@ -111,14 +111,24 @@ export function bufferToBase64(buffer: ArrayBuffer | Uint8Array) {
     return btoa(binary);
 }
 
-/** Utility: Base64 to ArrayBuffer */
+/** Utility: Base64 to ArrayBuffer (Robust version) */
 export function base64ToBuffer(base64: string) {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
+    if (!base64) return new Uint8Array(0).buffer;
+    
+    // Sanitize: remove whitespace and any potential data URIs/quotes that might have leaked in
+    const sanitized = base64.trim().replace(/^"|"$/g, '');
+    
+    try {
+        const binary = atob(sanitized);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes.buffer;
+    } catch (e) {
+        console.error("[E2EE] base64ToBuffer failed for string:", sanitized.substring(0, 20) + "...");
+        throw e;
     }
-    return bytes.buffer;
 }
 
 /** Derive Shared Secret (AES-KW 256-bit Key) from ECDH */

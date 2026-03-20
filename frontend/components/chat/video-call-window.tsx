@@ -226,6 +226,12 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                             currentStream.addTrack(event.track);
                         }
                     }
+                    
+                    // Explicitly nudge play to bypass browser autoplay blocks
+                    if (mediaElement instanceof HTMLVideoElement || mediaElement instanceof HTMLAudioElement) {
+                        mediaElement.play().catch(e => console.warn("[VideoCall] Audio/Video play blocked:", e));
+                    }
+                    
                     setConnectionStatus("connected");
                 }
             };

@@ -47,25 +47,7 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
     const supabaseContextClient = useMemo(() => {
         // If NextAuth has a session, use its injected token
         const nextAuthToken = (nextAuthSession as any)?.supabaseAccessToken;
-        if (nextAuthToken) {
-            // Force create a specific client for this session if it doesn't match
-            // but we must use a stable reference or avoid GoTrue multiple instances.
-            return createClient(supabaseUrl, supabaseAnonKey, {
-                auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-                global: { 
-                    headers: { 
-                        'apikey': supabaseAnonKey,
-                        'Authorization': `Bearer ${nextAuthToken}`,
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    } 
-                }
-            });
-        }
-
-        // If no NextAuth session but we DO have a native Supabase login, 
-        // the client itself manages the token seamlessly, just return the singleton
-        return getSupabase();
+        return getSupabase(nextAuthToken);
     }, [(nextAuthSession as any)?.supabaseAccessToken]);
 
     // Construct unified User object (Memoized to prevent infinite re-renders in consumers like OnboardingGuard)
