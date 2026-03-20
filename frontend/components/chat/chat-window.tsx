@@ -63,24 +63,63 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
 
         const channel = client.subscribe(`private-chat-${conversationId}`);
 
-        channel.bind('new-message', (data: any) => {
-            const newMsg = typeof data === 'string' ? JSON.parse(data) : data;
+        const processAndDecryptMessage = async (msg: any) => {
+            if (msg.sender_id === currentUserId) return msg;
+            if (msg.iv && msg.signature && msg.encrypted_keys && msg.encrypted_keys[currentUserId]) {
+                try {
+                    const myEcdhPrivate = await keyStore.getKey("ecdh_private");
+                    const myMlkemPrivate = await keyStore.getKey("mlkem_private") as unknown as Uint8Array | undefined;
+                    let senderEcdsa = msg.sender?.ecdsa_public_key;
+                    let senderEcdh = msg.sender?.ecdh_public_key;
+                    if (!senderEcdsa || !senderEcdh) {
+                        const { data: profile } = await supabase.from('profiles').select('ecdsa_public_key, ecdh_public_key, username, full_name, avatar_url').eq('id', msg.sender_id).single();
+                        if (profile) {
+                            senderEcdsa = profile.ecdsa_public_key;
+                            senderEcdh = profile.ecdh_public_key;
+                            msg.sender = profile;
+                        }
+                    }
+                    if (myEcdhPrivate && senderEcdsa && senderEcdh) {
+                        const decrypted = await decryptMessageAndVerify(
+                            msg.content, msg.iv, msg.signature, msg.encrypted_keys[currentUserId],
+                            senderEcdsa, senderEcdh, myEcdhPrivate, myMlkemPrivate
+                        );
+                        const parsed = JSON.parse(decrypted);
+                        msg.content = parsed.text;
+                        if (parsed.fileKeys) msg.e2e_file_keys = parsed.fileKeys;
+                    }
+                } catch (e) {
+                    console.error("Live Decryption Error:", e);
+                    msg.content = "🚫 [Secured / Tampered Message]";
+                }
+            }
+            return msg;
+        };
+
+        channel.bind('new-message', async (data: any) => {
+            let newMsg = typeof data === 'string' ? JSON.parse(data) : data;
 
             // Skip own messages (already added optimistically)
             if (newMsg.sender_id === currentUserId) return;
 
-            // Track delivery
-            supabase.rpc('mark_message_delivered', { msg_id: newMsg.id }).then(() => {
-                fetch('/api/apinator/trigger', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        channel: `private-chat-${conversationId}`,
-                        event: 'messages-delivered',
-                        data: { reader_id: currentUserId, msg_id: newMsg.id }
-                    })
-                }).catch(console.error);
-            });
+            // Track delivery gracefully (only for real UUIDs)
+            const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(newMsg.id);
+            if (isUUID) {
+                supabase.rpc('mark_message_delivered', { msg_id: newMsg.id }).then(() => {
+                    fetch('/api/apinator/trigger', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            channel: `private-chat-${conversationId}`,
+                            event: 'messages-delivered',
+                            data: { reader_id: currentUserId, msg_id: newMsg.id }
+                        })
+                    }).catch(console.error);
+                });
+            }
+
+            // Decrypt before adding to state
+            newMsg = await processAndDecryptMessage(newMsg);
 
             setMessages((prev) => {
                 if (prev.some(m => m.id === newMsg.id)) return prev;
@@ -95,7 +134,16 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
 
         channel.bind('message-confirmed', (data: any) => {
             const payload = typeof data === 'string' ? JSON.parse(data) : data;
-            setMessages(prev => prev.map(m => m.id === payload.tempId ? payload.actualMsg : m));
+            setMessages(prev => {
+                const existingMsg = prev.find(m => m.id === payload.tempId);
+                let actualMsg = payload.actualMsg;
+                if (existingMsg) {
+                    // Preserve decrypted content & file keys so sender/receiver don't flash ciphertext
+                    actualMsg.content = existingMsg.content;
+                    actualMsg.e2e_file_keys = existingMsg.e2e_file_keys;
+                }
+                return prev.map(m => m.id === payload.tempId ? actualMsg : m);
+            });
         });
 
         channel.bind('messages-read', (data: any) => {

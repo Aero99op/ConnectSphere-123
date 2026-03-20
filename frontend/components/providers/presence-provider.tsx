@@ -179,7 +179,6 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
             }
             if (client && channel) {
                 // Ensure we don't leak subscriptions since this is a global context
-                channel.unbind_all();
                 client.unsubscribe('public-presence');
             }
         };
