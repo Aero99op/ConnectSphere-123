@@ -19,7 +19,7 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
     const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
     const [isGhostModeActive, setIsGhostModeActive] = useState(false);
     const [isHiddenStatusActive, setIsHiddenStatusActive] = useState(false);
-    
+
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const ghostTimerRef = useRef<NodeJS.Timeout | null>(null);
     const ghostRef = useRef(false);
@@ -73,10 +73,10 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
             }
 
             if (!isMounted) return;
-            
+
             setIsHiddenStatusActive(hideStatus);
             hiddenRef.current = hideStatus;
-            
+
             setIsGhostModeActive(ghostActive);
             ghostRef.current = ghostActive;
 
@@ -106,7 +106,7 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
                 channel.bind('user-status', (data: any) => {
                     const payload = typeof data === 'string' ? JSON.parse(data) : data;
                     if (payload.id === user.id) return; // ignore self
-                    
+
                     setOnlineUsers(prev => {
                         const next = new Set(prev);
                         if (payload.online) next.add(payload.id);
@@ -122,7 +122,7 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
                 .select('id')
                 .eq('is_online', true)
                 .eq('hide_online_status', false);
-                
+
             if (onlineProfiles && isMounted) {
                 const ids = new Set(onlineProfiles.map(p => p.id));
                 setOnlineUsers(ids);
@@ -137,7 +137,7 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
                 if (p?.ghost_mode_until && new Date(p.ghost_mode_until).getTime() > Date.now()) {
                     ghost = true;
                 }
-                
+
                 setIsHiddenStatusActive(hidden);
                 hiddenRef.current = hidden;
                 setIsGhostModeActive(ghost);
@@ -172,7 +172,7 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
             if (intervalRef.current) clearInterval(intervalRef.current);
             if (ghostTimerRef.current) clearTimeout(ghostTimerRef.current);
             window.removeEventListener('visibilitychange', handleVisibility);
-            
+
             if (!ghostRef.current && !hiddenRef.current) {
                 supabase.from('profiles').update({ is_online: false, last_seen: new Date().toISOString() }).eq('id', user.id).then();
                 broadcastStatus(false);
@@ -183,7 +183,7 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
                 client.unsubscribe('public-presence');
             }
         };
-    }, [user, supabase, client]); 
+    }, [user, supabase, client]);
 
     const isUserOnline = (userId: string) => onlineUsers.has(userId);
 

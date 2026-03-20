@@ -82,7 +82,8 @@ export async function POST(req: NextRequest) {
             channel.startsWith('private-webrtc-') ||
             channel.startsWith('private-group-call-') ||
             channel.startsWith('private-post-') ||
-            channel.startsWith('private-story-')
+            channel.startsWith('private-story-') ||
+            channel === 'public-presence'
         ) {
             // Allowed for any authenticated user
         }
