@@ -82,3 +82,61 @@ self.addEventListener('fetch', (event) => {
         })
     );
 });
+
+// ------------- WEB PUSH (PWA) -------------
+
+// Handle Incoming Payload-less Push Pings
+self.addEventListener('push', function(event) {
+    console.log('[SW] Push Received.');
+
+    // Since we avoid Cloudflare Edge Crypto errors by not sending payloads,
+    // the SW wakes up and fetches the latest unread activity directly.
+    event.waitUntil(
+        fetch('/api/push/latest')
+            .then(res => res.json())
+            .then(data => {
+                const title = data.title || 'New Notification';
+                const options = {
+                    body: data.body || 'You have new activity on ConnectSphere.',
+                    icon: data.icon || '/logo.svg',
+                    badge: '/logo.svg',
+                    data: {
+                        url: data.url || '/'
+                    }
+                };
+                return self.registration.showNotification(title, options);
+            })
+            .catch(err => {
+                console.error('[SW] Push fetch error, falling back:', err);
+                return self.registration.showNotification('ConnectSphere', {
+                    body: 'New background activity received.',
+                    icon: '/logo.svg'
+                });
+            })
+    );
+});
+
+// Handle Notification Click
+self.addEventListener('notificationclick', function(event) {
+    console.log('[SW] Notification click received.');
+
+    event.notification.close();
+
+    const urlToOpen = new URL(event.notification.data.url || '/', self.location.origin).href;
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+            // If window already open, focus it and navigate
+            for (let i = 0; i < windowClients.length; i++) {
+                const client = windowClients[i];
+                if (client.url === urlToOpen && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+            // Otherwise open a new window
+            if (clients.openWindow) {
+                return clients.openWindow(urlToOpen);
+            }
+        })
+    );
+});

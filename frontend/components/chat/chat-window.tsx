@@ -453,6 +453,13 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                     data: { conversationId, lastMessage: data }
                 })
             }).catch(console.error);
+
+            // Send Background Push Notification (Payload-less Ping)
+            fetch('/api/push/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ recipientId })
+            }).catch(console.error);
         }
     };
 

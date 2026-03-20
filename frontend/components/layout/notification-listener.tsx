@@ -14,6 +14,46 @@ export function NotificationListener() {
     useEffect(() => {
         if (!userId) return;
 
+        // ------------- PWA WEB PUSH SUBSCRIPTION -------------
+        const registerPushNotifications = async () => {
+            try {
+                if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+                
+                const reg = await navigator.serviceWorker.register('/sw.js');
+                console.log('[Push] Service Worker Registered');
+
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+                    console.log('[Push] Permission not granted.');
+                    return;
+                }
+
+                const sub = await reg.pushManager.getSubscription();
+                if (!sub) {
+                    // We need a VAPID public key
+                    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+                    if (!vapidKey) return;
+                    
+                    const newSub = await reg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: vapidKey
+                    });
+
+                    await fetch('/api/push/subscribe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newSub)
+                    });
+                    console.log('[Push] Subscribed successfully.');
+                }
+            } catch (err) {
+                console.error('[Push Setup Failed]', err);
+            }
+        };
+
+        registerPushNotifications();
+        // ---------------------------------------------------
+
         const client = getApinatorClient();
         if (!client) {
             console.error("[NotificationListener] ❌ Apinator client is NULL! Notifications will NOT work. Check NEXT_PUBLIC_APINATOR_KEY env var.");
