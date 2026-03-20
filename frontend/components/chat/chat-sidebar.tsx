@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { getApinatorClient } from "@/lib/apinator";
 import { ChatSettingsDialog } from "./chat-settings-dialog";
 import Link from "next/link";
+import { decryptMessageAndVerify, keyStore } from "@/lib/crypto/e2ee";
 
 interface ChatSidebarProps {
     onSelectChat: (chat: any) => void;
@@ -26,6 +27,39 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
     const [showSettings, setShowSettings] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
 
+    const decryptPreview = async (msg: any, currentUserId: string) => {
+        if (!msg || !msg.iv || !msg.signature) return msg;
+        try {
+            const myEcdhPrivate = await keyStore.getKey("ecdh_private");
+            const myMlkemPrivate = await keyStore.getKey("mlkem_private") as unknown as Uint8Array | undefined;
+            if (!myEcdhPrivate) return msg;
+
+            let senderEcdsa = msg.sender?.ecdsa_public_key;
+            let senderEcdh = msg.sender?.ecdh_public_key;
+
+            if (!senderEcdsa || !senderEcdh) {
+                const { data } = await supabase.from('profiles').select('ecdsa_public_key, ecdh_public_key').eq('id', msg.sender_id).single();
+                if (data) {
+                    senderEcdsa = data.ecdsa_public_key;
+                    senderEcdh = data.ecdh_public_key;
+                }
+            }
+
+            if (senderEcdsa && senderEcdh && msg.encrypted_keys && msg.encrypted_keys[currentUserId]) {
+                const decrypted = await decryptMessageAndVerify(
+                    msg.content, msg.iv, msg.signature, msg.encrypted_keys[currentUserId],
+                    senderEcdsa, senderEcdh, myEcdhPrivate, myMlkemPrivate
+                );
+                const parsed = JSON.parse(decrypted);
+                return { ...msg, content: parsed.text || "📷 Media" };
+            }
+        } catch (e) {
+            console.error("Preview Decryption Error:", e);
+            return { ...msg, content: "🔒 [Secure Message]" };
+        }
+        return msg;
+    };
+
     useEffect(() => {
         if (authUser) fetchConversations(authUser.id);
     }, [authUser]);
@@ -38,17 +72,18 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
         const channelName = `private-sidebar-${userId}`;
 
         const bindSidebarEvents = (ch: any) => {
-            ch.bind('conversation-update', (data: any) => {
+            ch.bind('conversation-update', async (data: any) => {
                 const payload = typeof data === 'string' ? JSON.parse(data) : data;
                 if (payload.lastMessage) {
+                    const decryptedMsg = await decryptPreview(payload.lastMessage, userId);
                     setConversations((prev) => {
                         const next = [...prev];
                         const idx = next.findIndex(c => c.id === payload.conversationId);
                         if (idx !== -1) {
                             next[idx] = {
                                 ...next[idx],
-                                last_message: payload.lastMessage,
-                                updated_at: payload.lastMessage.created_at
+                                last_message: decryptedMsg,
+                                updated_at: decryptedMsg.created_at
                             };
                             const item = next.splice(idx, 1)[0];
                             return [item, ...next];
@@ -94,6 +129,7 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
             }
         };
     }, [userId]);
+
     const fetchConversations = async (uid: string) => {
         setLoading(true);
         const { data, error } = await supabase
@@ -106,13 +142,12 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
                 group_name,
                 group_avatar,
                 updated_at,
-                user1:profiles!user1_id(full_name, username, avatar_url),
-                user2:profiles!user2_id(full_name, username, avatar_url)
+                user1:profiles!user1_id(full_name, username, avatar_url, ecdsa_public_key, ecdh_public_key),
+                user2:profiles!user2_id(full_name, username, avatar_url, ecdsa_public_key, ecdh_public_key)
             `)
             .order("updated_at", { ascending: false });
 
         if (!error && data) {
-            // Sequential fetching of last messages (could be optimized with a specialized function/view)
             const formatted = await Promise.all(data.map(async (conv: any) => {
                 const { data: lastMsg } = await supabase
                     .from("messages")
@@ -122,10 +157,21 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
                     .limit(1)
                     .single();
 
+                let decryptedLastMsg = lastMsg;
+                if (lastMsg) {
+                    // Populate sender for decryptPreview
+                    if (lastMsg.sender_id === conv.user1_id) {
+                        lastMsg.sender = conv.user1;
+                    } else if (lastMsg.sender_id === conv.user2_id) {
+                        lastMsg.sender = conv.user2;
+                    }
+                    decryptedLastMsg = await decryptPreview(lastMsg, uid);
+                }
+
                 const common = {
                     id: conv.id,
                     updated_at: conv.updated_at,
-                    last_message: lastMsg
+                    last_message: decryptedLastMsg
                 };
 
                 if (conv.is_group) {
