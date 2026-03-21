@@ -137,14 +137,14 @@ export function StoryViewer({ user, stories, onClose }: StoryViewerProps) {
                     onPointerUp={() => setIsPaused(false)}
                     onPointerLeave={() => setIsPaused(false)}
                 >
-                    {currentStory?.media_type === "image" ? (
+                    {currentStory?.media_type?.startsWith("image/") || currentStory?.media_type === "image" ? (
                         <img
                             src={currentStory.media_url}
                             alt="Story"
                             className="w-full h-full object-cover"
                             draggable={false}
                         />
-                    ) : (
+                    ) : currentStory?.media_type?.startsWith("video/") || currentStory?.media_type === "video" ? (
                         <video
                             src={currentStory?.media_url}
                             className="w-full h-full object-cover"
@@ -159,6 +159,50 @@ export function StoryViewer({ user, stories, onClose }: StoryViewerProps) {
                             onPause={() => setIsPaused(true)}
                             onPlay={() => setIsPaused(false)}
                         />
+                    ) : currentStory?.media_type?.startsWith("audio/") ? (
+                        <div className="w-full h-full bg-zinc-900 flex flex-col items-center justify-center p-8 text-center gap-6">
+                            <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(255,165,0,0.3)] animate-pulse">
+                                <Play className="w-10 h-10 text-primary fill-primary" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-white mb-2 tracking-tight">Audio Story</h3>
+                                <p className="text-xs text-zinc-400 font-mono tracking-widest uppercase">Playing...</p>
+                            </div>
+                            <audio 
+                                src={currentStory.media_url} 
+                                autoPlay 
+                                onEnded={handleNext}
+                                onTimeUpdate={(e) => {
+                                    const target = e.target as HTMLAudioElement;
+                                    setProgress((target.currentTime / target.duration) * 100);
+                                }}
+                                onPause={() => setIsPaused(true)}
+                                onPlay={() => setIsPaused(false)}
+                                className="hidden"
+                            />
+                        </div>
+                    ) : (
+                        <div className="w-full h-full bg-zinc-900 flex flex-col items-center justify-center p-8 text-center gap-6">
+                            <div className="w-24 h-24 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center shadow-2xl">
+                                <span className="text-3xl font-display font-black text-zinc-500">FILE</span>
+                            </div>
+                            <div className="max-w-full">
+                                <h3 className="text-xl font-bold text-white max-w-full truncate px-4">
+                                    {decodeURIComponent(currentStory?.media_url?.split('/').pop() || "Document")}
+                                </h3>
+                                <p className="text-xs text-zinc-500 font-mono tracking-widest uppercase mt-2">
+                                    {currentStory?.media_type || 'Unknown Format'}
+                                </p>
+                            </div>
+                            <a 
+                                href={currentStory?.media_url} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="px-8 py-3 bg-white text-black font-black uppercase tracking-widest text-xs rounded-full mt-2 hover:scale-105 active:scale-95 transition-all w-[80%]"
+                            >
+                                Open File
+                            </a>
+                        </div>
                     )}
 
                     {/* Left/Right Tap Zones */}

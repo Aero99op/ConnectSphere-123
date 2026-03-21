@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS public.stories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
     media_url TEXT NOT NULL,
-    media_type TEXT NOT NULL CHECK (media_type IN ('image', 'video')),
+    media_type TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     expires_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now() + interval '24 hours') NOT NULL
 );

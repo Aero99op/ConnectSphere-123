@@ -64,14 +64,12 @@ export default function MyStoriesPage() {
             const { url } = await uploadRes.json();
 
             // 2. Save Story
-            const isVideo = file.type.startsWith("video/");
-            
             const createRes = await fetch("/api/stories", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     media_url: url,
-                    media_type: isVideo ? "video" : "image"
+                    media_type: file.type || "unknown"
                 })
             });
 
@@ -145,7 +143,7 @@ export default function MyStoriesPage() {
                         type="file" 
                         ref={fileInputRef} 
                         className="hidden" 
-                        accept="image/*,video/*"
+                        accept="*/*"
                         onChange={handleFileChange}
                         disabled={uploading}
                     />
@@ -178,10 +176,26 @@ export default function MyStoriesPage() {
                                 
                                 return (
                                     <div key={story.id} className="relative aspect-[9/16] group rounded-2xl overflow-hidden bg-zinc-900 border border-white/5">
-                                        {story.media_type === 'image' ? (
+                                        {story.media_type?.startsWith('image/') || story.media_type === 'image' ? (
                                             <img src={story.media_url} alt="Story" className="w-full h-full object-cover" />
-                                        ) : (
+                                        ) : story.media_type?.startsWith('video/') || story.media_type === 'video' ? (
                                             <video src={story.media_url} className="w-full h-full object-cover" />
+                                        ) : story.media_type?.startsWith('audio/') ? (
+                                            <div className="w-full h-full bg-zinc-800 flex flex-col items-center justify-center p-4">
+                                                <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mb-2">
+                                                    <Play className="w-6 h-6 text-primary fill-primary" />
+                                                </div>
+                                                <span className="text-xs font-bold text-zinc-400">AUDIO</span>
+                                            </div>
+                                        ) : (
+                                            <div className="w-full h-full bg-zinc-800 flex flex-col items-center justify-center p-4">
+                                                <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center mb-2">
+                                                    <span className="text-xl font-bold text-zinc-400 border-2 border-zinc-400 p-1 rounded-md">FILE</span>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-zinc-500 uppercase truncate w-full text-center px-2">
+                                                    {story.media_type?.split('/')[1] || 'Document'}
+                                                </span>
+                                            </div>
                                         )}
                                         
                                         {/* Overlay */}
