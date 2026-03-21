@@ -26,54 +26,9 @@
         --radius: 1.5rem;
     }
 
-    .sapphire-nocturne {
-        --background: 0 0% 5%; /* #0e0e0e */
-        --foreground: 24 9.8% 91.3%; /* #e7e5e4 */
-        --card: 0 0% 7.5%; /* #131313 */
-        --card-foreground: 24 9.8% 91.3%;
-        --popover: 0 0% 10%; /* #191a1a */
-        --popover-foreground: 24 9.8% 91.3%;
-        --primary: 231 100% 86%; /* #b8c4ff */
-        --primary-foreground: 224 88% 34%; /* #0933a4 */
-        --secondary: 224 14% 64%; /* #979eb1 */
-        --secondary-foreground: 221 31% 14%; /* #19202f */
-        --muted: 0 0% 12%; /* #1f2020 */
-        --muted-foreground: 24 5.4% 66.9%; /* #acabaa */
-        --accent: 231 100% 86%;
-        --accent-foreground: 224 88% 34%;
-        --destructive: 2 79% 70%; /* #ee7d77 */
-        --destructive-foreground: 355 100% 15%; /* #490106 */
-        --border: 0 0% 15%; /* #252626 */
-        --input: 0 0% 15%;
-        --ring: 226 76% 51%; /* #173bab */
-        
-        /* Custom Tonal Layers */
-        --surface-low: 0 0% 7.5%; /* #131313 */
-        --surface-mid: 0 0% 10%; /* #191a1a */
-        --surface-high: 0 0% 12%; /* #1f2020 */
-        --surface-highest: 0 0% 15%; /* #252626 */
-    }
-
     .dark {
         --background: 240 10% 2%;
         --primary: 24 100% 55%;
-    }
-
-    .radiant-void {
-        --background: 0 0% 0%; /* Absolute Black */
-        --foreground: 0 0% 100%;
-        
-        /* Surface Hierarchy */
-        --card: 240 10% 6%; /* #131313 approx */
-        --popover: 240 10% 8%; /* #191919 approx */
-        --muted: 240 10% 10%; /* #1f1f high */
-        
-        --primary: 4 100% 76%; /* #ff8d87 Fiery */
-        --secondary: 271 100% 75%; /* #c180ff Violet */
-        --accent: 333 100% 71%; /* #ff6daf Tertiary */
-        
-        --border: 240 5% 15%; /* Ghost border style potential */
-        --radius: 1rem;
     }
 }
 

@@ -62,21 +62,11 @@ export function Sidebar() {
     ];
 
     return (
-        <aside className={cn(
-            "hidden md:flex flex-col w-64 h-[calc(100vh-2rem)] fixed left-4 top-4 rounded-2xl p-4 z-50 transition-all duration-500",
-            theme === 'sapphire-nocturne' 
-                ? "bg-background/60 backdrop-blur-3xl border-r border-primary/10 shadow-[4px_0_24px_rgba(184,196,255,0.03)]" 
-                : "glass-panel"
-        )}>
+        <aside className="hidden md:flex flex-col w-64 h-[calc(100vh-2rem)] fixed left-4 top-4 rounded-2xl p-4 z-50 transition-all duration-500 glass-panel">
             {/* Logo */}
             <div className="mb-8 px-2 py-4">
                 <Link href="/" className="block">
-                    <h1 className={cn(
-                        "text-2xl font-bold font-outfit tracking-tight bg-clip-text text-transparent italic hover:opacity-80 transition-opacity",
-                        theme === 'sapphire-nocturne' 
-                            ? "bg-gradient-to-r from-primary to-primary-container" 
-                            : "bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500"
-                    )}>
+                    <h1 className="text-2xl font-bold font-outfit tracking-tight bg-clip-text text-transparent italic bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 hover:opacity-80 transition-opacity">
                         Connect
                     </h1>
                 </Link>
@@ -94,15 +84,12 @@ export function Sidebar() {
                             href={link.href}
                             className={cn(
                                 "flex items-center gap-4 p-3 rounded-xl transition-all group relative overflow-hidden",
-                                isActive 
-                                    ? (theme === 'sapphire-nocturne' ? "bg-primary/10 text-primary" : "bg-white/10 text-white") 
-                                    : "text-zinc-400 hover:text-white hover:bg-white/5"
+                                isActive ? "bg-white/10 text-white" : "text-zinc-400 hover:text-white hover:bg-white/5"
                             )}
                         >
                             {isActive && (
                                 <div className={cn(
-                                    "absolute left-0 top-0 bottom-0 w-1 rounded-r-full",
-                                    theme === 'sapphire-nocturne' ? "bg-primary" : "bg-gradient-to-b from-orange-500 to-pink-500"
+                                    "absolute left-0 top-0 bottom-0 w-1 rounded-r-full bg-gradient-to-b from-orange-500 to-pink-500"
                                 )} />
                             )}
 
@@ -121,29 +108,7 @@ export function Sidebar() {
             </nav>
 
             {/* Footer / More */}
-            <div className={cn(
-                "mt-auto pt-4 border-t space-y-2",
-                theme === 'sapphire-nocturne' ? "border-primary/10" : "border-white/5"
-            )}>
-                {/* Theme Toggle Shortcut */}
-                <button 
-                    onClick={toggleTheme}
-                    className={cn(
-                        "flex items-center gap-4 p-3 rounded-xl w-full transition-all text-left group overflow-hidden relative",
-                        (theme === 'radiant-void' || theme === 'sapphire-nocturne')
-                            ? "bg-primary/10 text-primary" 
-                            : "hover:bg-white/5 text-zinc-400 hover:text-white"
-                    )}
-                >
-                    <Sparkles className={cn(
-                        "w-6 h-6 transition-all duration-500",
-                        (theme === 'radiant-void' || theme === 'sapphire-nocturne') ? "fill-primary text-primary" : "group-hover:rotate-12"
-                    )} />
-                    <span className="text-sm font-medium">
-                        {theme === 'radiant-void' ? "Void Active" : theme === 'sapphire-nocturne' ? "Sapphire Active" : "Go Radiant"}
-                    </span>
-                </button>
-
+            <div className="mt-auto pt-4 border-t border-white/5 space-y-2">
                 <button className="flex items-center gap-4 p-3 rounded-xl w-full hover:bg-white/5 text-zinc-400 hover:text-white transition-all text-left group">
                     <Menu className="w-6 h-6 group-hover:rotate-90 transition-transform" />
                     <span className="text-sm font-medium">More</span>

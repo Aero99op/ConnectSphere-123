@@ -317,33 +317,15 @@ export function PostCard({ post }: PostProps) {
 
     return (
         <div className="group relative w-full mb-1">
-            {/* Liquid Glow Underlay */}
-            <div className={cn(
-                "absolute -inset-2 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none",
-                theme === 'radiant-void' ? "bg-gradient-to-r from-primary/10 to-accent/10" : "bg-gradient-to-r from-primary/5 to-secondary/5"
-            )} />
 
-            <div className={cn(
-                "group/card w-full overflow-hidden transition-all duration-500",
-                theme === 'radiant-void'
-                    ? "bg-[#050505] border border-white/5 shadow-[0_0_50px_rgba(0,0,0,1)] rounded-[32px]"
-                    : theme === 'sapphire-nocturne'
-                        ? "bg-muted/40 rounded-2xl shadow-none"
-                        : "bg-zinc-950/50 border border-white/5 rounded-2xl shadow-premium-md"
-            )}>
+            <div className="group/card w-full overflow-hidden transition-all duration-500 bg-zinc-950/50 border border-white/5 rounded-2xl shadow-premium-md">
                 {/* 1. Post Header */}
-                <div className={cn(
-                    "flex items-center justify-between p-4 px-5 border-b transition-colors duration-500",
-                    theme === 'radiant-void' ? "border-white/5" : (theme === 'sapphire-nocturne' ? "border-transparent" : "border-white/[0.05]")
-                )}>
+                <div className="flex items-center justify-between p-4 px-5 border-b border-white/[0.05] transition-colors duration-500">
                     <div className="flex items-center gap-3">
                         <Link href={`/profile/${post.user_id}`} className="shrink-0">
                             <StoryAvatar
                                 user={{ id: post.user_id, username: post.username, full_name: post.profiles?.full_name, avatar_url: post.avatar_url }}
-                                className={cn(
-                                    "w-11 h-11 transition-transform",
-                                    theme === 'radiant-void' ? "rounded-lg border-white/10" : "border-premium ring-1 ring-white/10 hover:scale-105"
-                                )}
+                                className="w-11 h-11 transition-transform border-premium ring-1 ring-white/10 hover:scale-105"
                             />
                         </Link>
                         <div className="flex flex-col text-left">
@@ -378,10 +360,7 @@ export function PostCard({ post }: PostProps) {
 
                 {/* 2. Media Content */}
                 {post.media_type !== 'text' && post.media_urls && post.media_urls.length > 0 && post.media_urls[0] && (
-                    <div className={cn(
-                        "relative w-full aspect-square md:aspect-[4/5] bg-black/40 overflow-hidden group-media",
-                        theme === 'radiant-void' ? "" : (theme === 'sapphire-nocturne' ? "" : "border-b border-white/5")
-                    )}>
+                    <div className="relative w-full aspect-square md:aspect-[4/5] bg-black/40 overflow-hidden group-media border-b border-white/5">
                         {post.media_type === 'image' ? (
                             <img
                                 src={post.media_urls[0]}
@@ -412,7 +391,7 @@ export function PostCard({ post }: PostProps) {
                                         {!loadingVideo && (
                                             <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover/video:bg-black/40 transition-colors">
                                                 <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-2xl">
-                                                    <Play className={cn("w-8 h-8 fill-white", theme === 'radiant-void' ? "text-primary" : "text-white")} />
+                                                    <Play className="w-8 h-8 fill-white text-white" />
                                                 </div>
                                             </div>
                                         )}
@@ -467,11 +446,8 @@ export function PostCard({ post }: PostProps) {
                 <div className="p-4 px-5">
                     {/* Music Bar if exists */}
                     {(post as any).customization?.music && (
-                        <div className={cn(
-                            "mb-3 flex items-center gap-2 px-3 py-1.5 rounded-lg w-fit",
-                            theme === 'radiant-void' ? "bg-primary/5 text-primary" : "bg-white/5 text-zinc-400"
-                        )}>
-                            <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", theme === 'radiant-void' ? "bg-accent" : "bg-primary")} />
+                        <div className="mb-3 flex items-center gap-2 px-3 py-1.5 rounded-lg w-fit bg-white/5 text-zinc-400">
+                            <div className="w-1.5 h-1.5 rounded-full animate-pulse bg-primary" />
                             <span className="text-[10px] font-bold uppercase tracking-widest">
                                 {(post as any).customization.music.name} - {(post as any).customization.music.artist}
                             </span>
@@ -497,35 +473,26 @@ export function PostCard({ post }: PostProps) {
                                 <MessageCircle className="w-7 h-7 text-white" />
                             </button>
                             <button onClick={() => setShowShareSheet(true)} className="hover:opacity-70 active:scale-95 transition-all">
-                                <Send className={cn(
-                                    "w-7 h-7 transition-colors",
-                                    theme === 'radiant-void' ? "text-white" : "text-zinc-300"
-                                )} />
+                                <Send className="w-7 h-7 text-zinc-300 transition-colors" />
                             </button>
                         </div>
                         <button onClick={handleBookmark} className="hover:opacity-70 active:scale-95 transition-all">
                             <Bookmark className={cn(
                                 "w-7 h-7 transition-colors",
-                                isBookmarked ? "fill-white text-white" : theme === 'radiant-void' ? "text-white" : "text-zinc-300"
+                                isBookmarked ? "fill-white text-white" : "text-zinc-300"
                             )} />
                         </button>
                     </div>
 
                     {/* Likes Count */}
                     {likes > 0 && (
-                        <div className={cn(
-                            "font-bold text-sm mb-2",
-                            theme === 'radiant-void' ? "text-white" : "text-zinc-100"
-                        )}>
+                        <div className="font-bold text-sm mb-2 text-zinc-100">
                             {likes.toLocaleString()} {likes === 1 ? 'like' : 'likes'}
                         </div>
                     )}
 
                     {/* Caption */}
-                    <div className={cn(
-                        "text-sm mb-2 leading-snug",
-                        theme === 'radiant-void' ? "text-zinc-100" : "text-zinc-300"
-                    )}>
+                    <div className="text-sm mb-2 leading-snug text-zinc-300">
                         <span className="font-bold mr-2 text-white">{post.username}</span>
                         {sanitizeInput(post.caption)}
                         {/* Tags if exists */}
@@ -546,10 +513,7 @@ export function PostCard({ post }: PostProps) {
                     )}
 
                     {/* Time */}
-                    <div className={cn(
-                        "text-[10px] font-medium uppercase tracking-widest mt-2",
-                        theme === 'radiant-void' ? "text-zinc-500" : "text-zinc-500"
-                    )}>
+                    <div className="text-[10px] font-medium uppercase tracking-widest mt-2 text-zinc-500">
                         {post.created_at ? formatTimeAgo(post.created_at) : 'JUST NOW'}
                     </div>
 
