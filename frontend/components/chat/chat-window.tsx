@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { FileUpload } from "@/components/ui/file-upload";
 import { usePresence } from "@/components/providers/presence-provider";
+import { useTheme } from "next-themes";
 import { formatLastSeen } from "@/lib/utils/presence";
 import { downloadAndMergeChunks } from "@/lib/utils/chunk-uploader";
 import {
@@ -533,39 +534,71 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
         toast.success("Bula rahe hain...");
     };
 
+    const { theme } = useTheme();
+
     return (
-        <div className="fixed bottom-4 right-4 w-80 h-96 bg-zinc-900 border border-white/20 rounded-t-xl shadow-2xl flex flex-col z-50 overflow-hidden">
+        <div className={cn(
+            "fixed bottom-4 right-4 w-80 h-96 flex flex-col z-50 overflow-hidden transition-all duration-500",
+            theme === 'radiant-void' 
+                ? "bg-black border border-white/10 rounded-[16px] shadow-[0_20px_50px_rgba(0,0,0,0.5)]" 
+                : "bg-zinc-900 border border-white/20 rounded-t-xl shadow-2xl"
+        )}>
             {/* Header */}
-            <div className="bg-primary/90 p-3 flex items-center justify-between text-white shadow-md">
-                <div className="flex items-center gap-2">
+            <div className={cn(
+                "p-3 flex items-center justify-between shadow-md relative overflow-hidden",
+                theme === 'radiant-void' 
+                    ? "bg-black/40 backdrop-blur-md border-b border-white/5" 
+                    : "bg-primary/90 text-white"
+            )}>
+                {/* Header Glow for Radiant Void */}
+                {theme === 'radiant-void' && (
+                    <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+                )}
+
+                <div className="flex items-center gap-2 relative z-10">
                     <div className="relative">
-                        <Avatar className="h-8 w-8 border border-white/50">
+                        <Avatar className={cn(
+                            "h-8 w-8",
+                            theme === 'radiant-void' ? "rounded-lg border-white/10" : "border border-white/50"
+                        )}>
                             <AvatarImage src={recipientAvatar} />
                             <AvatarFallback>{recipientName?.[0]}</AvatarFallback>
                         </Avatar>
                         {!isGroup && isUserOnline(recipientId) && !recipientHideStatus && (!recipientGhostUntil || new Date(recipientGhostUntil) < new Date()) && (
-                            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-black rounded-full" />
+                            <div className={cn(
+                                "absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-black rounded-full",
+                                theme === 'radiant-void' ? "bg-accent" : "bg-green-500"
+                            )} />
                         )}
                     </div>
                     <div className="flex flex-col">
-                        <span className="font-semibold text-sm truncate max-w-[120px]">{recipientName}</span>
-                        <span className="text-[10px] text-white/70">
+                        <span className={cn(
+                            "font-semibold text-sm truncate max-w-[120px]",
+                            theme === 'radiant-void' ? "text-white uppercase tracking-tight" : "text-white"
+                        )}>{recipientName}</span>
+                        <span className={cn(
+                            "text-[10px]",
+                            theme === 'radiant-void' ? "text-primary italic font-medium" : "text-white/70"
+                        )}>
                             {isGroup ? "Group Chat" : ((recipientHideStatus || (recipientGhostUntil && new Date(recipientGhostUntil) > new Date())) ? "Last seen hidden" : (isUserOnline(recipientId) ? "Online" : formatLastSeen(recipientLastSeen)))}
                         </span>
                     </div>
                 </div>
-                <div className="flex items-center gap-1">
-                    <button onClick={startVideoCall} className="hover:bg-white/20 p-2 rounded-full text-white transition-colors" title="Video Call">
-                        <Video className="w-4 h-4" />
+                <div className="flex items-center gap-1 relative z-10">
+                    <button onClick={startVideoCall} className="hover:bg-white/10 p-2 rounded-full transition-colors group" title="Video Call">
+                        <Video className={cn("w-4 h-4", theme === 'radiant-void' ? "text-zinc-400 group-hover:text-primary" : "text-white")} />
                     </button>
-                    <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full text-white transition-colors">
-                        <X className="w-4 h-4" />
+                    <button onClick={onClose} className="hover:bg-white/10 p-2 rounded-full transition-colors group">
+                        <X className={cn("w-4 h-4", theme === 'radiant-void' ? "text-zinc-400 group-hover:text-rose-500" : "text-white")} />
                     </button>
                 </div>
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-black/95">
+            <div className={cn(
+                "flex-1 p-4 overflow-y-auto space-y-4 no-scrollbar",
+                theme === 'radiant-void' ? "bg-black" : "bg-black/95"
+            )}>
                 {loading ? (
                     <div className="flex justify-center items-center h-full">
                         <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -581,23 +614,29 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                         const showSender = isGroup && !isMe;
 
                         return (
-                            <div key={msg.id} className={cn("flex flex-col gap-1", isMe ? "items-end" : "items-start")}>
+                            <div key={msg.id} className={cn("flex flex-col gap-1.5", isMe ? "items-end" : "items-start")}>
                                 {showSender && (
-                                    <span className="text-[10px] text-zinc-500 ml-2">
+                                    <span className="text-[10px] text-zinc-500 ml-2 font-mono uppercase tracking-widest">
                                         {msg.sender?.full_name || msg.sender?.username || "Unknown"}
                                     </span>
                                 )}
-                                <div className={cn("flex items-end gap-2", isMe ? "flex-row-reverse" : "flex-row")}>
+                                <div className={cn("flex items-end gap-2 max-w-[85%]", isMe ? "flex-row-reverse" : "flex-row")}>
                                     {showSender && (
-                                        <Avatar className="w-6 h-6 mb-1">
+                                        <Avatar className="w-6 h-6 mb-1 rounded-sm overflow-hidden">
                                             <AvatarImage src={msg.sender?.avatar_url} />
-                                            <AvatarFallback>{msg.sender?.username?.[0]}</AvatarFallback>
+                                            <AvatarFallback className="text-[8px]">{msg.sender?.username?.[0]}</AvatarFallback>
                                         </Avatar>
                                     )}
 
                                     <div className={cn(
-                                        "max-w-[75%] px-3 py-2 rounded-lg text-sm break-words flex flex-col gap-2",
-                                        isMe ? "bg-primary text-white rounded-br-none" : "bg-zinc-800 text-zinc-200 rounded-bl-none"
+                                        "px-3 py-2 text-[13px] break-words flex flex-col gap-2 relative transition-all duration-300",
+                                        isMe 
+                                            ? (theme === 'radiant-void' 
+                                                ? "bg-primary/20 text-white rounded-[12px] border border-primary/20 shadow-[0_0_20px_rgba(255,141,135,0.1)]" 
+                                                : "bg-primary text-white rounded-lg rounded-br-none shadow-md")
+                                            : (theme === 'radiant-void' 
+                                                ? "bg-zinc-900/50 text-zinc-300 rounded-[12px] border border-white/5" 
+                                                : "bg-zinc-800 text-zinc-200 rounded-lg rounded-bl-none shadow-sm")
                                     )}>
                                         {/* Chunked Media Rendering */}
                                         {msg.file_urls && msg.file_urls.length > 0 && (
@@ -638,15 +677,19 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                                         )}
 
                                         {msg.content && (
-                                            <span className={cn("leading-snug whitespace-pre-wrap flex-wrap break-all", msg.is_deleted && "italic opacity-70")}>
+                                            <span className={cn(
+                                                "leading-snug flex-wrap break-all", 
+                                                msg.is_deleted && "italic opacity-70",
+                                                theme === 'radiant-void' && !isMe && "font-serif italic"
+                                            )}>
                                                 {msg.content}
                                             </span>
                                         )}
                                         {/* Read Receipts (Ticks) for outgoing messages */}
                                         {isMe && !msg.content?.startsWith("[CALL_LOG]:") && (
-                                            <div className="absolute right-0 -bottom-4 flex items-center gap-0.5">
+                                            <div className="absolute right-1 -bottom-5 flex items-center gap-0.5">
                                                 {msg.is_read && sendReadReceipts ? (
-                                                    <CheckCheck className="w-3.5 h-3.5 text-[#ff9933]" />
+                                                    <CheckCheck className={cn("w-3.5 h-3.5", theme === 'radiant-void' ? "text-primary" : "text-[#ff9933]")} />
                                                 ) : (msg.is_delivered || msg.is_read) ? (
                                                     <CheckCheck className="w-3.5 h-3.5 text-zinc-500 opacity-70" />
                                                 ) : (
@@ -665,7 +708,7 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
 
             {/* Media Upload Overlay */}
             {isUploadingMedia && (
-                <div className="absolute inset-0 z-20 bg-black/80 flex flex-col items-center justify-center p-6 animate-in fade-in duration-300">
+                <div className="absolute inset-0 z-20 bg-black/80 flex flex-col items-center justify-center p-6 animate-in fade-in duration-300 backdrop-blur-sm">
                     <button
                         onClick={() => setIsUploadingMedia(false)}
                         className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-full"
@@ -677,10 +720,16 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
             )}
 
             {/* Input Area */}
-            <div className="p-3 bg-zinc-900 border-t border-white/10 flex items-center gap-2">
+            <div className={cn(
+                "p-3 flex items-center gap-2 transition-all duration-500",
+                theme === 'radiant-void' ? "bg-black border-t border-white/5" : "bg-zinc-900 border-t border-white/10"
+            )}>
                 <button
                     onClick={() => setIsUploadingMedia(true)}
-                    className="p-2 hover:bg-white/5 rounded-full text-zinc-400 hover:text-primary transition-colors"
+                    className={cn(
+                        "p-2 rounded-full transition-colors",
+                        theme === 'radiant-void' ? "hover:bg-primary/10 text-zinc-500 hover:text-primary" : "hover:bg-white/5 text-zinc-400 hover:text-primary"
+                    )}
                 >
                     <Paperclip className="w-5 h-5" />
                 </button>
@@ -688,13 +737,23 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyDown={handleKeyPress}
-                    placeholder="Type a message..."
-                    className="flex-1 bg-black border border-white/10 rounded-full px-4 py-2 text-sm text-white focus:outline-none focus:border-primary"
+                    placeholder="Premium baat cheet karein..."
+                    className={cn(
+                        "flex-1 px-4 py-2 text-sm focus:outline-none transition-all",
+                        theme === 'radiant-void' 
+                            ? "bg-zinc-900/50 border border-white/5 rounded-lg text-white focus:border-primary/50" 
+                            : "bg-black border border-white/10 rounded-full text-white focus:border-primary"
+                    )}
                 />
                 <button
                     onClick={() => handleSend()}
                     disabled={!newMessage.trim()}
-                    className="bg-primary hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed p-2 rounded-full text-white transition-colors"
+                    className={cn(
+                        "disabled:opacity-50 disabled:cursor-not-allowed p-2 rounded-full text-white transition-all transform active:scale-90",
+                        theme === 'radiant-void' 
+                            ? "bg-primary shadow-[0_0_15px_rgba(255,141,135,0.3)] hover:shadow-primary/50" 
+                            : "bg-primary hover:bg-primary/80"
+                    )}
                 >
                     <Send className="w-4 h-4" />
                 </button>

@@ -2,17 +2,29 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Search, PlusSquare, Heart, User, Compass, Menu, AlertTriangle } from "lucide-react";
+import { Home, Search, PlusSquare, Heart, User, Compass, Menu, AlertTriangle, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { getApinatorClient } from "@/lib/apinator";
+import { useTheme } from "next-themes";
 
 export function Sidebar() {
     const pathname = usePathname();
     const { user: authUser, supabase } = useAuth();
     const [user, setUser] = useState<any>(null);
+    const { theme, setTheme } = useTheme();
+
+    const toggleTheme = () => {
+        const newTheme = theme === 'radiant-void' ? 'dark' : 'radiant-void';
+        setTheme(newTheme);
+        
+        // Also update DB if user is logged in
+        if (authUser) {
+            supabase.from('profiles').update({ theme_preference: newTheme }).eq('id', authUser.id);
+        }
+    };
 
     useEffect(() => {
         const getUser = async () => {
@@ -94,7 +106,26 @@ export function Sidebar() {
             </nav>
 
             {/* Footer / More */}
-            <div className="mt-auto pt-4 border-t border-white/5">
+            <div className="mt-auto pt-4 border-t border-white/5 space-y-2">
+                {/* Theme Toggle Shortcut */}
+                <button 
+                    onClick={toggleTheme}
+                    className={cn(
+                        "flex items-center gap-4 p-3 rounded-xl w-full transition-all text-left group overflow-hidden relative",
+                        theme === 'radiant-void' 
+                            ? "bg-primary/10 text-primary border border-primary/20" 
+                            : "hover:bg-white/5 text-zinc-400 hover:text-white"
+                    )}
+                >
+                    <Sparkles className={cn(
+                        "w-6 h-6 transition-all duration-500",
+                        theme === 'radiant-void' ? "fill-primary text-primary" : "group-hover:rotate-12"
+                    )} />
+                    <span className="text-sm font-medium">
+                        {theme === 'radiant-void' ? "Void Active" : "Go Radiant"}
+                    </span>
+                </button>
+
                 <button className="flex items-center gap-4 p-3 rounded-xl w-full hover:bg-white/5 text-zinc-400 hover:text-white transition-all text-left group">
                     <Menu className="w-6 h-6 group-hover:rotate-90 transition-transform" />
                     <span className="text-sm font-medium">More</span>

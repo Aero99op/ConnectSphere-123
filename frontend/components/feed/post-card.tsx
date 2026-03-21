@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Play, Loader2 } from "lucide-react";
+import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Play, Loader2, Sparkles } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useTheme } from "next-themes";
 import { cn, formatTimeAgo, sanitizeInput } from "@/lib/utils";
 import { downloadAndMergeChunks } from "@/lib/utils/chunk-uploader";
 import { CommentSheet } from "@/components/feed/comment-sheet";
@@ -310,22 +311,37 @@ export function PostCard({ post }: PostProps) {
         setIsFollowingLoading(false);
     };
 
+    const { theme } = useTheme();
+
     if (isDeleted) return null;
 
     return (
         <div className="group relative w-full mb-1">
             {/* Liquid Glow Underlay */}
-            <div className="absolute -inset-2 bg-gradient-to-r from-primary/5 to-secondary/5 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+            <div className={cn(
+                "absolute -inset-2 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none",
+                theme === 'radiant-void' ? "bg-gradient-to-r from-primary/10 to-accent/10" : "bg-gradient-to-r from-primary/5 to-secondary/5"
+            )} />
 
-            <div className="relative glass-card overflow-hidden border-premium shadow-premium-md">
-
+            <div className={cn(
+                "relative overflow-hidden transition-all duration-500",
+                theme === 'radiant-void' 
+                    ? "bg-black/60 border border-white/5 shadow-2xl rounded-[12px]" 
+                    : "glass-card border-premium shadow-premium-md rounded-[24px]"
+            )}>
                 {/* 1. Post Header */}
-                <div className="flex items-center justify-between p-4 px-5 border-b border-white/[0.05]">
+                <div className={cn(
+                    "flex items-center justify-between p-4 px-5 border-b",
+                    theme === 'radiant-void' ? "border-white/5" : "border-white/[0.05]"
+                )}>
                     <div className="flex items-center gap-3">
                         <Link href={`/profile/${post.user_id}`} className="shrink-0">
                             <StoryAvatar 
                                 user={{ id: post.user_id, username: post.username, full_name: post.profiles?.full_name, avatar_url: post.avatar_url }}
-                                className="w-11 h-11 border-premium ring-1 ring-white/10 hover:scale-105 transition-transform"
+                                className={cn(
+                                    "w-11 h-11 transition-transform",
+                                    theme === 'radiant-void' ? "rounded-lg border-white/10" : "border-premium ring-1 ring-white/10 hover:scale-105"
+                                )}
                             />
                         </Link>
                         <div className="flex flex-col">
@@ -360,7 +376,10 @@ export function PostCard({ post }: PostProps) {
 
                 {/* 2. Media Content */}
                 {post.media_type !== 'text' && post.media_urls && post.media_urls.length > 0 && post.media_urls[0] && (
-                    <div className="relative w-full aspect-square md:aspect-[4/5] bg-black/40 overflow-hidden border-b border-white/5 group-media">
+                    <div className={cn(
+                        "relative w-full aspect-square md:aspect-[4/5] bg-black/40 overflow-hidden group-media",
+                        theme === 'radiant-void' ? "" : "border-b border-white/5"
+                    )}>
                         {post.media_type === 'image' ? (
                             <img
                                 src={post.media_urls[0]}
@@ -391,7 +410,7 @@ export function PostCard({ post }: PostProps) {
                                         {!loadingVideo && (
                                             <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover/video:bg-black/40 transition-colors">
                                                 <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-2xl">
-                                                    <Play className="w-8 h-8 text-white fill-white" />
+                                                    <Play className={cn("w-8 h-8 fill-white", theme === 'radiant-void' ? "text-primary" : "text-white")} />
                                                 </div>
                                             </div>
                                         )}
@@ -442,47 +461,101 @@ export function PostCard({ post }: PostProps) {
                     </div>
                 )}
 
-                {/* 3. Action Buttons & Info */}
-                <div className="p-5 pt-4">
+    // 3. Action Buttons & Info
+                <div className="p-4">
                     {/* Music Bar if exists */}
                     {(post as any).customization?.music && (
-                        <div className="mb-4 flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-lg border border-white/5 w-fit">
-                            <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-                            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                        <div className={cn(
+                            "mb-3 flex items-center gap-2 px-3 py-1.5 rounded-lg w-fit",
+                            theme === 'radiant-void' ? "bg-primary/5 text-primary" : "bg-white/5 text-zinc-400"
+                        )}>
+                            <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", theme === 'radiant-void' ? "bg-accent" : "bg-primary")} />
+                            <span className="text-[10px] font-bold uppercase tracking-widest">
                                 {(post as any).customization.music.name} - {(post as any).customization.music.artist}
                             </span>
                         </div>
                     )}
 
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-5">
-                            <button onClick={handleLike} className="hover:scale-125 active:scale-95 transition-all duration-300">
-                                <Heart className={cn("w-7 h-7 transition-colors duration-300", liked ? "fill-red-500 text-red-500" : "text-zinc-400 hover:text-white")} />
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-4">
+                            <button onClick={handleLike} className="hover:opacity-70 active:scale-95 transition-all">
+                                <Heart className={cn(
+                                    "w-7 h-7 transition-colors", 
+                                    liked 
+                                        ? "fill-red-500 text-red-500" 
+                                        : theme === 'radiant-void' ? "text-white" : "text-zinc-300"
+                                )} />
                             </button>
-                            <button onClick={() => setShowComments(true)} className="hover:scale-125 active:scale-95 transition-all duration-300">
-                                <MessageCircle className="w-7 h-7 text-zinc-400 hover:text-white transition-colors" />
+                            <button onClick={() => setShowComments(true)} className="hover:opacity-70 active:scale-95 transition-all">
+                                <MessageCircle className={cn(
+                                    "w-7 h-7",
+                                    theme === 'radiant-void' ? "text-white" : "text-zinc-300"
+                                )} />
                             </button>
-                            <button onClick={() => setShowShareSheet(true)} className="hover:scale-125 active:scale-95 transition-all duration-300 -rotate-12">
-                                <Send className="w-7 h-7 text-zinc-400 hover:text-white transition-colors" />
+                            <button onClick={() => setShowShareSheet(true)} className="hover:opacity-70 active:scale-95 transition-all">
+                                <Send className={cn(
+                                    "w-7 h-7",
+                                    theme === 'radiant-void' ? "text-white" : "text-zinc-300"
+                                )} />
                             </button>
                         </div>
-                        <button onClick={handleBookmark} className="hover:scale-125 active:scale-95 transition-all duration-300">
-                            <Bookmark className={cn("w-7 h-7 transition-colors duration-300", isBookmarked ? "fill-white text-white" : "text-zinc-400 hover:text-white")} />
+                        <button onClick={() => setIsBookmarked(!isBookmarked)} className="hover:opacity-70 active:scale-95 transition-all">
+                            <Bookmark className={cn(
+                                "w-7 h-7 transition-colors",
+                                isBookmarked ? "fill-white text-white" : theme === 'radiant-void' ? "text-white" : "text-zinc-300"
+                            )} />
                         </button>
                     </div>
 
-                    <div className="space-y-2 px-1">
-                        <p className="text-[13px] font-bold text-white tracking-tight">{likes.toLocaleString()} {t('post.likes')}</p>
-                        <p className="text-[14px] leading-relaxed text-zinc-200 font-sans">
-                            <span className="font-display font-bold text-white mr-2 tracking-tight">@{post.username}</span>
-                            <span dangerouslySetInnerHTML={{ __html: sanitizeInput(post.caption) }} />
-                        </p>
-                        {post.created_at && (
-                            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-3 opacity-60">
-                                {formatTimeAgo(post.created_at)}
-                            </p>
+                    {/* Likes Count */}
+                    {likes > 0 && (
+                        <div className={cn(
+                            "font-bold text-sm mb-2",
+                            theme === 'radiant-void' ? "text-white" : "text-zinc-100"
+                        )}>
+                            {likes.toLocaleString()} {likes === 1 ? 'like' : 'likes'}
+                        </div>
+                    )}
+
+                    {/* Caption */}
+                    <div className={cn(
+                        "text-sm mb-2 leading-snug",
+                        theme === 'radiant-void' ? "text-zinc-100" : "text-zinc-300"
+                    )}>
+                        <span className="font-bold mr-2 text-white">{post.username}</span>
+                        {sanitizeInput(post.caption)}
+                        {/* Tags if exists */}
+                        {(post as any).customization?.tags?.length > 0 && (
+                            <span className="text-primary ml-2 font-medium">
+                                {(post as any).customization.tags.map((t: string) => `#${t} `)}
+                            </span>
                         )}
                     </div>
+
+                    {/* Mentions if exists */}
+                    {(post as any).customization?.mentions?.length > 0 && (
+                        <div className="text-sm mt-1 mb-2">
+                            <span className="text-accent font-medium">
+                                {(post as any).customization.mentions.map((m: any) => `@${m.username} `)}
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Time */}
+                    <div className={cn(
+                        "text-[10px] font-medium uppercase tracking-widest mt-2",
+                        theme === 'radiant-void' ? "text-zinc-500" : "text-zinc-500"
+                    )}>
+                        {post.created_at ? formatTimeAgo(post.created_at) : 'JUST NOW'}
+                    </div>
+
+                    {/* Quick View Comments */}
+                    <button 
+                        onClick={() => setShowComments(true)}
+                        className="text-sm text-zinc-500 hover:text-zinc-400 mt-2 transition-colors font-medium"
+                    >
+                        View all comments
+                    </button>
                 </div>
             </div>
 

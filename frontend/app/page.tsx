@@ -5,13 +5,13 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { PostCard } from "@/components/feed/post-card";
-import { Loader2, Bell, MessageCircle, AlertTriangle, X } from "lucide-react";
+import { Loader2, Bell, MessageCircle, AlertTriangle, X, Plus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { StoryViewer } from "@/components/feed/story-viewer";
 import { RightSidebar } from "@/components/layout/right-sidebar";
-import { Plus } from "lucide-react";
+import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { getApinatorClient } from "@/lib/apinator";
 
@@ -194,7 +194,7 @@ function HomeFeedContent() {
             window.removeEventListener('online', () => setIsOffline(false));
             window.removeEventListener('offline', () => setIsOffline(true));
         };
-    }, [authUser, router]);
+    }, [authUser, router, supabase]);
 
     // 🟢 Real-time Profile Sync (Apinator)
     useEffect(() => {
@@ -246,7 +246,7 @@ function HomeFeedContent() {
     const handleStoryUploadComplete = async (urls: string[], thumbnailUrl?: string) => {
         if (!userId || urls.length === 0) return;
         setStoryFileUrls(urls);
-        if (thumbnailUrl) setStoryThumbnailUrl(thumbnailUrl);
+        // if (thumbnailUrl) setStoryThumbnailUrl(thumbnailUrl); // Not used currently but kept for future
 
         const mediaType = thumbnailUrl ? 'video' : 'image';
 
@@ -267,11 +267,12 @@ function HomeFeedContent() {
         }
     };
 
+    const { theme } = useTheme();
 
     if (isInitializing) {
         return (
-            <div className="w-full h-screen flex items-center justify-center bg-black">
-                <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+            <div className="w-full h-screen flex items-center justify-center bg-background">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
         );
     }
@@ -279,17 +280,34 @@ function HomeFeedContent() {
     return (
         <>
             <div className="flex justify-center w-full min-h-screen relative p-0 sm:p-4 md:p-6 lg:p-8 xl:px-0">
-                {/* Premium Deep Background */}
-                <div className="fixed inset-0 z-0 bg-[#09090b] pointer-events-none">
-                    <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[100px] opacity-50" />
-                    <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-violet-500/10 rounded-full blur-[100px] opacity-30" />
+                {/* Theme-Aware Background */}
+                <div className="fixed inset-0 z-0 bg-background pointer-events-none">
+                    {theme === 'radiant-void' ? (
+                        <>
+                            {/* Radiant Void - Subtle Light Leaks */}
+                            <div className="absolute -top-20 -left-20 w-[600px] h-[600px] bg-secondary/10 rounded-full blur-[120px] opacity-40 animate-pulse-slow" />
+                            <div className="absolute top-1/3 -right-20 w-[400px] h-[400px] bg-primary/5 rounded-full blur-[100px] opacity-30" />
+                            <div className="absolute -bottom-40 left-1/3 w-[700px] h-[700px] bg-accent/5 rounded-full blur-[150px] opacity-20 animate-blob" />
+                            {/* Grid Dots */}
+                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_2px_2px,_rgba(255,255,255,0.03)_1px,_transparent_0)] bg-[size:40px_40px]" />
+                        </>
+                    ) : (
+                        <>
+                            {/* Classic Dark - Indigo/Violet Glow */}
+                            <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[100px] opacity-50" />
+                            <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-violet-500/10 rounded-full blur-[100px] opacity-30" />
+                        </>
+                    )}
                 </div>
 
                 {/* Feed Container (Center) */}
                 <div className="w-full max-w-xl py-4 md:py-8 flex flex-col gap-6 z-10 mx-auto px-4 md:px-0">
                     {/* Top Header for Feed */}
                     <div className="flex items-center justify-between">
-                        <h1 className="text-3xl font-display font-black text-gradient tracking-tightest">
+                        <h1 className={cn(
+                            "text-3xl font-display font-black tracking-tightest",
+                            theme === 'radiant-void' ? "text-white uppercase italic" : "text-gradient"
+                        )}>
                             Connect
                         </h1>
                         <div className="flex items-center gap-3">
@@ -301,7 +319,10 @@ function HomeFeedContent() {
                             )}
                             <Link href="/notifications" className="relative p-2.5 rounded-2xl glass border-premium hover:bg-white/10 transition-all group active:scale-95 shadow-premium-sm">
                                 <Bell className="w-6 h-6 text-zinc-400 group-hover:text-primary group-hover:scale-110 transition-all" />
-                                <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-primary border-2 border-black rounded-full animate-pulse shadow-[0_0_10px_rgba(255,165,0,0.5)]" />
+                                <span className={cn(
+                                    "absolute top-2 right-2 w-2.5 h-2.5 border-2 border-black rounded-full animate-pulse",
+                                    theme === 'radiant-void' ? "bg-accent shadow-[0_0_10px_rgba(255,109,175,0.5)]" : "bg-primary shadow-[0_0_10px_rgba(255,165,0,0.5)]"
+                                )} />
                             </Link>
 
                             <Link href="/messages" className="relative p-2.5 rounded-2xl glass border-premium hover:bg-white/10 transition-all group active:scale-95 shadow-premium-sm">
@@ -326,24 +347,39 @@ function HomeFeedContent() {
                                     className="flex flex-col items-center gap-2.5 min-w-[76px] cursor-pointer group active:scale-90 transition-transform"
                                 >
                                     <div className={cn(
-                                        "relative p-[2.5px] rounded-[22px] transition-all duration-500",
+                                        "relative p-[2.5px] transition-all duration-500",
+                                        theme === 'radiant-void' ? "rounded-[12px]" : "rounded-[22px]",
                                         story.isAddButton
                                             ? "bg-zinc-800 border-premium shadow-premium-sm"
-                                            : "bg-gradient-to-tr from-[#f09433] via-[#bc1888] to-[#962fbf] shadow-premium-lg group-hover:scale-105 group-hover:shadow-primary/20"
+                                            : theme === 'radiant-void'
+                                                ? "bg-gradient-to-tr from-primary via-secondary to-accent shadow-[0_0_15px_rgba(255,141,135,0.3)] group-hover:shadow-primary/40 animate-pulse-slow"
+                                                : "bg-gradient-to-tr from-[#f09433] via-[#bc1888] to-[#962fbf] shadow-premium-lg group-hover:scale-105 group-hover:shadow-primary/20"
                                     )}>
-                                        <div className="bg-[#050507] p-[2.5px] rounded-[20px]">
-                                            <Avatar className="w-[64px] h-[64px] border-0 rounded-[18px] ring-1 ring-white/5">
-                                                <AvatarImage src={story.avatar_url} className="object-cover rounded-[18px]" />
+                                        <div className={cn(
+                                            "bg-background p-[2.5px]",
+                                            theme === 'radiant-void' ? "rounded-[10px]" : "rounded-[20px]"
+                                        )}>
+                                            <Avatar className={cn(
+                                                "w-[64px] h-[64px] border-0 ring-1 ring-white/5",
+                                                theme === 'radiant-void' ? "rounded-[8px]" : "rounded-[18px]"
+                                            )}>
+                                                <AvatarImage src={story.avatar_url} className={cn(
+                                                    "object-cover",
+                                                    theme === 'radiant-void' ? "rounded-[8px]" : "rounded-[18px]"
+                                                )} />
                                                 <AvatarFallback className="bg-zinc-900 text-zinc-500 font-display font-bold">{story.username[0]}</AvatarFallback>
                                             </Avatar>
                                         </div>
                                         {story.isAddButton && (
-                                            <div className="absolute -bottom-1 -right-1 bg-primary text-black rounded-full p-1 border-[3px] border-[#050507] shadow-xl group-hover:scale-110 transition-transform">
+                                            <div className="absolute -bottom-1 -right-1 bg-primary text-black rounded-full p-1 border-[3px] border-background shadow-xl group-hover:scale-110 transition-transform">
                                                 <Plus className="w-3.5 h-3.5 font-bold" />
                                             </div>
                                         )}
                                     </div>
-                                    <span className="text-[11px] font-display font-black text-zinc-500 group-hover:text-white transition-colors tracking-tight uppercase">
+                                    <span className={cn(
+                                        "text-[10px] font-display font-black text-zinc-500 group-hover:text-white transition-colors tracking-widest uppercase",
+                                        theme === 'radiant-void' && "font-mono "
+                                    )}>
                                         {story.username === 'Your Story' ? 'My Story' : story.username}
                                     </span>
                                 </div>
@@ -352,7 +388,7 @@ function HomeFeedContent() {
                     </div>
 
                     {/* Posts Feed */}
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-6 md:gap-8 max-w-[470px] mx-auto w-full pb-20">
                         {loading ? (
                             <div className="flex justify-center py-20">
                                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -381,7 +417,7 @@ function HomeFeedContent() {
             {/* Add Story Upload Modal */}
             {isAddingStory && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
-                    <div className="w-full max-w-md bg-[#09090b] border border-white/10 rounded-[32px] p-6 relative shadow-2xl">
+                    <div className="w-full max-w-md bg-background border border-white/10 rounded-[32px] p-6 relative shadow-2xl">
                         <button
                             onClick={() => setIsAddingStory(false)}
                             className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
@@ -419,7 +455,7 @@ function HomeFeedContent() {
 
 export default function HomeFeed() {
     return (
-        <Suspense fallback={<div className="w-full h-screen flex items-center justify-center bg-black"><Loader2 className="w-8 h-8 animate-spin text-orange-500" /></div>}>
+        <Suspense fallback={<div className="w-full h-screen flex items-center justify-center bg-background"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}>
             <HomeFeedContent />
         </Suspense>
     );

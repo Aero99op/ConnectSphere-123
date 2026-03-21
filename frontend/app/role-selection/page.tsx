@@ -19,74 +19,92 @@ export default function RoleSelectionPage() {
     }, [isAuthenticated, router]);
 
     return (
-        <div className="min-h-screen bg-zinc-950 text-white flex flex-col items-center justify-center p-4">
-            <div className="relative z-0">
-                <div className="absolute -top-20 -left-20 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob"></div>
-                <div className="absolute -bottom-8 left-20 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-2000"></div>
-                <div className="absolute -top-8 right-20 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-4000"></div>
+        <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4 selection:bg-primary/30 overflow-hidden relative">
+            {/* Ambient Background Glow */}
+            <div className="fixed inset-0 pointer-events-none overflow-hidden">
+                <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] bg-primary/10 blur-[150px] rounded-full animate-pulse" />
+                <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-accent/5 blur-[120px] rounded-full" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-[0.03]" />
             </div>
 
-            <h1 className="text-5xl font-extrabold mb-8 text-center z-10">
-                Choose Your Role
-            </h1>
-            <p className="text-zinc-400 text-lg mb-12 text-center max-w-2xl z-10">
-                Select whether you want to connect as a citizen to report issues or as an official to manage them.
-            </p>
+            <div className="relative z-10 w-full max-w-4xl flex flex-col items-center">
+                <header className="text-center mb-16 space-y-4">
+                    <div className="inline-block px-3 py-1 bg-white/5 border border-white/10 rounded-full mb-4">
+                        <p className="text-[10px] font-mono font-black uppercase tracking-[0.3em] text-primary/70">Secure_Access_Protocol</p>
+                    </div>
+                    <h1 className="text-5xl md:text-7xl font-display font-black tracking-tightest uppercase italic">
+                        Identify_Yourself
+                    </h1>
+                    <p className="text-zinc-500 text-sm md:text-base font-medium max-w-xl mx-auto uppercase tracking-widest leading-relaxed">
+                        Select your operational role within the ConnectSphere network.
+                    </p>
+                </header>
 
-            <div className="grid md:grid-cols-2 gap-6 w-full max-w-4xl z-10">
-                {/* Citizen Card */}
-                <div className="flex flex-col gap-3">
-                    <Link
-                        href="/login?role=citizen"
-                        className="group relative bg-zinc-900/50 backdrop-blur-xl border border-white/10 rounded-3xl p-8 hover:border-primary/50 transition-all hover:scale-[1.02] flex flex-col items-center text-center cursor-pointer h-full"
-                    >
-                        <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-orange-500 to-pink-600 flex items-center justify-center mb-6 group-hover:shadow-[0_0_30px_rgba(255,100,100,0.5)] transition-shadow">
-                            <User className="w-10 h-10 text-white" />
-                        </div>
-                        <h2 className="text-2xl font-bold text-white mb-2">Connect Citizen</h2>
-                        <p className="text-zinc-400 mb-6">Report issues, share stories, and connect with your community.</p>
-                        <div className="w-full py-3 rounded-full bg-white/5 group-hover:bg-primary group-hover:text-white transition-colors flex items-center justify-center gap-2 font-medium">
-                            Continue as Citizen <ArrowRight className="w-4 h-4" />
-                        </div>
-                    </Link>
-                    <button
-                        onClick={async () => {
-                            await signOut();
-                            window.location.reload();
-                        }}
-                        className="text-xs text-zinc-500 hover:text-white underline py-2"
-                    >
-                        Browsing as Guest? Clear Session 🕶️
-                    </button>
+                <div className="grid md:grid-cols-2 gap-8 w-full">
+                    {/* Citizen Card */}
+                    <div className="flex flex-col gap-4">
+                        <Link
+                            href="/login?role=citizen"
+                            className="group relative bg-white/[0.02] border border-white/5 rounded-2xl p-10 transition-all duration-500 hover:border-primary/50 hover:bg-white/[0.04] flex flex-col items-center text-center cursor-pointer h-full"
+                        >
+                            <div className="absolute inset-x-0 -bottom-px h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                            
+                            <div className="w-24 h-24 rounded-2xl bg-black border border-white/10 flex items-center justify-center mb-8 group-hover:shadow-[0_0_30px_rgba(255,141,135,0.2)] group-hover:border-primary/30 transition-all duration-500 -rotate-3 group-hover:rotate-0">
+                                <User className="w-12 h-12 text-primary" />
+                            </div>
+                            
+                            <h2 className="text-3xl font-display font-black text-white mb-3 uppercase italic tracking-tighter">Citizen</h2>
+                            <p className="text-zinc-500 text-xs font-medium uppercase tracking-[0.15em] mb-8 leading-relaxed">Report issues, share stories, and build community trust.</p>
+                            
+                            <div className="mt-auto w-full py-4 rounded-xl bg-white/5 border border-white/5 text-zinc-400 group-hover:bg-primary group-hover:text-black group-hover:border-primary transition-all duration-500 flex items-center justify-center gap-3 font-mono font-black uppercase text-xs tracking-widest">
+                                Initialize_Citizen <ArrowRight className="w-4 h-4" />
+                            </div>
+                        </Link>
+                        <button
+                            onClick={async () => {
+                                await signOut();
+                                window.location.reload();
+                            }}
+                            className="text-[10px] font-mono font-black text-zinc-800 hover:text-primary transition-colors uppercase tracking-[0.2em] py-2"
+                        >
+                            Guest_Mode // Purge_Session 🕶️
+                        </button>
+                    </div>
+
+                    {/* Official Card */}
+                    <div className="flex flex-col gap-4">
+                        <Link
+                            href="/login?role=official"
+                            className="group relative bg-white/[0.02] border border-white/5 rounded-2xl p-10 transition-all duration-500 hover:border-accent/50 hover:bg-white/[0.04] flex flex-col items-center text-center cursor-pointer h-full"
+                        >
+                            <div className="absolute inset-x-0 -bottom-px h-px bg-gradient-to-r from-transparent via-accent/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                            
+                            <div className="w-24 h-24 rounded-2xl bg-black border border-white/10 flex items-center justify-center mb-8 group-hover:shadow-[0_0_30px_rgba(100,200,255,0.2)] group-hover:border-accent/30 transition-all duration-500 rotate-3 group-hover:rotate-0">
+                                <Building2 className="w-12 h-12 text-accent" />
+                            </div>
+                            
+                            <h2 className="text-3xl font-display font-black text-white mb-3 uppercase italic tracking-tighter">Official</h2>
+                            <p className="text-zinc-500 text-xs font-medium uppercase tracking-[0.15em] mb-8 leading-relaxed">Manage crisis reports, update statuses, and serve the public.</p>
+                            
+                            <div className="mt-auto w-full py-4 rounded-xl bg-white/5 border border-white/5 text-zinc-400 group-hover:bg-accent group-hover:text-black group-hover:border-accent transition-all duration-500 flex items-center justify-center gap-3 font-mono font-black uppercase text-xs tracking-widest">
+                                Department_Auth <ArrowRight className="w-4 h-4" />
+                            </div>
+                        </Link>
+                        <button
+                            onClick={() => router.push("/")}
+                            className="text-[10px] font-mono font-black text-zinc-800 hover:text-accent transition-colors uppercase tracking-[0.2em] py-2"
+                        >
+                            Internal_Ops // Direct_Feed 📡
+                        </button>
+                    </div>
                 </div>
 
-                {/* Official Card */}
-                <div className="flex flex-col gap-3">
-                    <Link
-                        href="/login?role=official"
-                        className="group relative bg-zinc-900/50 backdrop-blur-xl border border-white/10 rounded-3xl p-8 hover:border-blue-500/50 transition-all hover:scale-[1.02] flex flex-col items-center text-center cursor-pointer h-full"
-                    >
-                        <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-400 flex items-center justify-center mb-6 group-hover:shadow-[0_0_30px_rgba(50,100,255,0.5)] transition-shadow">
-                            <Building2 className="w-10 h-10 text-white" />
-                        </div>
-                        <h2 className="text-2xl font-bold text-white mb-2 select-none">Connect Dept</h2>
-                        <p className="text-zinc-400 mb-6">Manage reports, update status, and serve the citizens.</p>
-                        <div className="w-full py-3 rounded-full bg-white/5 group-hover:bg-blue-600 group-hover:text-white transition-colors flex items-center justify-center gap-2 font-medium">
-                            Official Login <ArrowRight className="w-4 h-4" />
-                        </div>
-                    </Link>
-                    <button
-                        onClick={() => router.push("/")}
-                        className="text-xs text-zinc-500 hover:text-white italic py-2"
-                    >
-                        Internal Ops? Direct to Feed 📡
-                    </button>
-                </div>
+                <footer className="mt-20 opacity-20">
+                    <p className="text-[10px] font-mono font-black uppercase tracking-[0.5em] text-zinc-500">
+                        ConnectSphere_V3.0_STABLE // BUILD_2026.03.21
+                    </p>
+                </footer>
             </div>
-
-            <p className="mt-8 text-zinc-600 text-sm italic font-mono tracking-tighter">
-                // System Environment: ConnectSphere v2.4a-STABLE
-            </p>
         </div>
     );
 }

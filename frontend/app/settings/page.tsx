@@ -23,11 +23,15 @@ import {
     Play
 } from "lucide-react";
 
+import { useTheme } from "next-themes";
+import { cn } from "@/lib/utils";
+
 export default function SettingsPage() {
     const { signOut } = useAuth();
     const { t } = useTranslation();
     const router = useRouter();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const { theme } = useTheme();
 
     const handleLogout = async () => {
         setIsLoggingOut(true);
@@ -84,47 +88,98 @@ export default function SettingsPage() {
     ];
 
     return (
-        <div className="flex w-full min-h-screen text-white relative pb-20 md:pl-20 lg:pl-64 justify-center">
+        <div className={cn(
+            "flex w-full min-h-screen relative pb-32 md:pl-20 lg:pl-64 justify-center transition-colors duration-500",
+            theme === 'radiant-void' ? "bg-black" : "bg-[#050507]"
+        )}>
 
             {/* Ambient Background */}
-            <div className="fixed inset-0 z-0 bg-[#09090b] pointer-events-none">
-                <div className="absolute top-0 right-1/4 w-[400px] h-[400px] bg-red-500/10 rounded-full blur-[100px] opacity-40" />
-                <div className="absolute bottom-1/4 left-1/4 w-[500px] h-[500px] bg-orange-500/10 rounded-full blur-[100px] opacity-30" />
+            <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+                {theme === 'radiant-void' ? (
+                    <>
+                        <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] bg-primary/10 blur-[150px] rounded-full animate-pulse" />
+                        <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-accent/5 blur-[120px] rounded-full" />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-[0.03]" />
+                    </>
+                ) : (
+                    <>
+                        <div className="absolute top-0 right-1/4 w-[400px] h-[400px] bg-primary/5 rounded-full blur-[100px] opacity-40" />
+                        <div className="absolute bottom-1/4 left-1/4 w-[500px] h-[500px] bg-secondary/5 rounded-full blur-[100px] opacity-30" />
+                    </>
+                )}
             </div>
 
             {/* Main Content Area */}
-            <div className="w-full max-w-2xl py-6 md:py-10 flex flex-col gap-8 z-10 px-4">
+            <div className="w-full max-w-2xl py-6 md:py-10 flex flex-col gap-10 z-10 px-4">
 
                 {/* Header Section */}
-                <div>
-                    <h1 className="text-3xl font-display font-black text-white tracking-tight">{t('settings.title')}</h1>
-                    <p className="text-zinc-500 text-sm mt-1">{t('settings.header_desc')}</p>
+                <div className="space-y-2">
+                    <h1 className={cn(
+                        "text-4xl font-display font-black tracking-tightest px-2",
+                        theme === 'radiant-void' ? "text-white uppercase italic" : "text-white"
+                    )}>
+                        {theme === 'radiant-void' ? "CORE_CONFIGURATION" : t('settings.title')}
+                    </h1>
+                    <p className={cn(
+                        "text-[10px] font-mono uppercase tracking-[0.2em] px-2",
+                        theme === 'radiant-void' ? "text-primary/70" : "text-zinc-500"
+                    )}>
+                        {theme === 'radiant-void' ? "NODE_STATUS_STABLE // VERSION_3.0" : t('settings.header_desc')}
+                    </p>
                 </div>
 
                 {/* Settings Lists */}
-                <div className="space-y-8">
+                <div className="space-y-10">
                     {settingSections.map((section, idx) => (
-                        <div key={idx} className="space-y-3">
-                            <h2 className="text-xs font-black text-zinc-500 uppercase tracking-widest pl-2">
+                        <div key={idx} className="space-y-4">
+                            <h2 className={cn(
+                                "text-[10px] font-black uppercase tracking-[0.3em] pl-4",
+                                theme === 'radiant-void' ? "text-zinc-700" : "text-zinc-500"
+                            )}>
                                 {section.title}
                             </h2>
-                            <div className="glass rounded-3xl border-premium shadow-premium-md overflow-hidden flex flex-col divide-y divide-white/5">
+                            <div className={cn(
+                                "overflow-hidden flex flex-col divide-y transition-all duration-500",
+                                theme === 'radiant-void' 
+                                    ? "bg-black/40 backdrop-blur-xl border border-white/5 rounded-xl divide-white/[0.03]" 
+                                    : "glass rounded-3xl border-premium shadow-premium-md divide-white/5"
+                            )}>
                                 {section.items.map((item, idxi) => (
                                     <button
                                         key={idxi}
-                                        className="w-full flex items-center justify-between p-4 hover:bg-white/5 active:bg-white/10 transition-colors group text-left"
+                                        className={cn(
+                                            "w-full flex items-center justify-between p-5 active:scale-[0.99] transition-all group text-left",
+                                            theme === 'radiant-void' ? "hover:bg-primary/[0.02]" : "hover:bg-white/5"
+                                        )}
                                         onClick={() => router.push(item.href)}
                                     >
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-xl bg-black/40 border border-white/5 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                                                <item.icon className="w-5 h-5 text-zinc-400 group-hover:text-primary transition-colors" />
+                                        <div className="flex items-center gap-5">
+                                            <div className={cn(
+                                                "w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-500",
+                                                theme === 'radiant-void' 
+                                                    ? "bg-black border border-white/5 group-hover:border-primary/30 group-hover:shadow-[0_0_20px_rgba(255,141,135,0.15)]" 
+                                                    : "bg-black/40 border border-white/5 group-hover:bg-primary/20"
+                                            )}>
+                                                <item.icon className={cn(
+                                                    "w-5 h-5 transition-all duration-500",
+                                                    theme === 'radiant-void' ? "text-zinc-600 group-hover:text-primary" : "text-zinc-400 group-hover:text-primary"
+                                                )} />
                                             </div>
-                                            <div className="flex flex-col">
-                                                <span className="font-bold text-zinc-100 text-[15px]">{item.label}</span>
-                                                <span className="text-xs text-zinc-500">{item.description}</span>
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className={cn(
+                                                    "font-bold text-[15px] uppercase tracking-wider",
+                                                    theme === 'radiant-void' ? "text-zinc-300 font-mono" : "text-zinc-100"
+                                                )}>{item.label}</span>
+                                                <span className={cn(
+                                                    "text-xs leading-relaxed",
+                                                    theme === 'radiant-void' ? "text-zinc-600 font-mono italic" : "text-zinc-500"
+                                                )}>{item.description}</span>
                                             </div>
                                         </div>
-                                        <ChevronRight className="w-5 h-5 text-zinc-600 group-hover:text-zinc-300 transition-colors" />
+                                        <ChevronRight className={cn(
+                                            "w-4 h-4 transition-all duration-500",
+                                            theme === 'radiant-void' ? "text-zinc-800 group-hover:text-primary" : "text-zinc-600 group-hover:text-zinc-300"
+                                        )} />
                                     </button>
                                 ))}
                             </div>
@@ -133,11 +188,16 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Danger Zone / Logout */}
-                <div className="mt-4 pb-10">
+                <div className="mt-6 pb-12">
                     <button
                         onClick={handleLogout}
                         disabled={isLoggingOut}
-                        className="w-full flex items-center justify-center gap-2 p-4 rounded-2xl border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 active:scale-[0.98] transition-all text-red-500 font-bold"
+                        className={cn(
+                            "w-full flex items-center justify-center gap-3 p-5 rounded-2xl border transition-all duration-500 font-bold uppercase tracking-[0.2em] text-xs",
+                            theme === 'radiant-void' 
+                                ? "bg-red-500/5 border-red-500/10 text-red-500/70 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-500 shadow-[0_0_30px_rgba(239,68,68,0.05)]" 
+                                : "border-red-500/20 bg-red-500/10 transition-all text-red-500"
+                        )}
                     >
                         {isLoggingOut ? (
                             <Loader2 className="w-5 h-5 animate-spin" />
