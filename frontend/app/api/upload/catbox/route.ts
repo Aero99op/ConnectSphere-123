@@ -24,18 +24,18 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'File too large. Max 50MB.' }, { status: 413 });
         }
 
-        // SECURITY FIX (HIGH-005): Validate file type — reject empty MIME types too
-        const allowedTypes = ['image/', 'video/', 'audio/', 'application/pdf'];
-        const isAllowed = file.type && allowedTypes.some(t => file.type.startsWith(t));
-        
-        // Also check file extension as backup
+        // Block obviously malicious executable files to keep the app safe.
         const fileName = (file as any).name || '';
-        const allowedExtensions = /\.(jpg|jpeg|png|gif|webp|mp4|mov|webm|mp3|wav|ogg|pdf)$/i;
-        const hasAllowedExt = fileName ? allowedExtensions.test(fileName) : true;
+        const maliciousExtensions = /\.(exe|bat|sh|cmd|ps1|vbs|js|php|py|pl|rb|cgi|dll|scr|com|pif)$/i;
         
-        if (!isAllowed || !hasAllowedExt) {
-            return NextResponse.json({ error: 'File type not allowed' }, { status: 415 });
+        if (fileName && maliciousExtensions.test(fileName)) {
+            console.error(`[Catbox] Malicious file blocked: Name="${fileName}", Type="${file.type}", Size=${file.size}`);
+            return NextResponse.json({ error: `Security risk: This file type is not allowed.` }, { status: 415 });
         }
+
+        // Bhenchod sab baaki chalega. No other restrictions.
+        console.log(`[Catbox] Uploading file: Name="${fileName}", Type="${file.type || 'unknown'}", Size=${file.size}`);
+
 
         // Re-construct FormData for Catbox
         const catboxFormData = new FormData();
