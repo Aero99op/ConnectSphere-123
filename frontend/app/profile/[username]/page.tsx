@@ -249,6 +249,18 @@ function AnotherUserProfileContent() {
                     {/* Placeholder abstract pattern for cover */}
                     <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0)', backgroundSize: '24px 24px' }} />
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 to-transparent" />
+                    
+                    {/* Settings Button in Top Right */}
+                    {currentUser?.id === userId && (
+                        <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex items-center gap-3 z-30">
+                            <button
+                                onClick={() => router.push('/settings')}
+                                className="p-2.5 glass border-premium rounded-2xl text-zinc-400 hover:text-white hover:bg-white/10 transition-all active:scale-90 shadow-premium-sm bg-black/40 backdrop-blur-md"
+                            >
+                                <Settings className="w-5 h-5" />
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -293,15 +305,6 @@ function AnotherUserProfileContent() {
                                             }`}
                                     >
                                         {followLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : isFollowing ? 'Unfollow' : 'Follow'}
-                                    </Button>
-                                )}
-
-                                {currentUser?.id === userId && (
-                                    <Button
-                                        onClick={() => router.push('/settings')}
-                                        className="flex-1 sm:flex-none glass border-premium font-display font-black h-11 px-8 rounded-full hover:bg-white/5 transition-all active:scale-95 text-xs uppercase tracking-widest flex items-center gap-2"
-                                    >
-                                        <Settings className="w-4 h-4" /> Settings
                                     </Button>
                                 )}
                             </div>
