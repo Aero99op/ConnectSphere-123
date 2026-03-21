@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Search, PlusSquare, Heart, MessageCircle, User, Compass, Menu, AlertTriangle } from "lucide-react";
+import { Home, Search, PlusSquare, Heart, User, Compass, Menu, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
@@ -44,7 +44,6 @@ export function Sidebar() {
         { href: "/", label: "Home", icon: Home },
         { href: "/search", label: "Search", icon: Search },
         { href: "/quix", label: "Quix", icon: Compass }, // "Compass" is Explore, feels right for Quix too
-        { href: "/messages", label: "Messages", icon: MessageCircle },
         { href: "/report", label: "Report", icon: AlertTriangle },
         { href: "/create", label: "Create", icon: PlusSquare },
         { href: "/profile", label: "Profile", icon: User, isProfile: true },

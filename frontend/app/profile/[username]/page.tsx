@@ -6,11 +6,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
     Grid, Bookmark, LogOut, Loader2, ArrowLeft,
-    AtSign, MapPin, Briefcase, Calendar, Info, Medal, Globe, Clapperboard, Play
+    AtSign, MapPin, Briefcase, Calendar, Info, Medal, Globe, Clapperboard, Play,
+    Settings
 } from "lucide-react";
 import Link from "next/link";
 import { PostCard } from "@/components/feed/post-card";
-import { usePathname, useParams } from "next/navigation";
+import { usePathname, useParams, useRouter } from "next/navigation";
 import { getProfileByUsername, getUserStats } from "@/lib/actions/profile"; // 🔱 New Server Actions
 
 // Utility function to determine border color based on role
@@ -44,6 +45,7 @@ function ProfileHeaderSkeleton() {
 function AnotherUserProfileContent() {
     const { user: authUser, supabase } = useAuth();
     const params = useParams();
+    const router = useRouter();
     const username = params.username as string; // 🔱 Use username from params
 
     // Auth & Basic Info
@@ -291,6 +293,15 @@ function AnotherUserProfileContent() {
                                             }`}
                                     >
                                         {followLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : isFollowing ? 'Unfollow' : 'Follow'}
+                                    </Button>
+                                )}
+
+                                {currentUser?.id === userId && (
+                                    <Button
+                                        onClick={() => router.push('/settings')}
+                                        className="flex-1 sm:flex-none glass border-premium font-display font-black h-11 px-8 rounded-full hover:bg-white/5 transition-all active:scale-95 text-xs uppercase tracking-widest flex items-center gap-2"
+                                    >
+                                        <Settings className="w-4 h-4" /> Settings
                                     </Button>
                                 )}
                             </div>
