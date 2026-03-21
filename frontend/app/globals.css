@@ -26,7 +26,7 @@
         --radius: 1.5rem;
     }
 
-    [data-theme='sapphire-nocturne'] {
+    .sapphire-nocturne {
         --background: 0 0% 5%; /* #0e0e0e */
         --foreground: 24 9.8% 91.3%; /* #e7e5e4 */
         --card: 0 0% 7.5%; /* #131313 */

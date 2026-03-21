@@ -98,6 +98,7 @@ export default function RootLayout({
                                             attribute="class"
                                             defaultTheme="dark"
                                             enableSystem
+                                            themes={['light', 'dark', 'system', 'radiant-void', 'sapphire-nocturne']}
                                             disableTransitionOnChange
                                         >
                                             <div className="fixed inset-0 bg-[radial-gradient(circle_at_2px_2px,_rgba(255,255,255,0.02)_1px,_transparent_0)] bg-[size:40px_40px] pointer-events-none" />
