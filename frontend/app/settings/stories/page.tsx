@@ -177,9 +177,9 @@ export default function MyStoriesPage() {
                                 return (
                                     <div key={story.id} className="relative aspect-[9/16] group rounded-2xl overflow-hidden bg-zinc-900 border border-white/5">
                                         {story.media_type?.startsWith('image/') || story.media_type === 'image' ? (
-                                            <img src={story.media_url} alt="Story" className="w-full h-full object-cover" />
+                                            <img src={story.media_urls?.[0]} alt="Story" className="w-full h-full object-cover" />
                                         ) : story.media_type?.startsWith('video/') || story.media_type === 'video' ? (
-                                            <video src={story.media_url} className="w-full h-full object-cover" />
+                                            <video src={story.media_urls?.[0]} className="w-full h-full object-cover" />
                                         ) : story.media_type?.startsWith('audio/') ? (
                                             <div className="w-full h-full bg-zinc-800 flex flex-col items-center justify-center p-4">
                                                 <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mb-2">

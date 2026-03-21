@@ -19,7 +19,7 @@
         "@radix-ui/react-switch": "^1.2.6",
         "@supabase/auth-helpers-nextjs": "^0.8.7",
         "@supabase/ssr": "^0.8.0",
-        "@supabase/supabase-js": "^2.39.0",
+        "@supabase/supabase-js": "^2.99.3",
         "@types/three": "^0.183.1",
         "bcryptjs": "^3.0.3",
         "class-variance-authority": "^0.7.1",

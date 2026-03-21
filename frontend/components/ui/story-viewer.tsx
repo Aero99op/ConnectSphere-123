@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 interface Story {
     id: string;
-    media_url: string;
+    media_urls: string[];
     media_type: string;
     created_at: string;
 }
@@ -139,14 +139,14 @@ export function StoryViewer({ user, stories, onClose }: StoryViewerProps) {
                 >
                     {currentStory?.media_type?.startsWith("image/") || currentStory?.media_type === "image" ? (
                         <img
-                            src={currentStory.media_url}
+                            src={currentStory.media_urls[0]}
                             alt="Story"
                             className="w-full h-full object-cover"
                             draggable={false}
                         />
                     ) : currentStory?.media_type?.startsWith("video/") || currentStory?.media_type === "video" ? (
                         <video
-                            src={currentStory?.media_url}
+                            src={currentStory?.media_urls?.[0]}
                             className="w-full h-full object-cover"
                             autoPlay
                             playsInline
@@ -169,7 +169,7 @@ export function StoryViewer({ user, stories, onClose }: StoryViewerProps) {
                                 <p className="text-xs text-zinc-400 font-mono tracking-widest uppercase">Playing...</p>
                             </div>
                             <audio 
-                                src={currentStory.media_url} 
+                                src={currentStory.media_urls[0]} 
                                 autoPlay 
                                 onEnded={handleNext}
                                 onTimeUpdate={(e) => {
@@ -188,14 +188,14 @@ export function StoryViewer({ user, stories, onClose }: StoryViewerProps) {
                             </div>
                             <div className="max-w-full">
                                 <h3 className="text-xl font-bold text-white max-w-full truncate px-4">
-                                    {decodeURIComponent(currentStory?.media_url?.split('/').pop() || "Document")}
+                                    {decodeURIComponent(currentStory?.media_urls?.[0]?.split('/').pop() || "Document")}
                                 </h3>
                                 <p className="text-xs text-zinc-500 font-mono tracking-widest uppercase mt-2">
                                     {currentStory?.media_type || 'Unknown Format'}
                                 </p>
                             </div>
                             <a 
-                                href={currentStory?.media_url} 
+                                href={currentStory?.media_urls?.[0]} 
                                 target="_blank" 
                                 rel="noreferrer"
                                 className="px-8 py-3 bg-white text-black font-black uppercase tracking-widest text-xs rounded-full mt-2 hover:scale-105 active:scale-95 transition-all w-[80%]"

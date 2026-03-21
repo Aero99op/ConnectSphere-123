@@ -68,7 +68,7 @@ export async function POST(request: Request) {
 
         const { data, error } = await supabase.from('stories').insert({
             user_id: session.user.id,
-            media_url,
+            media_urls: [media_url], // Using correct array schema
             media_type,
             expires_at: expiresAt
         }).select().single();
