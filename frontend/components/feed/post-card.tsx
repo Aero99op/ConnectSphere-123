@@ -9,6 +9,7 @@ import { downloadAndMergeChunks } from "@/lib/utils/chunk-uploader";
 import { CommentSheet } from "@/components/feed/comment-sheet";
 import { ShareSheet } from "@/components/feed/share-sheet";
 import { PostOptionsSheet } from "@/components/feed/post-options-sheet";
+import { StoryAvatar } from "@/components/ui/story-avatar";
 import { toast } from "sonner";
 import { getApinatorClient } from "@/lib/apinator";
 import Link from "next/link";
@@ -322,10 +323,10 @@ export function PostCard({ post }: PostProps) {
                 <div className="flex items-center justify-between p-4 px-5 border-b border-white/[0.05]">
                     <div className="flex items-center gap-3">
                         <Link href={`/profile/${post.user_id}`} className="shrink-0">
-                            <Avatar className="w-11 h-11 border-premium ring-1 ring-white/10 hover:scale-105 transition-transform">
-                                <AvatarImage src={post.avatar_url || "https://github.com/shadcn.png"} />
-                                <AvatarFallback className="bg-zinc-800 text-zinc-400">{post.username?.[0] || "?"}</AvatarFallback>
-                            </Avatar>
+                            <StoryAvatar 
+                                user={{ id: post.user_id, username: post.username, full_name: post.profiles?.full_name, avatar_url: post.avatar_url }}
+                                className="w-11 h-11 border-premium ring-1 ring-white/10 hover:scale-105 transition-transform"
+                            />
                         </Link>
                         <div className="flex flex-col">
                             <div className="flex items-center gap-2">

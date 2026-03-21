@@ -19,7 +19,8 @@ import {
     Users,
     MessageCircle,
     Compass,
-    Gamepad2
+    Gamepad2,
+    Play
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -49,6 +50,7 @@ export default function SettingsPage() {
                 { icon: Bell, label: t('settings.notifications'), description: t('settings.notifications_desc'), href: "/settings/preferences/notifications" },
                 { icon: Users, label: t('settings.blocked'), description: t('settings.blocked_desc'), href: "/settings/interactions/blocked" },
                 { icon: MessageCircle, label: t('settings.messages'), description: t('settings.messages_desc'), href: "/settings/interactions/messages" },
+                { icon: Play, label: t('settings.stories') || "My Stories", description: t('settings.stories_desc') || "Manage your 24h stories", href: "/settings/stories" },
             ]
         },
         {

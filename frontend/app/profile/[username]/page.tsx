@@ -2,8 +2,8 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { StoryAvatar } from "@/components/ui/story-avatar";
 import {
     Grid, Bookmark, LogOut, Loader2, ArrowLeft,
     AtSign, MapPin, Briefcase, Calendar, Info, Medal, Globe, Clapperboard, Play,
@@ -269,12 +269,10 @@ function AnotherUserProfileContent() {
                         {/* Profile Avatar */}
                         <div className="relative group shrink-0">
                             <div className={`absolute -inset-1 blur-md rounded-[32px] sm:rounded-[40px] opacity-70 ${isOfficial ? 'bg-blue-500' : 'bg-orange-500'}`} />
-                            <Avatar className={`w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 rounded-[28px] sm:rounded-[36px] border-4 border-[#050507] object-cover bg-zinc-900 shadow-2xl relative z-10 ${profileBorderColor}`}>
-                                <AvatarImage src={profile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`} className="object-cover" />
-                                <AvatarFallback className="text-4xl sm:text-5xl font-display font-black text-zinc-600 bg-zinc-900">
-                                    {profile.username?.charAt(0).toUpperCase()}
-                                </AvatarFallback>
-                            </Avatar>
+                            <StoryAvatar 
+                                user={{ id: profile.id, username: profile.username, full_name: profile.full_name, avatar_url: profile.avatar_url }}
+                                className={`w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 rounded-[28px] sm:rounded-[36px] border-4 border-[#050507] object-cover bg-zinc-900 shadow-2xl relative z-10 ${profileBorderColor}`}
+                            />
                         </div>
 
                         {/* Name & Actions */}
@@ -536,10 +534,10 @@ function AnotherUserProfileContent() {
                                         >
                                             <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-secondary/20 blur opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl" />
                                             <div className="relative glass-card border-premium p-4 rounded-[1.5rem] flex items-center gap-4 hover:translate-x-1 transition-all">
-                                                <Avatar className={`w-12 h-12 border-2 border-zinc-900 ring-1 ring-white/10 ${getRoleBorderColor(user.role)}`}>
-                                                    <AvatarImage src={user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`} className="object-cover" />
-                                                    <AvatarFallback className="bg-zinc-800 text-primary font-display font-black">{user.full_name?.[0]}</AvatarFallback>
-                                                </Avatar>
+                                                <StoryAvatar 
+                                                    user={{ id: user.id, username: user.username, full_name: user.full_name, avatar_url: user.avatar_url }}
+                                                    className={`w-12 h-12 border-2 border-zinc-900 ring-1 ring-white/10 ${getRoleBorderColor(user.role)}`}
+                                                />
                                                 <div className="min-w-0">
                                                     <p className="font-display font-black text-white text-lg tracking-tighter group-hover:text-primary transition-colors truncate">
                                                         {user.full_name || user.username}
