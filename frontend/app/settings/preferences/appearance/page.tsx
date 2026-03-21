@@ -6,7 +6,7 @@ import { useTheme } from "next-themes";
 import { ChevronLeft, Moon, Sun, Monitor, Loader2, Sparkles } from "lucide-react";
 import { useAuth } from "@/components/providers/auth-provider";
 
-type Theme = 'dark' | 'light' | 'system' | 'radiant-void';
+type Theme = 'dark' | 'light' | 'system' | 'radiant-void' | 'sapphire-nocturne';
 
 export default function AppearanceSettingsPage() {
     const { user: authUser, supabase } = useAuth();
@@ -149,6 +149,25 @@ export default function AppearanceSettingsPage() {
                                     </div>
                                     <span className={`font-bold text-sm relative z-10 ${currentTheme === 'radiant-void' ? 'text-primary' : 'text-white'}`}>Radiant Void</span>
                                     <span className="text-[10px] text-zinc-400 relative z-10">Premium Editorial Design.</span>
+                                </button>
+
+                                {/* Sapphire Nocturne (New Theme) */}
+                                <button
+                                    onClick={() => handleThemeChange('sapphire-nocturne')}
+                                    disabled={isUpdating}
+                                    className={`flex flex-col items-center gap-3 p-6 rounded-2xl transition-all group overflow-hidden relative ${currentTheme === 'sapphire-nocturne'
+                                        ? 'bg-[#0e0e0e]/20 border-2 border-[#b8c4ff] shadow-[0_0_30px_rgba(184,196,255,0.2)]'
+                                        : 'bg-[#0e0e0e] border border-white/10 hover:border-[#b8c4ff]/50'
+                                        }`}
+                                >
+                                    {/* Animated Background for Sapphire Nocturne Button */}
+                                    <div className="absolute inset-0 bg-gradient-to-br from-[#b8c4ff]/5 via-[#8a9eff]/5 to-[#5c78ff]/5 opacity-50" />
+                                    
+                                    <div className="w-12 h-12 rounded-full bg-[#0e0e0e] flex items-center justify-center border border-[#b8c4ff]/30 relative z-10 shadow-[0_0_15px_rgba(184,196,255,0.3)]">
+                                        <Moon className={`w-6 h-6 ${currentTheme === 'sapphire-nocturne' ? 'text-[#b8c4ff]' : 'text-zinc-400'}`} />
+                                    </div>
+                                    <span className={`font-bold text-sm relative z-10 ${currentTheme === 'sapphire-nocturne' ? 'text-[#b8c4ff]' : 'text-white'}`}>Sapphire Nocturne</span>
+                                    <span className="text-[10px] text-zinc-400 relative z-10">A deep blue, calming experience.</span>
                                 </button>
 
                                 {/* Light Mode (Disabled) */}

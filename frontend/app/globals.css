@@ -17,13 +17,41 @@
         --muted: 240 5% 10%;
         --muted-foreground: 240 5% 55%;
         --accent: 322 90% 55%;
-        --accent-foreground: 0 0% 98%;
-        --destructive: 0 84% 60%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 240 5% 12%;
-        --input: 240 5% 12%;
-        --ring: 240 5% 80%;
+        --accent-foreground: 346.8 77.2% 9.8%;
+        --destructive: 0 84.2% 60.2%;
+        --destructive-foreground: 210 40% 98%;
+        --border: 217.2 32.6% 17.5%;
+        --input: 217.2 32.6% 17.5%;
+        --ring: 224.3 76.3% 48%;
         --radius: 1.5rem;
+    }
+
+    [data-theme='sapphire-nocturne'] {
+        --background: 0 0% 5%; /* #0e0e0e */
+        --foreground: 24 9.8% 91.3%; /* #e7e5e4 */
+        --card: 0 0% 7.5%; /* #131313 */
+        --card-foreground: 24 9.8% 91.3%;
+        --popover: 0 0% 10%; /* #191a1a */
+        --popover-foreground: 24 9.8% 91.3%;
+        --primary: 231 100% 86%; /* #b8c4ff */
+        --primary-foreground: 224 88% 34%; /* #0933a4 */
+        --secondary: 224 14% 64%; /* #979eb1 */
+        --secondary-foreground: 221 31% 14%; /* #19202f */
+        --muted: 0 0% 12%; /* #1f2020 */
+        --muted-foreground: 24 5.4% 66.9%; /* #acabaa */
+        --accent: 231 100% 86%;
+        --accent-foreground: 224 88% 34%;
+        --destructive: 2 79% 70%; /* #ee7d77 */
+        --destructive-foreground: 355 100% 15%; /* #490106 */
+        --border: 0 0% 15%; /* #252626 */
+        --input: 0 0% 15%;
+        --ring: 226 76% 51%; /* #173bab */
+        
+        /* Custom Tonal Layers */
+        --surface-low: 0 0% 7.5%; /* #131313 */
+        --surface-mid: 0 0% 10%; /* #191a1a */
+        --surface-high: 0 0% 12%; /* #1f2020 */
+        --surface-highest: 0 0% 15%; /* #252626 */
     }
 
     .dark {

@@ -324,19 +324,21 @@ export function PostCard({ post }: PostProps) {
             )} />
 
             <div className={cn(
-                "relative overflow-hidden transition-all duration-500",
-                theme === 'radiant-void' 
-                    ? "bg-black/60 border border-white/5 shadow-2xl rounded-[12px]" 
-                    : "glass-card border-premium shadow-premium-md rounded-[24px]"
+                "group/card w-full overflow-hidden transition-all duration-500",
+                theme === 'radiant-void'
+                    ? "bg-[#050505] border border-white/5 shadow-[0_0_50px_rgba(0,0,0,1)] rounded-[32px]"
+                    : theme === 'sapphire-nocturne'
+                        ? "bg-muted/40 rounded-2xl shadow-none"
+                        : "bg-zinc-950/50 border border-white/5 rounded-2xl shadow-premium-md"
             )}>
                 {/* 1. Post Header */}
                 <div className={cn(
-                    "flex items-center justify-between p-4 px-5 border-b",
-                    theme === 'radiant-void' ? "border-white/5" : "border-white/[0.05]"
+                    "flex items-center justify-between p-4 px-5 border-b transition-colors duration-500",
+                    theme === 'radiant-void' ? "border-white/5" : (theme === 'sapphire-nocturne' ? "border-transparent" : "border-white/[0.05]")
                 )}>
                     <div className="flex items-center gap-3">
                         <Link href={`/profile/${post.user_id}`} className="shrink-0">
-                            <StoryAvatar 
+                            <StoryAvatar
                                 user={{ id: post.user_id, username: post.username, full_name: post.profiles?.full_name, avatar_url: post.avatar_url }}
                                 className={cn(
                                     "w-11 h-11 transition-transform",
@@ -344,7 +346,7 @@ export function PostCard({ post }: PostProps) {
                                 )}
                             />
                         </Link>
-                        <div className="flex flex-col">
+                        <div className="flex flex-col text-left">
                             <div className="flex items-center gap-2">
                                 <Link href={`/profile/${post.user_id}`} className="font-display font-bold text-[15px] text-white leading-tight tracking-tight hover:text-primary transition-colors">
                                     {post.profiles?.full_name || post.username}
@@ -378,7 +380,7 @@ export function PostCard({ post }: PostProps) {
                 {post.media_type !== 'text' && post.media_urls && post.media_urls.length > 0 && post.media_urls[0] && (
                     <div className={cn(
                         "relative w-full aspect-square md:aspect-[4/5] bg-black/40 overflow-hidden group-media",
-                        theme === 'radiant-void' ? "" : "border-b border-white/5"
+                        theme === 'radiant-void' ? "" : (theme === 'sapphire-nocturne' ? "" : "border-b border-white/5")
                     )}>
                         {post.media_type === 'image' ? (
                             <img
@@ -418,7 +420,7 @@ export function PostCard({ post }: PostProps) {
                                 ) : (
                                     <video
                                         id={`video-${post.id}`}
-                                        src={videoBlobUrl}
+                                        src={videoBlobUrl || undefined}
                                         style={{
                                             filter: (post as any).customization?.filterStyle || 'none',
                                             clipPath: (post as any).customization?.crop ?
@@ -461,8 +463,8 @@ export function PostCard({ post }: PostProps) {
                     </div>
                 )}
 
-    // 3. Action Buttons & Info
-                <div className="p-4">
+                {/* 3. Action Buttons & Metadata */}
+                <div className="p-4 px-5">
                     {/* Music Bar if exists */}
                     {(post as any).customization?.music && (
                         <div className={cn(
@@ -478,28 +480,30 @@ export function PostCard({ post }: PostProps) {
 
                     <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-4">
-                            <button onClick={handleLike} className="hover:opacity-70 active:scale-95 transition-all">
+                            <button
+                                onClick={handleLike}
+                                disabled={isLikeProcessing.current}
+                                className={cn(
+                                    "flex items-center gap-2 group/btn transition-all active:scale-90",
+                                    liked ? "text-primary" : "text-white hover:opacity-70"
+                                )}
+                            >
                                 <Heart className={cn(
-                                    "w-7 h-7 transition-colors", 
-                                    liked 
-                                        ? "fill-red-500 text-red-500" 
-                                        : theme === 'radiant-void' ? "text-white" : "text-zinc-300"
+                                    "w-7 h-7 transition-all duration-300",
+                                    liked ? "fill-red-500 text-red-500 scale-110" : "group-hover/btn:scale-110"
                                 )} />
                             </button>
                             <button onClick={() => setShowComments(true)} className="hover:opacity-70 active:scale-95 transition-all">
-                                <MessageCircle className={cn(
-                                    "w-7 h-7",
-                                    theme === 'radiant-void' ? "text-white" : "text-zinc-300"
-                                )} />
+                                <MessageCircle className="w-7 h-7 text-white" />
                             </button>
                             <button onClick={() => setShowShareSheet(true)} className="hover:opacity-70 active:scale-95 transition-all">
                                 <Send className={cn(
-                                    "w-7 h-7",
+                                    "w-7 h-7 transition-colors",
                                     theme === 'radiant-void' ? "text-white" : "text-zinc-300"
                                 )} />
                             </button>
                         </div>
-                        <button onClick={() => setIsBookmarked(!isBookmarked)} className="hover:opacity-70 active:scale-95 transition-all">
+                        <button onClick={handleBookmark} className="hover:opacity-70 active:scale-95 transition-all">
                             <Bookmark className={cn(
                                 "w-7 h-7 transition-colors",
                                 isBookmarked ? "fill-white text-white" : theme === 'radiant-void' ? "text-white" : "text-zinc-300"
@@ -550,7 +554,7 @@ export function PostCard({ post }: PostProps) {
                     </div>
 
                     {/* Quick View Comments */}
-                    <button 
+                    <button
                         onClick={() => setShowComments(true)}
                         className="text-sm text-zinc-500 hover:text-zinc-400 mt-2 transition-colors font-medium"
                     >
