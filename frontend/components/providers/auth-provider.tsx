@@ -4,7 +4,7 @@ import { SessionProvider, useSession, signOut as nextAuthSignOut } from 'next-au
 import { createContext, useContext, useMemo, useEffect } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { getSupabase } from '@/lib/supabase';
-import { hasDeviceKeys, generateDeviceKeys } from '@/lib/crypto/e2ee';
+import { hasDeviceKeys, generateDeviceKeys, setActiveUserId } from '@/lib/crypto/e2ee';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -69,6 +69,7 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
         
         const initE2E = async () => {
             try {
+                setActiveUserId(unifiedUser.id);
                 const hasKeys = await hasDeviceKeys();
                 if (!hasKeys) {
                     console.log("[E2EE] Generating device keys for top hacker protection...");

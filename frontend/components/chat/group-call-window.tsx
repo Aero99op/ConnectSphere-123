@@ -54,13 +54,48 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
 
         const channelName = `private-group-call-${roomId}`;
 
-        // Helper to send signaling events (Moved to effect scope for heartbeat access)
+        // Helper to send signaling events via API
         const sendGroupSignal = (event: string, data: any) => {
-            fetch('/api/apinator/trigger', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ channel: channelName, event, data })
-            }).catch(console.error);
+            const str = typeof data === 'string' ? data : JSON.stringify(data);
+            if (str.length < 8000) {
+                fetch('/api/apinator/trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ channel: channelName, event, data })
+                }).catch(console.error);
+                return;
+            }
+
+            // Chunking for large group SDP offers
+            const numChunks = Math.ceil(str.length / 8000);
+            const chunkId = Math.random().toString(36).substring(7);
+            for (let i = 0; i < numChunks; i++) {
+                fetch('/api/apinator/trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        channel: channelName,
+                        event: `${event}-chunk`,
+                        data: {
+                            id: chunkId,
+                            i,
+                            total: numChunks,
+                            chunk: str.substring(i * 8000, (i + 1) * 8000)
+                        }
+                    })
+                }).catch(console.error);
+            }
+        };
+
+        const incomingChunks: Record<string, string[]> = {};
+        const processChunk = (payload: any, finalHandler: (data: any) => void) => {
+            if (!incomingChunks[payload.id]) incomingChunks[payload.id] = new Array(payload.total);
+            incomingChunks[payload.id][payload.i] = payload.chunk;
+            if (incomingChunks[payload.id].filter(Boolean).length === payload.total) { // All arrived
+                const fullStr = incomingChunks[payload.id].join('');
+                delete incomingChunks[payload.id];
+                finalHandler(JSON.parse(fullStr));
+            }
         };
 
         const initCall = async () => {
@@ -92,8 +127,7 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
                 const channel = client.subscribe(channelName);
                 channelRef.current = channel;
 
-                // Handle incoming signaling messages
-                channel.bind('webrtc-signal', async (rawData: any) => {
+                const handleSignal = async (rawData: any) => {
                     const payload = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
                     const { senderId, type, data } = payload;
 
@@ -123,6 +157,16 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
                             }
                         }
                     }
+                };
+
+                // Handle incoming signaling messages
+                channel.bind('webrtc-signal', async (rawData: any) => {
+                    handleSignal(typeof rawData === 'string' ? JSON.parse(rawData) : rawData);
+                });
+                
+                channel.bind('webrtc-signal-chunk', async (data: any) => {
+                    const payload = typeof data === 'string' ? JSON.parse(data) : data;
+                    processChunk(payload, handleSignal);
                 });
 
                 // Handle participant joining
@@ -211,13 +255,12 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
                 setTimeout(() => {
                     const videoEl = remoteVideoRefs.current.get(remoteId);
                     if (videoEl) {
-                        if (!videoEl.srcObject) {
+                        if (videoEl.srcObject !== stream) {
                             videoEl.srcObject = stream;
-                        } else if (videoEl.srcObject !== stream) {
-                            const currentStream = videoEl.srcObject as MediaStream;
-                            if (!currentStream.getTracks().includes(event.track)) {
-                                currentStream.addTrack(event.track);
-                            }
+                        } else {
+                            // Re-assign explicitly to force new track to render via browser pipeline
+                            videoEl.srcObject = null;
+                            videoEl.srcObject = stream;
                         }
                     }
                 }, 100);

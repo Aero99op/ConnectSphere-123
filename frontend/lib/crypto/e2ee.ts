@@ -10,6 +10,19 @@ const DB_NAME = "CS_E2EE_KEYSTORE";
 const STORE_NAME = "device_keys";
 const DB_VERSION = 1;
 
+let _activeUserId = "";
+
+export function setActiveUserId(uid: string) {
+    if (uid) _activeUserId = uid;
+}
+
+function getNamespacedId(id: string): string {
+    if ((id === "ecdh_private" || id === "ecdsa_private" || id === "mlkem_private") && _activeUserId) {
+        return `${_activeUserId}_${id}`;
+    }
+    return id;
+}
+
 /** IndexedDB wrapper for non-extractable keys */
 class KeyStore {
     private dbPromise: Promise<IDBDatabase>;
@@ -26,22 +39,34 @@ class KeyStore {
         });
     }
 
-    async saveKey(id: string, key: CryptoKey) {
+    async saveKey(id: string, key: CryptoKey | Uint8Array) {
+        const actualId = getNamespacedId(id);
         const db = await this.dbPromise;
         return new Promise<void>((resolve, reject) => {
             const tx = db.transaction(STORE_NAME, "readwrite");
-            tx.objectStore(STORE_NAME).put(key, id);
+            tx.objectStore(STORE_NAME).put(key, actualId);
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);
         });
     }
 
-    async getKey(id: string): Promise<CryptoKey | null> {
+    async getKey(id: string): Promise<CryptoKey | Uint8Array | null> {
+        const actualId = getNamespacedId(id);
         const db = await this.dbPromise;
         return new Promise((resolve, reject) => {
             const tx = db.transaction(STORE_NAME, "readonly");
-            const req = tx.objectStore(STORE_NAME).get(id);
+            const req = tx.objectStore(STORE_NAME).get(actualId);
             req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => reject(tx.error);
+        });
+    }
+
+    async deleteKeyRaw(rawId: string): Promise<void> {
+        const db = await this.dbPromise;
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, "readwrite");
+            const req = tx.objectStore(STORE_NAME).delete(rawId);
+            req.onsuccess = () => resolve();
             req.onerror = () => reject(tx.error);
         });
     }
@@ -83,9 +108,45 @@ export async function generateDeviceKeys() {
 
 /** Check if device keys exist */
 export async function hasDeviceKeys() {
-    const k1 = await keyStore.getKey("ecdh_private");
-    const k2 = await keyStore.getKey("ecdsa_private");
-    const k3 = await keyStore.getKey("mlkem_private");
+    let k1 = await keyStore.getKey("ecdh_private");
+    let k2 = await keyStore.getKey("ecdsa_private");
+    let k3 = await keyStore.getKey("mlkem_private");
+    
+    // Auto-migrate global keys to user-namespaced keys for backwards compatibility
+    if (!k1 && _activeUserId) {
+        const db = await (keyStore as any).dbPromise;
+        const globalK1 = await new Promise<any>((resolve) => {
+             const tx = db.transaction(STORE_NAME, "readonly");
+             const req = tx.objectStore(STORE_NAME).get("ecdh_private");
+             req.onsuccess = () => resolve(req.result || null);
+             req.onerror = () => resolve(null);
+        });
+        if (globalK1) {
+             console.log("[E2EE] Migrating legacy global keys to user namespace...");
+             const globalK2 = await new Promise<any>((resolve) => {
+                  const tx = db.transaction(STORE_NAME, "readonly");
+                  const req = tx.objectStore(STORE_NAME).get("ecdsa_private");
+                  req.onsuccess = () => resolve(req.result || null);
+             });
+             const globalK3 = await new Promise<any>((resolve) => {
+                  const tx = db.transaction(STORE_NAME, "readonly");
+                  const req = tx.objectStore(STORE_NAME).get("mlkem_private");
+                  req.onsuccess = () => resolve(req.result || null);
+             });
+             // Save namespaced
+             await keyStore.saveKey("ecdh_private", globalK1);
+             if (globalK2) await keyStore.saveKey("ecdsa_private", globalK2);
+             if (globalK3) await keyStore.saveKey("mlkem_private", globalK3);
+             
+             // Delete dirty global
+             await keyStore.deleteKeyRaw("ecdh_private");
+             await keyStore.deleteKeyRaw("ecdsa_private");
+             await keyStore.deleteKeyRaw("mlkem_private");
+             
+             return true;
+        }
+    }
+    
     return !!(k1 && k2 && k3);
 }
 

@@ -230,11 +230,46 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
 
         // Helper to send signaling events via API
         const sendSignal = (event: string, data: any) => {
-            fetch('/api/apinator/trigger', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ channel: channelName, event, data })
-            }).catch(console.error);
+            const str = typeof data === 'string' ? data : JSON.stringify(data);
+            if (str.length < 8000) {
+                fetch('/api/apinator/trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ channel: channelName, event, data })
+                }).catch(console.error);
+                return;
+            }
+            
+            // Bypass Apinator 10KB limit with chunking
+            const numChunks = Math.ceil(str.length / 8000);
+            const chunkId = Math.random().toString(36).substring(7);
+            for (let i = 0; i < numChunks; i++) {
+                fetch('/api/apinator/trigger', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        channel: channelName,
+                        event: `${event}-chunk`,
+                        data: {
+                            id: chunkId,
+                            i,
+                            total: numChunks,
+                            chunk: str.substring(i * 8000, (i + 1) * 8000)
+                        }
+                    })
+                }).catch(console.error);
+            }
+        };
+
+        const incomingChunks: Record<string, string[]> = {};
+        const processChunk = (payload: any, eventName: string, finalHandler: (data: any) => void) => {
+            if (!incomingChunks[payload.id]) incomingChunks[payload.id] = new Array(payload.total);
+            incomingChunks[payload.id][payload.i] = payload.chunk;
+            if (incomingChunks[payload.id].filter(Boolean).length === payload.total) { // All arrived
+                const fullStr = incomingChunks[payload.id].join('');
+                delete incomingChunks[payload.id];
+                finalHandler(JSON.parse(fullStr));
+            }
         };
 
         const startCall = async () => {
@@ -256,13 +291,14 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                 const mediaElement = isVideo ? remoteVideoRef.current : remoteAudioRef.current;
                 
                 if (mediaElement) {
-                    if (!mediaElement.srcObject) {
-                        mediaElement.srcObject = event.streams[0] || new MediaStream([event.track]);
-                    } else if (event.streams[0] !== mediaElement.srcObject) {
-                        const currentStream = mediaElement.srcObject as MediaStream;
-                        if (!currentStream.getTracks().includes(event.track)) {
-                            currentStream.addTrack(event.track);
-                        }
+                    const stream = event.streams[0] || new MediaStream([event.track]);
+                    
+                    if (mediaElement.srcObject !== stream) {
+                        mediaElement.srcObject = stream;
+                    } else {
+                        // Force refresh trick: browser often ignores tracks added to an already active playing MediaStream unless reattached.
+                        mediaElement.srcObject = null;
+                        mediaElement.srcObject = stream;
                     }
                     
                     // Explicitly nudge play to bypass browser autoplay blocks
@@ -324,11 +360,9 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                 }
             });
 
-            channel.bind('call-offer', async (data: any) => {
-                const payload = typeof data === 'string' ? JSON.parse(data) : data;
+            const handleOffer = async (payload: any) => {
                 if (isIncoming && peerConnection.current) {
                     try {
-                        // Crucial fix: ensure we are in a state to accept an offer
                         if (peerConnection.current.signalingState !== 'stable') {
                             console.warn("Got offer but signalingState is", peerConnection.current.signalingState);
                             return;
@@ -344,14 +378,18 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                         console.error("Error handling offer:", err);
                     }
                 }
+            };
+
+            channel.bind('call-offer', async (data: any) => {
+                handleOffer(typeof data === 'string' ? JSON.parse(data) : data);
+            });
+            channel.bind('call-offer-chunk', async (data: any) => {
+                processChunk(typeof data === 'string' ? JSON.parse(data) : data, 'call-offer', handleOffer);
             });
 
-            channel.bind('call-answer', async (data: any) => {
-                const payload = typeof data === 'string' ? JSON.parse(data) : data;
+            const handleAnswer = async (payload: any) => {
                 if (!isIncoming && peerConnection.current && !hasSetAnswer) {
                     try {
-                        // Crucial fix: The core "InvalidStateError" happens when we try to set an answer 
-                        // while the signaling state is 'stable' (already connected/answered)
                         if (peerConnection.current.signalingState === 'stable') {
                             console.warn("Got answer but signalingState is already stable. Ignoring.");
                             return;
@@ -366,6 +404,13 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                         hasSetAnswer = false;
                     }
                 }
+            };
+
+            channel.bind('call-answer', async (data: any) => {
+                handleAnswer(typeof data === 'string' ? JSON.parse(data) : data);
+            });
+            channel.bind('call-answer-chunk', async (data: any) => {
+                processChunk(typeof data === 'string' ? JSON.parse(data) : data, 'call-answer', handleAnswer);
             });
 
             channel.bind('end-call', () => {
@@ -431,7 +476,9 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
             if (channel) {
                 channel.unbind('ice-candidate');
                 channel.unbind('call-offer');
+                channel.unbind('call-offer-chunk');
                 channel.unbind('call-answer');
+                channel.unbind('call-answer-chunk');
                 channel.unbind('end-call');
                 channel.unbind('receiver-ready');
                 channel.unbind('caller-ready');
@@ -439,6 +486,16 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
             client.unsubscribe(channelName);
         };
     }, []);
+
+    // Dynamically replace tracks when AR Engine activates/deactivates
+    useEffect(() => {
+        if (!peerConnection.current || !processedStream) return;
+        const senders = peerConnection.current.getSenders();
+        processedStream.getTracks().forEach((newTrack) => {
+            const sender = senders.find(s => s.track && s.track.kind === newTrack.kind);
+            if (sender) sender.replaceTrack(newTrack).catch(console.error);
+        });
+    }, [processedStream]);
 
     const handleEndCall = (sendEvent = true) => {
         if (localStream.current) {
