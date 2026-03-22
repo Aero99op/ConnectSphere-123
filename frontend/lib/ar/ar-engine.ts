@@ -45,8 +45,10 @@ async function loadMediaPipe(): Promise<any> {
     let FilesetResolver: any;
 
     try {
+      // Use webpackIgnore: true to prevent Next.js from trying to bundle the URL at build time
+      // This is CRITICAL for Cloudflare/Vercel builds to pass
       // @ts-ignore - Dynamic URL import
-      const mpVision = await import('https://esm.sh/@mediapipe/tasks-vision@0.10.3');
+      const mpVision = await import(/* webpackIgnore: true */ 'https://esm.sh/@mediapipe/tasks-vision@0.10.3');
       FaceLandmarker = mpVision.FaceLandmarker;
       FilesetResolver = mpVision.FilesetResolver;
     } catch (e) {
