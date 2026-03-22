@@ -44,6 +44,7 @@ const roundRect = (ctx: CanvasRenderingContext2D, x: number, y: number, width: n
 export const RENDERS: Record<string, (ctx: CanvasRenderingContext2D, landmarks: any, w: number, h: number, opt: any) => void> = {
   // ── Headwear ──
   'halo': (ctx, lm, w, h, opt) => {
+    if (!lm) return;
     const forehead = getPt(LANDMARK.FOREHEAD_TOP, lm, w, h);
     const leftEar = getPt(LANDMARK.LEFT_EAR, lm, w, h);
     const rightEar = getPt(LANDMARK.RIGHT_EAR, lm, w, h);
@@ -64,6 +65,7 @@ export const RENDERS: Record<string, (ctx: CanvasRenderingContext2D, landmarks: 
     ctx.restore();
   },
   'crown': (ctx, lm, w, h, opt) => {
+    if (!lm) return;
     const forehead = getPt(LANDMARK.FOREHEAD_TOP, lm, w, h);
     const leftEar = getPt(LANDMARK.LEFT_EAR, lm, w, h);
     const rightEar = getPt(LANDMARK.RIGHT_EAR, lm, w, h);
@@ -89,6 +91,7 @@ export const RENDERS: Record<string, (ctx: CanvasRenderingContext2D, landmarks: 
     ctx.restore();
   },
   'horns': (ctx, lm, w, h, opt) => {
+    if (!lm) return;
     const forehead = getPt(LANDMARK.FOREHEAD_TOP, lm, w, h);
     const leftEar = getPt(LANDMARK.LEFT_EAR, lm, w, h);
     const rightEar = getPt(LANDMARK.RIGHT_EAR, lm, w, h);
@@ -113,6 +116,7 @@ export const RENDERS: Record<string, (ctx: CanvasRenderingContext2D, landmarks: 
     ctx.restore();
   },
   'cat_ears': (ctx, lm, w, h, opt) => {
+    if (!lm) return;
     const forehead = getPt(LANDMARK.FOREHEAD_TOP, lm, w, h);
     const leftEar = getPt(LANDMARK.LEFT_EAR, lm, w, h);
     const rightEar = getPt(LANDMARK.RIGHT_EAR, lm, w, h);
@@ -137,6 +141,7 @@ export const RENDERS: Record<string, (ctx: CanvasRenderingContext2D, landmarks: 
 
   // ── Eyewear ──
   'shades': (ctx, lm, w, h, opt) => {
+    if (!lm) return;
     const leftEar = getPt(LANDMARK.LEFT_EAR, lm, w, h);
     const rightEar = getPt(LANDMARK.RIGHT_EAR, lm, w, h);
     const bridge = getPt(LANDMARK.NOSE_BRIDGE, lm, w, h);
@@ -157,6 +162,7 @@ export const RENDERS: Record<string, (ctx: CanvasRenderingContext2D, landmarks: 
     ctx.restore();
   },
   'laser_eyes': (ctx, lm, w, h, opt) => {
+    if (!lm) return;
     const leftE = getPt(LANDMARK.LEFT_EYE_CENTER, lm, w, h);
     const rightE = getPt(LANDMARK.RIGHT_EYE_CENTER, lm, w, h);
     const color = opt.color || '#ff0000';
@@ -177,6 +183,7 @@ export const RENDERS: Record<string, (ctx: CanvasRenderingContext2D, landmarks: 
     ctx.restore();
   },
   'monocle': (ctx, lm, w, h, opt) => {
+    if (!lm) return;
     const rightE = getPt(LANDMARK.RIGHT_EYE_CENTER, lm, w, h);
     const leftE = getPt(LANDMARK.LEFT_EYE_CENTER, lm, w, h);
     const faceW = Math.abs(rightE.x - leftE.x);
@@ -193,6 +200,7 @@ export const RENDERS: Record<string, (ctx: CanvasRenderingContext2D, landmarks: 
 
   // ── Facial ──
   'moustache': (ctx, lm, w, h, opt) => {
+    if (!lm) return;
     const nose = getPt(LANDMARK.NOSE_TIP, lm, w, h);
     const leftC = getPt(LANDMARK.LEFT_CHEEK, lm, w, h);
     const rightC = getPt(LANDMARK.RIGHT_CHEEK, lm, w, h);
@@ -208,6 +216,7 @@ export const RENDERS: Record<string, (ctx: CanvasRenderingContext2D, landmarks: 
     ctx.restore();
   },
   'beard': (ctx, lm, w, h, opt) => {
+    if (!lm) return;
     const chin = getPt(LANDMARK.CHIN, lm, w, h);
     const leftC = getPt(LANDMARK.LEFT_CHEEK, lm, w, h);
     const rightC = getPt(LANDMARK.RIGHT_CHEEK, lm, w, h);
@@ -225,6 +234,7 @@ export const RENDERS: Record<string, (ctx: CanvasRenderingContext2D, landmarks: 
     ctx.restore();
   },
   'venom_mask': (ctx, lm, w, h, opt) => {
+    if (!lm) return;
     ctx.save();
     ctx.fillStyle = 'rgba(0,0,0,0.8)';
     ctx.beginPath();
@@ -244,8 +254,14 @@ export const RENDERS: Record<string, (ctx: CanvasRenderingContext2D, landmarks: 
 
   // ── Overlay / Emoji ──
   'emoji_sticker': (ctx, lm, w, h, opt) => {
-    const pt = getPt(LANDMARK[opt.point as keyof typeof LANDMARK || 'NOSE_TIP'], lm, w, h);
-    const faceW = Math.abs(getPt(LANDMARK.RIGHT_EAR, lm, w, h).x - getPt(LANDMARK.LEFT_EAR, lm, w, h).x);
+    let pt: any;
+    if (lm) {
+        pt = getPt(LANDMARK[opt.point as keyof typeof LANDMARK || 'NOSE_TIP'], lm, w, h);
+    } else {
+        // Fallback to center if face missing but filter active
+        pt = { x: w / 2, y: h / 2 - h * 0.2 };
+    }
+    const faceW = lm ? Math.abs(getPt(LANDMARK.RIGHT_EAR, lm, w, h).x - getPt(LANDMARK.LEFT_EAR, lm, w, h).x) : w * 0.3;
     const size = faceW * (opt.scale || 0.5);
 
     ctx.save();

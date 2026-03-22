@@ -48,8 +48,8 @@ async function loadMediaPipe(): Promise<any> {
       },
       runningMode: 'VIDEO',
       numFaces: 1,
-      outputFaceBlendshapes: false,
-      outputFacialTransformationMatrixes: false,
+      outputFaceBlendshapes: true,
+      outputFacialTransformationMatrixes: true,
     });
 
     return faceLandmarker;
@@ -150,13 +150,26 @@ export class AREngine {
     try {
       const mp = await loadMediaPipe();
       if (mp) {
-        const results = mp.detectForVideo(this.videoEl, performance.now());
+        // Use video timestamp for better sync
+        const results = mp.detectForVideo(this.videoEl, this.videoEl.currentTime * 1000);
         if (results?.faceLandmarks?.[0]) {
           landmarks = results.faceLandmarks[0];
+          
+          if (Math.random() < 0.01) {
+            console.log("[AREngine] 🎯 Face detected with 478 landmarks");
+          }
+        } else {
+          if (Math.random() < 0.01) {
+            console.warn("[AREngine] ⚠️ No face detected in frame");
+          }
+        }
+      } else {
+        if (Math.random() < 0.01) {
+          console.warn("[AREngine] ⏳ Loading MediaPipe...");
         }
       }
     } catch (e) {
-      // Landmark failure, but some parts of AR might still work (environment)
+      console.error("[AREngine] Detection failed:", e);
     }
 
     // Render each component in the recipe
