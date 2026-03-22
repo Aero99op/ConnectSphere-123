@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { generateVapidHeader } from '@/lib/push/vapid';
+import { auth } from '@/auth';
 
 export const runtime = 'edge';
 
 export async function POST(req: NextRequest) {
     try {
+        // SECURITY FIX (CRIT-002): Require authentication before allowing push triggers
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await req.json();
         const { recipientId, type, title, body: notificationBody, actorName, url } = body;
 

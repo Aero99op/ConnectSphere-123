@@ -62,6 +62,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         return null;
                     }
 
+                    // SECURITY FIX (HIGH-005): Auto-rehash legacy SHA-256 passwords to PBKDF2
+                    if (!isModernMatch && isLegacyMatch) {
+                        try {
+                            await adminSupabase
+                                .from('profiles')
+                                .update({ password_hash: inputHash })
+                                .eq('id', profile.id);
+                            console.log(`[Auth] Rehashed legacy password for user ${profile.id}`);
+                        } catch (rehashErr) {
+                            // Non-fatal: login still succeeds, rehash will happen next login
+                            console.error('[Auth] Legacy rehash failed (non-fatal):', rehashErr);
+                        }
+                    }
+
                     return {
                         id: profile.id,
                         email: profile.email,

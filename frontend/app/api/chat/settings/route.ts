@@ -1,16 +1,21 @@
 import { NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@/lib/auth';
+import { auth } from '@/auth';
 
 export const runtime = 'edge'; // Because Cloudflare Pages
 
+// SECURITY FIX (CRIT-003): Both GET and POST now use session.user.id instead of
+// accepting arbitrary userId from query params. This prevents IDOR attacks.
+
 export async function GET(req: Request) {
     try {
-        const url = new URL(req.url);
-        const userId = url.searchParams.get('userId');
-
-        if (!userId) {
-            return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+        // SECURITY: Use session-based auth — never trust client-supplied userId
+        const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
+        const userId = session.user.id;
 
         const supabase = createAdminSupabaseClient();
         const { data, error } = await supabase
@@ -33,17 +38,24 @@ export async function GET(req: Request) {
         return NextResponse.json(settings);
     } catch (error: any) {
         console.error("GET Chat Settings Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to load settings' }, { status: 500 });
     }
 }
 
 export async function POST(req: Request) {
     try {
-        const body = await req.json();
-        const { userId, settings } = body;
+        // SECURITY: Use session-based auth — never trust client-supplied userId
+        const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
 
-        if (!userId || !settings) {
-            return NextResponse.json({ error: "Missing payload" }, { status: 400 });
+        const userId = session.user.id;
+        const body = await req.json();
+        const { settings } = body;
+
+        if (!settings) {
+            return NextResponse.json({ error: "Missing settings payload" }, { status: 400 });
         }
 
         const supabase = createAdminSupabaseClient();
@@ -60,7 +72,7 @@ export async function POST(req: Request) {
 
         if (error) {
             console.error("Supabase POST error:", error);
-            throw error;
+            return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 });
         }
 
         // Broadcast if ghost mode modified to immediately update clients via apinator
@@ -91,6 +103,6 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: true, settings });
     } catch (error: any) {
         console.error("POST Chat Settings Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 });
     }
 }

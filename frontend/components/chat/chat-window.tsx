@@ -191,14 +191,25 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                 }
             });
             
-        fetch(`/api/chat/settings?userId=${recipientId}`).then(r => r.json()).then(data => {
-            if (data) {
-                setRecipientHideStatus(data.hide_online_status || false);
-                setRecipientGhostUntil(data.ghost_mode_until || null);
-                // Also respect recipient's read receipt setting
-                if (data.send_read_receipts === false) setSendReadReceipts(false);
+        // Fetch recipient privacy from Supabase directly (chat/settings API is now self-only)
+        const fetchRecipientPrivacy = async () => {
+            try {
+                const { data } = await supabase
+                    .from('profiles')
+                    .select('hide_online_status, ghost_mode_until, send_read_receipts')
+                    .eq('id', recipientId)
+                    .single();
+                    
+                if (data) {
+                    setRecipientHideStatus(data.hide_online_status || false);
+                    setRecipientGhostUntil(data.ghost_mode_until || null);
+                    if (data.send_read_receipts === false) setSendReadReceipts(false);
+                }
+            } catch (err) {
+                console.error("Recipient privacy fetch failed:", err);
             }
-        }).catch(console.error);
+        };
+        fetchRecipientPrivacy();
 
         return () => {
             window.removeEventListener('focus', handleFocus);
@@ -473,8 +484,8 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
     useEffect(() => {
         let isMounted = true;
         
-        // Check my read receipt preference
-        fetch(`/api/chat/settings?userId=${currentUserId}`).then(r => r.json()).then(data => {
+        // Check my read receipt preference (session-based, no userId needed)
+        fetch(`/api/chat/settings`).then(r => r.json()).then(data => {
             if (data && isMounted) setSendReadReceipts(data.send_read_receipts !== false);
         }).catch(console.error);
 

@@ -15,21 +15,42 @@ export async function GET() {
         
         const userId = session.user.id;
 
-        // 1. Check for unread messages first
-        const { data: unreadMsg } = await supabaseAdmin
-            .from('messages')
-            .select(`
-                id,
-                content,
-                conversation_id,
-                is_read,
-                sender:profiles!sender_id(username, full_name, avatar_url)
-            `)
-            .eq('is_read', false)
-            .neq('sender_id', userId)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+        // SECURITY FIX (HIGH-006): Scope unread messages to user's own conversations only
+        // First get user's conversation IDs
+        const { data: userConvos } = await supabaseAdmin
+            .from('conversations')
+            .select('id')
+            .or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
+        
+        const { data: groupConvos } = await supabaseAdmin
+            .from('conversation_participants')
+            .select('conversation_id')
+            .eq('user_id', userId);
+        
+        const convoIds = [
+            ...(userConvos || []).map(c => c.id),
+            ...(groupConvos || []).map(c => c.conversation_id)
+        ];
+
+        let unreadMsg = null;
+        if (convoIds.length > 0) {
+            const { data } = await supabaseAdmin
+                .from('messages')
+                .select(`
+                    id,
+                    content,
+                    conversation_id,
+                    is_read,
+                    sender:profiles!sender_id(username, full_name, avatar_url)
+                `)
+                .eq('is_read', false)
+                .neq('sender_id', userId)
+                .in('conversation_id', convoIds)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+            unreadMsg = data;
+        }
 
         if (unreadMsg) {
             const sender: any = Array.isArray(unreadMsg.sender) ? unreadMsg.sender[0] : unreadMsg.sender;

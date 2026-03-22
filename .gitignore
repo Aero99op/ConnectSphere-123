@@ -40,8 +40,7 @@ yarn-error.log*
 .env.production.local
 *.env
 .env.*
-!.env.example.template # Optional: if you want a template, but usually best to block all and keep one separate.
-.env.example
+#!.env.example.template # Optional: if you want a template, but usually best to block all and keep one separate.
 # secret / config files (DO NOT COMMIT)
 HARDENED_ENV.txt
 FORT_KNOX_SHIELD.sql

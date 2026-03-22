@@ -24,7 +24,7 @@ export function ChatSettingsDialog({ onClose }: ChatSettingsDialogProps) {
     useEffect(() => {
         if (!user?.id) return;
         
-        fetch(`/api/chat/settings?userId=${user.id}`)
+        fetch(`/api/chat/settings`)
             .then(res => res.json())
             .then(data => {
                 if (data) {
@@ -49,7 +49,7 @@ export function ChatSettingsDialog({ onClose }: ChatSettingsDialogProps) {
         const res = await fetch('/api/chat/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.id, settings: { send_read_receipts: checked } })
+            body: JSON.stringify({ settings: { send_read_receipts: checked } })
         });
         const data = await res.json();
             
@@ -82,7 +82,7 @@ export function ChatSettingsDialog({ onClose }: ChatSettingsDialogProps) {
         const res = await fetch('/api/chat/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.id, settings: updates })
+            body: JSON.stringify({ settings: updates })
         });
         const data = await res.json();
             

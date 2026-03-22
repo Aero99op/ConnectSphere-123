@@ -229,7 +229,8 @@ export async function encryptMessageAndSign(
             wrappingKey = await deriveWrappingKey(myEcdhPrivateKey, theirEcdhPublic);
         }
         
-        const wrapIv = new Uint8Array(12);
+        // SECURITY FIX (CRIT-004): Generate random IV for each key wrap — never reuse IV with AES-GCM
+        const wrapIv = crypto.getRandomValues(new Uint8Array(12));
         const wrappedKeyBuffer = await crypto.subtle.encrypt(
             { name: "AES-GCM", iv: wrapIv.buffer as ArrayBuffer },
             wrappingKey,
@@ -238,6 +239,7 @@ export async function encryptMessageAndSign(
         
         encryptedKeys[userId] = {
             wrappedKey: bufferToBase64(wrappedKeyBuffer),
+            wrapIv: bufferToBase64(wrapIv), // Store IV alongside wrapped key
             pqcCiphertext: pqcCiphertextB64
         };
     }
@@ -255,7 +257,7 @@ export async function decryptMessageAndVerify(
     encryptedContentB64: string,
     ivB64: string,
     signatureB64: string,
-    encryptedKeyObject: { wrappedKey: string, pqcCiphertext: string | null } | string,
+    encryptedKeyObject: { wrappedKey: string, wrapIv?: string, pqcCiphertext: string | null } | string,
     senderEcdsaPublicJwkStr: string,
     senderEcdhPublicJwkStr: string,
     myEcdhPrivateKey: CryptoKey,
@@ -295,7 +297,9 @@ export async function decryptMessageAndVerify(
         wrappingKey = await deriveWrappingKey(myEcdhPrivateKey, senderEcdhPublic);
     }
     
-    const wrapIv = new Uint8Array(12);
+    // SECURITY FIX (CRIT-004): Read stored wrapIv; fall back to zero-IV for backward compat with old messages
+    const wrapIvB64 = (typeof encryptedKeyObject !== 'string' && encryptedKeyObject.wrapIv) ? encryptedKeyObject.wrapIv : null;
+    const wrapIv = wrapIvB64 ? new Uint8Array(base64ToBuffer(wrapIvB64)) : new Uint8Array(12);
 
     const rawSessionKey = await crypto.subtle.decrypt(
         { name: "AES-GCM", iv: wrapIv.buffer as ArrayBuffer },

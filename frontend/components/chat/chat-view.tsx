@@ -67,8 +67,8 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     useEffect(() => {
         let isMounted = true;
         
-        // Check my read receipt preference
-        fetch(`/api/chat/settings?userId=${currentUserId}`).then(r => r.json()).then(data => {
+        // Check my read receipt preference (session-based, no userId needed)
+        fetch(`/api/chat/settings`).then(r => r.json()).then(data => {
             if (data && isMounted) setSendReadReceipts(data.send_read_receipts !== false);
         }).catch(console.error);
 
@@ -389,12 +389,32 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                         setIsRecipientOnlineFromDB(data.is_online);
                     }
                 });
-            fetch(`/api/chat/settings?userId=${recipientId}`).then(r => r.json()).then(data => {
+            try {
+                const { data } = await supabase.from('profiles').select('is_online, last_seen').eq('id', recipientId).single();
                 if (data) {
-                    setRecipientHideStatus(data.hide_online_status || false);
-                    setRecipientGhostUntil(data.ghost_mode_until || null);
+                    setRecipientLastSeen(data.last_seen);
+                    setIsRecipientOnlineFromDB(data.is_online);
                 }
-            }).catch(console.error);
+            } catch (err) {
+                console.error("Failed to fetch recipient's online status:", err);
+            }
+            // Fetch recipient privacy from Supabase directly (chat/settings API is now self-only)
+            const fetchRecipientPrivacy = async () => {
+                try {
+                    const { data } = await supabase
+                        .from('profiles')
+                        .select('hide_online_status, ghost_mode_until')
+                        .eq('id', recipientId)
+                        .single();
+                    if (data) {
+                        setRecipientHideStatus(data.hide_online_status || false);
+                        setRecipientGhostUntil(data.ghost_mode_until || null);
+                    }
+                } catch (err) {
+                    console.error("Recipient privacy fetch failed:", err);
+                }
+            };
+            fetchRecipientPrivacy();
         }
         const { data, error } = await supabase
             .from("messages")

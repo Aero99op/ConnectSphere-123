@@ -41,9 +41,9 @@ async function uploadDirect(file: File | Blob): Promise<string> {
     const formData = new FormData();
     formData.append("reqtype", "fileupload");
     
-    // Add userhash if exposed to client (optional)
-    if (process.env.NEXT_PUBLIC_CATBOX_USER_HASH) {
-        formData.append("userhash", process.env.NEXT_PUBLIC_CATBOX_USER_HASH);
+    // SECURITY FIX (HIGH-007): Use server-only env var — NEXT_PUBLIC_ exposes hash to client JS
+    if (process.env.CATBOX_USER_HASH) {
+        formData.append("userhash", process.env.CATBOX_USER_HASH);
     }
     
     formData.append("fileToUpload", file);

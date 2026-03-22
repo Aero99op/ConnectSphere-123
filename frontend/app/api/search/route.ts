@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase';
 import { createServerSupabase } from '@/lib/actions/supabase';
+import { auth } from '@/auth';
 
 export const runtime = 'edge';
 
-export async function GET(request: NextRequest) {
+export async function GET(req: NextRequest) {
     try {
-        const { searchParams } = new URL(request.url);
+        // SECURITY FIX (MED-001): Require auth for search to prevent unauthenticated exploration
+        const session = await auth();
+        if (!session?.user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const { searchParams } = new URL(req.url);
         const rawQuery = searchParams.get('q') || '';
         const type = searchParams.get('type') || 'all'; // 'users', 'posts', or 'all'
 

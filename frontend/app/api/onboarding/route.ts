@@ -106,10 +106,9 @@ export async function POST(req: NextRequest) {
         if (error) {
             console.error('Onboarding upsert error:', error);
             // Catching specific errors to give user feedback
+            // SECURITY FIX (HIGH-003): Never leak internal DB error details to client
             return NextResponse.json({ 
-                error: `Database error: ${error.message}`,
-                hint: error.hint,
-                code: error.code
+                error: 'Failed to save onboarding data. Please try again.'
             }, { status: 500 });
         }
 
