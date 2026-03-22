@@ -32,7 +32,7 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
     const decryptPreview = async (msg: any, currentUserId: string) => {
         if (!msg || !msg.iv || !msg.signature) return msg;
         try {
-            const myEcdhPrivate = await keyStore.getKey("ecdh_private");
+            const myEcdhPrivate = await keyStore.getKey("ecdh_private") as CryptoKey | undefined;
             const myMlkemPrivate = await keyStore.getKey("mlkem_private") as unknown as Uint8Array | undefined;
             if (!myEcdhPrivate) return msg;
 

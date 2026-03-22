@@ -93,7 +93,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                 if (msg.sender_id === currentUserId) return msg;
                 if (msg.iv && msg.signature && msg.encrypted_keys && msg.encrypted_keys[currentUserId]) {
                     try {
-                        const myEcdhPrivate = await keyStore.getKey("ecdh_private");
+                        const myEcdhPrivate = await keyStore.getKey("ecdh_private") as CryptoKey | undefined;
                         const myMlkemPrivate = await keyStore.getKey("mlkem_private") as unknown as Uint8Array | undefined;
                         let senderEcdsa = msg.sender?.ecdsa_public_key;
                         let senderEcdh = msg.sender?.ecdh_public_key;
@@ -430,7 +430,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         if (!error && data) {
             // DECRYPTION LOGIC
             try {
-                const myEcdhPrivate = await keyStore.getKey("ecdh_private");
+                const myEcdhPrivate = await keyStore.getKey("ecdh_private") as CryptoKey | undefined;
                 const myMlkemPrivate = await keyStore.getKey("mlkem_private") as unknown as Uint8Array | undefined;
                 if (myEcdhPrivate) {
                     for (let i = 0; i < data.length; i++) {
@@ -635,8 +635,8 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         });
 
         // 3. Encrypt & Sign
-        const myEcdsa = await keyStore.getKey("ecdsa_private");
-        const myEcdh = await keyStore.getKey("ecdh_private");
+        const myEcdsa = await keyStore.getKey("ecdsa_private") as CryptoKey | undefined;
+        const myEcdh = await keyStore.getKey("ecdh_private") as CryptoKey | undefined;
         
         if (!myEcdsa || !myEcdh) {
             toast.error("Security Error: Device keys not found! Please re-login.");
