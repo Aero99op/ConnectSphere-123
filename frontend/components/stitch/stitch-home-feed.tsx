@@ -9,6 +9,9 @@ import { getApinatorClient } from "@/lib/apinator";
 import { syncPosts, syncStories, getLocalPosts, getLocalStories, saveLocalProfile, getLocalProfile } from "@/lib/offline-sync";
 import { formatDistanceToNow } from "date-fns";
 import { StitchPostCard } from "./stitch-post-card";
+import { StoryViewer } from "@/components/feed/story-viewer";
+import { FileUpload } from "@/components/ui/file-upload";
+import { X } from "lucide-react";
 
 export function StitchHomeFeedContent() {
     const { user: authUser, supabase } = useAuth();
@@ -18,11 +21,35 @@ export function StitchHomeFeedContent() {
     const [isInitializing, setIsInitializing] = useState(true);
     const userId = authUser?.id || null;
     const [userProfile, setUserProfile] = useState<any>(null);
+    const [viewingStoryIndex, setViewingStoryIndex] = useState<number | null>(null);
+    const [isAddingStory, setIsAddingStory] = useState(false);
+    const [storyFileUrls, setStoryFileUrls] = useState<string[]>([]);
     const router = useRouter();
+
+    const handleStoryUploadComplete = async (urls: string[], thumbnailUrl?: string) => {
+        if (!userId || urls.length === 0) return;
+        setStoryFileUrls(urls);
+        const mediaType = thumbnailUrl ? 'video' : 'image';
+        const { error } = await supabase.from("stories").insert({
+            user_id: userId,
+            media_urls: urls,
+            thumbnail_url: thumbnailUrl,
+            media_type: mediaType,
+            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        });
+        if (error) {
+            console.error(error);
+            alert("Failed to upload story!");
+        } else {
+            fetchStories(userId);
+            setIsAddingStory(false);
+            setStoryFileUrls([]);
+        }
+    };
 
     const fetchStories = async (currentUserId: string | null) => {
         const localStories = await getLocalStories();
-        
+
         const { data, error } = await supabase
             .from("stories")
             .select(`*, profiles (username, avatar_url)`)
@@ -105,7 +132,7 @@ export function StitchHomeFeedContent() {
                             return;
                         }
                     }
-                } catch (e) {}
+                } catch (e) { }
             }
             await Promise.all([fetchPosts(), fetchStories(authUser?.id || null)]);
             setIsInitializing(false);
@@ -123,7 +150,8 @@ export function StitchHomeFeedContent() {
 
     return (
         <div className="bg-black text-[#f8f9fe] min-h-screen selection:bg-[#ba9eff]/30 selection:text-white overflow-x-hidden font-sans">
-            <style dangerouslySetInnerHTML={{ __html: `
+            <style dangerouslySetInnerHTML={{
+                __html: `
                 .prism-clip { clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); }
                 .glass-panel { backdrop-filter: blur(24px); background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); }
                 .text-glow-violet { text-shadow: 0 0 15px rgba(186, 158, 255, 0.5); }
@@ -137,7 +165,7 @@ export function StitchHomeFeedContent() {
                     <span className="text-2xl font-black tracking-tighter bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">Connect</span>
                     <div className="hidden md:flex items-center bg-white/5 px-4 py-2 rounded-full border border-white/10 w-96 group focus-within:border-[#53ddfc]/40 transition-all">
                         <svg className="w-4 h-4 text-slate-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                        <input className="bg-transparent border-none focus:ring-0 outline-none text-sm text-slate-200 placeholder:text-slate-500 w-full" placeholder="Search the obsidian..." type="text"/>
+                        <input className="bg-transparent border-none focus:ring-0 outline-none text-sm text-slate-200 placeholder:text-slate-500 w-full" placeholder="Search the obsidian..." type="text" />
                     </div>
                 </div>
                 <div className="flex items-center gap-5">
@@ -150,7 +178,7 @@ export function StitchHomeFeedContent() {
                     </Link>
                     <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#ba9eff] to-[#53ddfc] p-[1px] cursor-pointer shadow-lg shadow-[#ba9eff]/20">
                         <div className="w-full h-full rounded-full overflow-hidden">
-                            <img className="w-full h-full object-cover" src={userProfile?.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=fallback"}/>
+                            <img className="w-full h-full object-cover" src={userProfile?.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=fallback"} />
                         </div>
                     </div>
                 </div>
@@ -197,7 +225,7 @@ export function StitchHomeFeedContent() {
                         <div className="flex items-center justify-between group cursor-pointer">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-full border border-[#53ddfc]/30 p-[2px]">
-                                    <img className="w-full h-full object-cover rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC9994ykQ_8YQt3G83LxYDBqdWLdjkEuifDHQC4j-72TzYf5hB3nXI4ZjbJigwwamt7aS_S4yS5kRLInhQFqZK37v4eFP1RthtALHhVx1Hr4U290Y4SFe3AwwKg_kLVOF9-qsJYGUALjRVBIJdy6MLwj7tqSzCqeDgtRrpADAgBmXv76OT69NGX7SMRcSqMKOivEe3NNov7SDmQbVO-0BKWn8nYy7CNWTW0M8vvGvFvUesqHjUr07aBT68fvVVJBvGmNkyrTNKu9Xg"/>
+                                    <img className="w-full h-full object-cover rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC9994ykQ_8YQt3G83LxYDBqdWLdjkEuifDHQC4j-72TzYf5hB3nXI4ZjbJigwwamt7aS_S4yS5kRLInhQFqZK37v4eFP1RthtALHhVx1Hr4U290Y4SFe3AwwKg_kLVOF9-qsJYGUALjRVBIJdy6MLwj7tqSzCqeDgtRrpADAgBmXv76OT69NGX7SMRcSqMKOivEe3NNov7SDmQbVO-0BKWn8nYy7CNWTW0M8vvGvFvUesqHjUr07aBT68fvVVJBvGmNkyrTNKu9Xg" />
                                 </div>
                                 <div>
                                     <p className="text-sm font-semibold text-slate-100">Julian Voss</p>
@@ -215,7 +243,17 @@ export function StitchHomeFeedContent() {
                 {/* Stories: Prism-Shaped */}
                 <section className="mb-12 overflow-x-auto no-scrollbar flex gap-6 pb-4">
                     {stories.map((story) => (
-                        <div key={story.id} className="flex flex-col items-center gap-3 shrink-0 cursor-pointer group">
+                        <div 
+                            key={story.id} 
+                            onClick={() => {
+                                if (story.isAddButton) {
+                                    userId ? setIsAddingStory(true) : router.push('/login');
+                                } else {
+                                    setViewingStoryIndex(stories.indexOf(story));
+                                }
+                            }}
+                            className="flex flex-col items-center gap-3 shrink-0 cursor-pointer group"
+                        >
                             <div className={`w-16 h-16 prism-clip p-[1px] ${story.isAddButton ? 'bg-zinc-900 group-hover:bg-[#ba9eff]' : 'bg-gradient-to-tr from-[#ba9eff] via-[#53ddfc] to-[#ff86c3]'}`}>
                                 <div className="w-full h-full prism-clip bg-black overflow-hidden flex items-center justify-center">
                                     {story.isAddButton ? (
@@ -245,10 +283,53 @@ export function StitchHomeFeedContent() {
                 <Link href="/" className="text-[#53ddfc] scale-95 active:scale-90 transition-transform"><svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg></Link>
                 <Link href="/search" className="text-slate-400 scale-95 active:scale-90 transition-transform"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg></Link>
                 <Link href="/create" className="w-10 h-10 bg-gradient-to-tr from-[#ba9eff] to-[#53ddfc] rounded-full flex items-center justify-center text-black shadow-lg shadow-[#ba9eff]/30 scale-110"><svg className="w-5 h-5 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg></Link>
-                <Link href="/quix" className="text-slate-400 scale-95 active:scale-90 transition-transform"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></Link>
+                <Link href="/quix" className="text-slate-400 scale-95 active:scale-90 transition-transform"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg></Link>
                 <Link href="/report" className="text-slate-400 scale-95 active:scale-90 transition-transform"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg></Link>
                 <Link href={`/profile/${authUser?.id}`} className="text-slate-400 scale-95 active:scale-90 transition-transform"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg></Link>
             </div>
+
+            {/* Story Viewer Overlay */}
+            {viewingStoryIndex !== null && stories[viewingStoryIndex] && !stories[viewingStoryIndex].isAddButton && (
+                <StoryViewer
+                    initialStoryIndex={stories.filter(s => !s.isAddButton).findIndex(s => s.id === stories[viewingStoryIndex].id)}
+                    stories={stories.filter(s => !s.isAddButton)}
+                    onClose={() => setViewingStoryIndex(null)}
+                />
+            )}
+
+            {/* Add Story Upload Modal */}
+            {isAddingStory && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+                    <div className="w-full max-w-md bg-black border border-white/10 rounded-[32px] p-6 relative shadow-[0_0_40px_rgba(186,158,255,0.15)]">
+                        <button
+                            onClick={() => setIsAddingStory(false)}
+                            className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                        <div className="mb-6 text-center">
+                            <h3 className="text-xl font-display font-black text-[#ba9eff]">Add New Story</h3>
+                            <p className="text-zinc-500 text-xs mt-1 font-mono uppercase tracking-widest">Broadcast memory</p>
+                        </div>
+                        <div className="bg-white/5 rounded-2xl p-2 border border-white/5">
+                            {storyFileUrls.length === 0 ? (
+                                <FileUpload
+                                    onUploadComplete={handleStoryUploadComplete}
+                                    maxSizeMB={50}
+                                />
+                            ) : (
+                                <div className="p-10 text-center animate-in fade-in zoom-in-95">
+                                    <p className="text-[#53ddfc] font-mono text-xs uppercase tracking-[0.2em]">Story Locked 🔒</p>
+                                    <p className="text-white font-black text-lg mt-2 italic flex items-center justify-center gap-2">
+                                        <span className="w-2 h-2 bg-gradient-to-r from-[#ba9eff] to-[#53ddfc] rounded-full animate-pulse" />
+                                        Processing...
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

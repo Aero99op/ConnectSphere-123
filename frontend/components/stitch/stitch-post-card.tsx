@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { getApinatorClient } from "@/lib/apinator";
 import Link from "next/link";
 import { useTranslation } from "@/components/providers/language-provider";
+import { StoryAvatar } from "@/components/ui/story-avatar";
 
 interface PostProps {
     post: {
@@ -179,9 +180,12 @@ export function StitchPostCard({ post }: PostProps) {
             {/* Header */}
             <div className="p-6 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <Link href={`/profile/${post.user_id}`} className="w-10 h-10 rounded-full p-[1px] bg-gradient-to-r from-[#ba9eff] to-[#53ddfc] block shrink-0 cursor-pointer hover:scale-105 transition-transform">
-                        <img className="w-full h-full object-cover rounded-full" src={post.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=fallback"} alt={post.username} />
-                    </Link>
+                    <div className="w-10 h-10 rounded-full p-[1px] bg-gradient-to-r from-[#ba9eff] to-[#53ddfc] shrink-0 hover:scale-105 transition-transform z-10 relative">
+                        <StoryAvatar 
+                            user={{ id: post.user_id, username: post.username, full_name: post.profiles?.full_name, avatar_url: post.avatar_url }}
+                            className="w-full h-full object-cover rounded-full" 
+                        />
+                    </div>
                     <div>
                         <Link href={`/profile/${post.user_id}`} className="font-bold text-sm tracking-tight text-white hover:text-[#ba9eff] transition-colors">
                             {post.display_name || post.profiles?.full_name || post.username}

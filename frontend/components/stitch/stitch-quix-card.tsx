@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { QuixOptionsSheet } from "@/components/quix/quix-options-sheet";
 import { notifyStoryShare } from "@/lib/utils/mentions";
+import { StoryAvatar } from "@/components/ui/story-avatar";
 
 interface QuixCardProps {
     quix: any;
@@ -129,17 +130,34 @@ export function StitchQuixCard({ quix, isActive }: QuixCardProps) {
 
     const handleLike = async () => {
         if (!user) return toast.error(t('common.login_to_like'));
-        if (isLiked) {
-            setIsLiked(false);
-            setLikesCount((prev: number) => Math.max(0, prev - 1));
-            await supabase.from('quix_likes').delete().eq('quix_id', quix.id).eq('user_id', user.id);
-        } else {
-            setIsLiked(true);
-            setLikesCount((prev: number) => prev + 1);
+        
+        const previousLiked = isLiked;
+        const previousCount = likesCount;
+
+        // Optimistic UI
+        setIsLiked(!previousLiked);
+        setLikesCount((prev: number) => !previousLiked ? prev + 1 : Math.max(0, prev - 1));
+        
+        if (!previousLiked) {
             setShowHeartAnimation(true);
             setTimeout(() => setShowHeartAnimation(false), 800);
-            await supabase.from('quix_likes').insert({ quix_id: quix.id, user_id: user.id });
-            toast.success(t('quix.liked'));
+        }
+
+        try {
+            if (previousLiked) {
+                const { error } = await supabase.from('quix_likes').delete().eq('quix_id', quix.id).eq('user_id', user.id);
+                if (error) throw error;
+            } else {
+                const { error } = await supabase.from('quix_likes').insert({ quix_id: quix.id, user_id: user.id });
+                if (error) throw error;
+                toast.success(t('quix.liked'));
+            }
+        } catch (error: any) {
+            console.error("Like failed:", error);
+            // Rollback
+            setIsLiked(previousLiked);
+            setLikesCount(previousCount);
+            toast.error(t('common.error'));
         }
     };
 
@@ -335,13 +353,13 @@ export function StitchQuixCard({ quix, isActive }: QuixCardProps) {
                     onDelete={() => { window.location.reload(); }}
                 />
 
-                <div className="mt-4">
+                <Link href={`/profile/${quix.user_id}`} className="mt-4 group/spin cursor-pointer block hover:scale-105 transition-transform">
                     <div className="w-12 h-12 rounded-full p-1 bg-white/10 backdrop-blur-md animate-spin-slow">
                         <div className="w-full h-full rounded-full overflow-hidden border border-white/20 relative">
                             <img className="absolute inset-0 w-full h-full object-cover" src={quix.profiles?.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=fallback"} />
                         </div>
                     </div>
-                </div>
+                </Link>
             </div>
 
             <ShareSheet open={showShareSheet} onOpenChange={setShowShareSheet} entityType="quix" entityId={quix.id} />
@@ -350,14 +368,15 @@ export function StitchQuixCard({ quix, isActive }: QuixCardProps) {
             {/* Content Details (Bottom Left) */}
             <div className="absolute left-4 right-20 bottom-8 z-20 flex flex-col space-y-4">
                 <div className="flex items-center space-x-3">
-                    <div className="w-11 h-11 rounded-full p-[2px] bg-gradient-to-tr from-[#ba9eff] to-[#53ddfc]">
-                        <div className="w-full h-full rounded-full overflow-hidden border-2 border-black/20 glass-panel">
-                            <img src={quix.profiles?.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=fallback"} className="w-full h-full object-cover" />
-                        </div>
+                    <div className="w-11 h-11 rounded-full p-[2px] bg-gradient-to-tr from-[#ba9eff] to-[#53ddfc] relative z-30">
+                        <StoryAvatar 
+                            user={{ id: quix.user_id, username: quix.profiles?.username, full_name: quix.profiles?.full_name, avatar_url: quix.profiles?.avatar_url }}
+                            className="w-full h-full rounded-full object-cover border-2 border-black/20" 
+                        />
                     </div>
                     <div className="flex flex-col">
                         <div className="flex items-center space-x-1">
-                            <Link href={`/profile/${quix.profiles?.username}`} className="font-headline font-extrabold text-base tracking-tight text-white neon-text-glow hover:underline hover:text-[#ba9eff]">@{quix.profiles?.username || 'user'}</Link>
+                            <Link href={`/profile/${quix.user_id}`} className="font-headline font-extrabold text-base tracking-tight text-white neon-text-glow hover:underline hover:text-[#ba9eff]">@{quix.profiles?.username || 'user'}</Link>
                         </div>
                         <span className="text-[10px] text-white/60 font-medium uppercase tracking-widest">{user?.id !== quix.user_id && !isFollowing ? 'New Creator' : 'Following'}</span>
                     </div>

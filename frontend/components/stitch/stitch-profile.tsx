@@ -4,8 +4,10 @@ import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams, useRouter, useParams } from "next/navigation";
+import { PostCard } from "@/components/feed/post-card";
+import { usePathname, useParams, useRouter } from "next/navigation";
 import { getProfileByUsername, getUserStats } from "@/lib/actions/profile";
+import { StoryAvatar } from "@/components/ui/story-avatar";
 
 export function StitchProfileContent() {
     const { user: authUser, supabase } = useAuth();
@@ -150,8 +152,11 @@ export function StitchProfileContent() {
                         {/* Large Circular DP */}
                         <div className="relative group shrink-0">
                             <div className="absolute -inset-1 bg-gradient-to-r from-[#ba9eff] to-[#53ddfc] rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
-                            <div className="relative w-40 h-40 md:w-48 md:h-48 rounded-full p-[2px] bg-white/10">
-                                <img src={profile.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=fallback"} className="w-full h-full rounded-full object-cover border-4 border-[#0c0e12]" />
+                            <div className="relative w-40 h-40 md:w-48 md:h-48 rounded-full p-[2px] bg-white/10 z-10">
+                                <StoryAvatar 
+                                    user={{ id: profile.id, username: profile.username, full_name: profile.full_name, avatar_url: profile.avatar_url }}
+                                    className="w-full h-full rounded-full object-cover border-4 border-[#0c0e12]" 
+                                />
                             </div>
                         </div>
 
