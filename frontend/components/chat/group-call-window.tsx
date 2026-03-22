@@ -254,6 +254,18 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
                 }, 100);
             };
 
+            pc.oniceconnectionstatechange = () => {
+                const state = pc.iceConnectionState;
+                console.log(`[GroupWebRTC] ICE State for ${remoteId}:`, state);
+                if (state === 'failed' || state === 'disconnected') {
+                    console.error(`[GroupWebRTC] Connection failed to ${remoteId} (Likely Strict NAT blocking P2P mapping without TURN).`);
+                    pc.close();
+                    peerConnectionsRef.current.delete(remoteId);
+                    setParticipants(prev => prev.filter(p => p.id !== remoteId));
+                    toast.error("Participant connection lost (Network Firewall/NAT blocked).");
+                }
+            };
+
             peerConnectionsRef.current.set(remoteId, pc);
             return pc;
         };

@@ -299,8 +299,8 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                     }
                 }
                 
-                setConnectionStatus("connected");
-
+                // NOTE: We DO NOT set connectionStatus to 'connected' here! 
+                // onTrack fires synchronously when SDP is processed, NOT when packets actually flow!
                 // Safely trigger playback after state has settled
                 setTimeout(() => {
                     if (remoteVideoRef.current && remoteVideoRef.current.paused) {
@@ -310,6 +310,19 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                         remoteAudioRef.current.play().catch(e => console.warn("[VideoCall] Audio play blocked:", e));
                     }
                 }, 500);
+            };
+
+            peerConnection.current.oniceconnectionstatechange = () => {
+                const state = peerConnection.current?.iceConnectionState;
+                console.log("[WebRTC] ICE State:", state);
+                if (state === 'connected' || state === 'completed') {
+                    setConnectionStatus("connected");
+                } else if (state === 'failed' || state === 'disconnected') {
+                    console.error("[WebRTC] Connection failed (Likely Strict NAT blocking P2P mapping without TURN).");
+                    toast.error("Call failed to connect (Network Firewall/NAT blocked).");
+                    setConnectionStatus("disconnected");
+                    handleEndCall(false);
+                }
             };
 
             peerConnection.current.onicecandidate = (event) => {
