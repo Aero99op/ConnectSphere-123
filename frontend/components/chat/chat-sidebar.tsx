@@ -40,7 +40,7 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
             let senderEcdh = msg.sender?.ecdh_public_key;
 
             if (!senderEcdsa || !senderEcdh) {
-                const { data } = await supabase.from('profiles').select('ecdsa_public_key, ecdh_public_key').eq('id', msg.sender_id).single();
+                const { data } = await supabase.from('profiles').select('ecdsa_public_key, ecdh_public_key, username, full_name, avatar_url').eq('id', msg.sender_id).single();
                 if (data) {
                     senderEcdsa = data.ecdsa_public_key;
                     senderEcdh = data.ecdh_public_key;

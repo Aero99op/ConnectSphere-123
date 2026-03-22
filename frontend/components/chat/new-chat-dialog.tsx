@@ -29,7 +29,7 @@ export function NewChatDialog({ onClose, onCreateGroup, onChatStart, currentUser
 
         const { data } = await supabase
             .from('profiles')
-            .select('id, username, full_name, avatar_url')
+            .select('id, username, full_name, avatar_url, ecdsa_public_key, ecdh_public_key')
             .neq('id', currentUserId)
             .limit(100);
 

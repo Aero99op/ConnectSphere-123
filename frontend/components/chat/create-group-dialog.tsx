@@ -38,7 +38,7 @@ export function CreateGroupDialog({ onClose, onGroupCreated }: CreateGroupDialog
 
         const { data } = await supabase
             .from('profiles')
-            .select('id, username, full_name, avatar_url')
+            .select('id, username, full_name, avatar_url, ecdsa_public_key, ecdh_public_key')
             .neq('id', authUser.id)
             .limit(100);
 

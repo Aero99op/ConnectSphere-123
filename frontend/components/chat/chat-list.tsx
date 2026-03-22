@@ -77,8 +77,8 @@ export function ChatList() {
                 group_name,
                 group_avatar,
                 updated_at,
-                user1:profiles!user1_id(id, full_name, username, avatar_url, last_seen, is_online, hide_online_status, ghost_mode_until),
-                user2:profiles!user2_id(id, full_name, username, avatar_url, last_seen, is_online, hide_online_status, ghost_mode_until)
+                user1:profiles!user1_id(id, full_name, username, avatar_url, last_seen, is_online, hide_online_status, ghost_mode_until, ecdsa_public_key, ecdh_public_key),
+                user2:profiles!user2_id(id, full_name, username, avatar_url, last_seen, is_online, hide_online_status, ghost_mode_until, ecdsa_public_key, ecdh_public_key)
             `)
             .order("updated_at", { ascending: false });
 

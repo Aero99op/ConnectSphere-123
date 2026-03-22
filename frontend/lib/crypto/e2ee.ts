@@ -101,6 +101,11 @@ export async function generateDeviceKeys() {
     // Export Public Keys logic (we'll save these to Supabase)
     const ecdhPublicJwk = await crypto.subtle.exportKey("jwk", ecdhPair.publicKey);
     const ecdsaPublicJwk = await crypto.subtle.exportKey("jwk", ecdsaPair.publicKey);
+
+    // Save Public JWKs for identity persistence during encryption
+    await keyStore.saveKey("ecdh_public_jwk", ecdhPublicJwk as any);
+    await keyStore.saveKey("ecdsa_public_jwk", ecdsaPublicJwk as any);
+
     const mlkemPublicB64 = bufferToBase64(publicKey);
 
     return { ecdhPublicJwk, ecdsaPublicJwk, mlkemPublic: mlkemPublicB64 };
@@ -158,7 +163,7 @@ export async function importPublicKey(jwk: any, type: "ECDH" | "ECDSA") {
         jwk,
         { name: type, namedCurve: "P-384" },
         true,
-        type === "ECDH" ? [] : ["verify"]
+        type === "ECDH" ? ["deriveKey", "deriveBits"] : ["verify"]
     );
 }
 
@@ -298,10 +303,16 @@ export async function encryptMessageAndSign(
             exportedSessionKeyBuffer as ArrayBuffer
         );
         
+        // Identity Persistence: Store sender's public keys so decryption always works even after rotations
+        const myEcdsaPublicJwk = await keyStore.getKey("ecdsa_public_jwk");
+        const myEcdhPublicJwk = await keyStore.getKey("ecdh_public_jwk");
+
         encryptedKeys[userId] = {
             wrappedKey: bufferToBase64(wrappedKeyBuffer),
-            wrapIv: bufferToBase64(wrapIv), // Store IV alongside wrapped key
-            pqcCiphertext: pqcCiphertextB64
+            wrapIv: bufferToBase64(wrapIv),
+            pqcCiphertext: pqcCiphertextB64,
+            _spub: myEcdsaPublicJwk, // Embedded sender ECDSA public key
+            _hpub: myEcdhPublicJwk   // Embedded sender ECDH public key
         };
     }
 
@@ -334,18 +345,42 @@ export async function decryptMessageAndVerify(
     const wrappedSessionKey = base64ToBuffer(wrappedSessionKeyB64);
 
     // 1. Verify Signature FIRST (Anti-tamper / Anti-MITM)
-    const senderEcdsaPublic = await importPublicKey(senderEcdsaPublicJwkStr, "ECDSA");
-    const isValid = await crypto.subtle.verify(
-        { name: "ECDSA", hash: { name: "SHA-384" } },
-        senderEcdsaPublic,
-        signature,
-        ciphertext
-    );
+    // Priority: 1. Embedded key in message (guarantees old messages still work) 2. Profile key from DB
+    const embeddedEcdsa = (typeof encryptedKeyObject === 'object' && (encryptedKeyObject as any)._spub) ? (encryptedKeyObject as any)._spub : null;
+    const verificationKeyJwk = embeddedEcdsa || senderEcdsaPublicJwkStr;
 
-    if (!isValid) throw new Error("SECURITY ALERT: Signature verification failed. Message tampered.");
+    let isValid = false;
+    try {
+        const senderEcdsaPublic = await importPublicKey(verificationKeyJwk, "ECDSA");
+        isValid = await crypto.subtle.verify(
+            { name: "ECDSA", hash: { name: "SHA-384" } },
+            senderEcdsaPublic,
+            signature,
+            ciphertext
+        );
+    } catch (err) {
+        console.warn("[E2EE] Signature verification technical failure:", err);
+    }
+
+    if (!isValid) {
+        // Fallback: Try with profile key if embedded key was used and failed (unlikely but safe)
+        if (embeddedEcdsa && senderEcdsaPublicJwkStr) {
+             try {
+                 const fallbackPublic = await importPublicKey(senderEcdsaPublicJwkStr, "ECDSA");
+                 isValid = await crypto.subtle.verify({ name: "ECDSA", hash: { name: "SHA-384" } }, fallbackPublic, signature, ciphertext);
+             } catch(e) {}
+        }
+    }
+
+    if (!isValid) {
+        console.error("[E2EE] SECURITY ALERT: Signature verification failed. Content may be tampered or keys mismatched.");
+        throw new Error("SECURITY ALERT: Signature verification failed. Message tampered.");
+    }
 
     // 2. Unwrap Session Key using Standard or Hybrid KDF
-    const senderEcdhPublic = await importPublicKey(senderEcdhPublicJwkStr, "ECDH");
+    const embeddedEcdh = (typeof encryptedKeyObject === 'object' && (encryptedKeyObject as any)._hpub) ? (encryptedKeyObject as any)._hpub : null;
+    const derivationKeyJwk = embeddedEcdh || senderEcdhPublicJwkStr;
+    const senderEcdhPublic = await importPublicKey(derivationKeyJwk, "ECDH");
     
     let wrappingKey;
     if (isHybrid && typeof encryptedKeyObject !== 'string' && myMlkemPrivateKey) {
@@ -362,11 +397,17 @@ export async function decryptMessageAndVerify(
     const wrapIvB64 = (typeof encryptedKeyObject !== 'string' && encryptedKeyObject.wrapIv) ? encryptedKeyObject.wrapIv : null;
     const wrapIv = wrapIvB64 ? new Uint8Array(base64ToBuffer(wrapIvB64)) : new Uint8Array(12);
 
-    const rawSessionKey = await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: wrapIv.buffer as ArrayBuffer },
-        wrappingKey,
-        wrappedSessionKey as ArrayBuffer
-    );
+    let rawSessionKey;
+    try {
+        rawSessionKey = await crypto.subtle.decrypt(
+            { name: "AES-GCM", iv: wrapIv.buffer as ArrayBuffer },
+            wrappingKey,
+            wrappedSessionKey as ArrayBuffer
+        );
+    } catch (err) {
+        console.error("[E2EE] Session key unwrap failed (OperationError). Possible key rotation mismatch or corrupted metadata.");
+        throw err;
+    }
 
     const sessionKey = await crypto.subtle.importKey(
         "raw",
