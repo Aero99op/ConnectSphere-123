@@ -1,12 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Mic, MicOff, Video, VideoOff, PhoneOff, Phone, Maximize2, Minimize2 } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, PhoneOff, Sparkles, Maximize2, Minimize2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
 import { getApinatorClient } from "@/lib/apinator";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useArVideo } from "@/hooks/use-ar-video";
+import { ARFilterId } from "@/lib/ar/ar-engine";
+import { generateAllFilters, getFilterById } from "@/lib/ar/proc-ar-generator";
+import { ARCategory } from "@/lib/ar/filter-types";
 
 interface VideoCallWindowProps {
     roomId: string; // The chat conversation ID or unique call ID
@@ -54,6 +58,36 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
     const remoteAudioRef = useRef<HTMLAudioElement>(null);
     const peerConnection = useRef<RTCPeerConnection | null>(null);
     const localStream = useRef<MediaStream | null>(null);
+
+    // ── AR State ────────────────────────────────────────────────────────────
+    const [arEnabled, setArEnabled] = useState(false);
+    const [showArPanel, setShowArPanel] = useState(false);
+    const [activeCategory, setActiveCategory] = useState<ARCategory | 'all'>('all');
+    const [searchTerm, setSearchTerm] = useState("");
+    
+    // Memoize 1000+ filters to avoid re-gen on every render
+    const allFilters = useRef(generateAllFilters()).current;
+    
+    // Built-in special filters
+    const SPECIAL_FILTERS = [
+        { id: 'none', name: 'Off', emoji: '❌', category: 'special' },
+        { id: 'beauty', name: 'Beauty', emoji: '✨', category: 'special' },
+        { id: 'blur_bg', name: 'Blur BG', emoji: '🌫️', category: 'special' },
+    ];
+
+    const filteredList = (activeCategory === 'all' 
+        ? allFilters 
+        : allFilters.filter(f => f.category === activeCategory)
+    ).filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()) || f.emoji.includes(searchTerm));
+
+    const [rawStream, setRawStream] = useState<MediaStream | null>(null);
+    const { processedStream, activeFilter, setFilter } = useArVideo({
+        rawStream,
+        enabled: arEnabled && callType === 'video',
+    });
+    // Ref so startCall() (inside useEffect) always reads latest processedStream
+    const processedStreamRef = useRef<MediaStream | null>(null);
+    processedStreamRef.current = processedStream;
 
     // Gyro Parallax State
     const [gyro, setGyro] = useState({ x: 0, y: 0 });
@@ -130,6 +164,7 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                     return null;
                 }
                 localStream.current = stream;
+                setRawStream(stream); // Feed to AR engine
                 if (localVideoRef.current && callType === 'video') {
                     localVideoRef.current.srcObject = stream;
                 }
@@ -150,6 +185,7 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                         return null;
                     }
                     localStream.current = fallbackStream;
+                    setRawStream(fallbackStream); // Feed to AR engine
                     if (localVideoRef.current && callType === 'video') {
                         localVideoRef.current.srcObject = fallbackStream;
                     }
@@ -209,8 +245,10 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
             const iceConfig = await fetchIceServers();
             peerConnection.current = new RTCPeerConnection(iceConfig);
 
-            stream.getTracks().forEach((track) => {
-                peerConnection.current?.addTrack(track, stream);
+            // Use AR processed stream if available (via ref to avoid stale closure), otherwise raw stream
+            const streamToSend = processedStreamRef.current || stream;
+            streamToSend.getTracks().forEach((track) => {
+                peerConnection.current?.addTrack(track, streamToSend);
             });
 
             peerConnection.current.ontrack = (event) => {
@@ -545,16 +583,156 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                             <span className="text-[10px] uppercase font-bold tracking-wider">Paused</span>
                         </div>
                     )}
+                    {/* AR active indicator on PiP */}
+                    {arEnabled && activeFilter !== 'none' && (
+                        <div className="absolute top-1 left-1 bg-purple-600/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                            <span>{(getFilterById(activeFilter) || SPECIAL_FILTERS.find(f => f.id === activeFilter))?.emoji}</span>
+                            <span>AR</span>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* AR Filter Panel (Snapchat-style mega browser) */}
+            {!isMinimized && showArPanel && callType === 'video' && (
+                <div className="absolute bottom-40 left-0 w-full z-40 px-4 animate-in slide-in-from-bottom-10 fade-in duration-300">
+                    <div className="relative bg-black/80 backdrop-blur-3xl rounded-[2.5rem] p-5 border border-white/10 shadow-[0_32px_64px_rgba(0,0,0,0.5)] max-h-[60vh] flex flex-col">
+                        {/* Panel Header */}
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <Sparkles className="w-5 h-5 text-purple-400" />
+                                <span className="text-white font-bold text-lg tracking-tight">AR Universe <span className="text-xs font-normal text-white/40 ml-1">1000+ Filters</span></span>
+                            </div>
+                            <button
+                                onClick={() => setShowArPanel(false)}
+                                className="text-white/40 hover:text-white p-2 rounded-full hover:bg-white/10 transition-all"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Search Bar */}
+                        <div className="mb-4 relative">
+                            <input 
+                                type="text"
+                                placeholder="Search filters... (e.g. fire, 💎)"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
+                            />
+                        </div>
+
+                        {/* Categories Bar */}
+                        <div className="flex gap-2 overflow-x-auto pb-3 mb-2 scrollbar-hide no-scrollbar">
+                            {(['all', 'headwear', 'eyewear', 'facial', 'environment', 'distort', 'legendary'] as const).map(cat => (
+                                <button
+                                    key={cat}
+                                    onClick={() => setActiveCategory(cat)}
+                                    className={cn(
+                                        "px-4 py-1.5 rounded-full text-xs font-bold capitalize whitespace-nowrap transition-all border",
+                                        activeCategory === cat 
+                                            ? "bg-white text-black border-white shadow-lg" 
+                                            : "bg-white/5 text-white/60 border-white/5 hover:bg-white/10"
+                                    )}
+                                >
+                                    {cat}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Filter Grid (Scrollable) */}
+                        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-3 overflow-y-auto pr-1 pb-4 flex-1 scroll-smooth no-scrollbar">
+                            {/* Show Special / Built-in first if in 'all' or no search */}
+                            {(activeCategory === 'all' && !searchTerm) && SPECIAL_FILTERS.map((filter) => (
+                                <button
+                                    key={filter.id}
+                                    onClick={() => {
+                                        setFilter(filter.id);
+                                        if (filter.id !== 'none') setArEnabled(true);
+                                    }}
+                                    className={cn(
+                                        "aspect-square flex flex-col items-center justify-center gap-1.5 rounded-2xl transition-all duration-300 border",
+                                        activeFilter === filter.id && arEnabled
+                                            ? "bg-purple-600 border-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.4)] scale-105"
+                                            : "bg-white/5 border-white/5 hover:bg-white/10"
+                                    )}
+                                >
+                                    <span className="text-2xl">{filter.emoji}</span>
+                                    <span className="text-[9px] font-bold text-white/70 uppercase tracking-tighter">{filter.name}</span>
+                                </button>
+                            ))}
+
+                            {/* Procedural Filters */}
+                            {filteredList.map((filter) => (
+                                <button
+                                    key={filter.id}
+                                    onClick={() => {
+                                        setFilter(filter.id);
+                                        setArEnabled(true);
+                                    }}
+                                    className={cn(
+                                        "aspect-square flex flex-col items-center justify-center gap-1.5 rounded-2xl transition-all duration-300 border",
+                                        activeFilter === filter.id && arEnabled
+                                            ? "bg-purple-600 border-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.4)] scale-105 z-10"
+                                            : "bg-white/5 border-white/5 hover:bg-white/10 group"
+                                    )}
+                                >
+                                    <span className="text-2xl group-hover:scale-125 transition-transform duration-300">{filter.emoji}</span>
+                                    <span className="text-[8px] font-medium text-white/40 group-hover:text-white/80 transition-colors uppercase tracking-widest overflow-hidden text-ellipsis w-full text-center px-1">
+                                        #{filter.id.split('-')[1]}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Footer Controls */}
+                        <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/10">
+                            <div className="flex flex-col">
+                                <span className="text-white font-bold text-xs">AR Status</span>
+                                <span className="text-[10px] text-white/40">{arEnabled ? 'Core & GPU Active' : 'Physics Suspended'}</span>
+                            </div>
+                            <button
+                                onClick={() => setArEnabled(!arEnabled)}
+                                className={cn(
+                                    "relative w-12 h-6 rounded-full transition-all duration-500 p-1",
+                                    arEnabled ? "bg-purple-500 shadow-[0_0_12px_rgba(168,85,247,0.5)]" : "bg-white/10"
+                                )}
+                            >
+                                <div className={cn(
+                                    "w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                                    arEnabled ? "translate-x-6" : "translate-x-0"
+                                )} />
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 
             {/* Controls Platform */}
             {!isMinimized && (
                 <div className="absolute bottom-0 left-0 w-full h-40 bg-gradient-to-t from-black via-black/80 to-transparent flex items-end justify-center pb-10 z-30">
-                    <div className="flex items-center gap-6 px-8 py-4 bg-[#202c33]/80 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-white/5">
+                    <div className="flex items-center gap-4 px-6 py-4 bg-[#202c33]/80 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-white/5">
                         {callType === 'video' && (
                             <button onClick={toggleVideo} className={cn("p-4 rounded-full transition-all active:scale-90", isVideoOff ? "bg-white text-black" : "bg-[#38464d] text-white hover:bg-[#4a5a63]")}>
                                 {isVideoOff ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}
+                            </button>
+                        )}
+
+                        {/* AR Filter Button - only on video calls */}
+                        {callType === 'video' && (
+                            <button
+                                onClick={() => setShowArPanel(!showArPanel)}
+                                className={cn(
+                                    "p-4 rounded-full transition-all active:scale-90 relative",
+                                    showArPanel || (arEnabled && activeFilter !== 'none')
+                                        ? "bg-purple-600 text-white shadow-[0_0_20px_rgba(168,85,247,0.6)]"
+                                        : "bg-[#38464d] text-white hover:bg-[#4a5a63]"
+                                )}
+                            >
+                                <Sparkles className="w-6 h-6" />
+                                {arEnabled && activeFilter !== 'none' && (
+                                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-purple-400 rounded-full animate-pulse" />
+                                )}
                             </button>
                         )}
 
