@@ -25,25 +25,56 @@ export interface ARFilter {
 
 // ─── MediaPipe Dynamic Loader ─────────────────────────────────────────────────
 let faceLandmarker: any = null;
-let mediaPipeLoading: Promise<any> | null = null;
+let isLoaderActive: boolean = false;
 
 async function loadMediaPipe(): Promise<any> {
   if (faceLandmarker) return faceLandmarker;
-  if (mediaPipeLoading) return mediaPipeLoading;
+  
+  // Use a promise to prevent multiple concurrent loads
+  if (isLoaderActive) {
+    while (isLoaderActive) {
+      await new Promise(r => setTimeout(r, 100));
+      if (faceLandmarker) return faceLandmarker;
+    }
+    return faceLandmarker;
+  }
 
-  mediaPipeLoading = (async () => {
-    const { FaceLandmarker, FilesetResolver } = await import(
-      /* webpackIgnore: true */ 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/vision_bundle.js' as any
-    ) as any;
+  isLoaderActive = true;
+  try {
+    let FaceLandmarker: any;
+    let FilesetResolver: any;
+
+    try {
+      // @ts-ignore - Dynamic URL import
+      const mpVision = await import('https://esm.sh/@mediapipe/tasks-vision@0.10.3');
+      FaceLandmarker = mpVision.FaceLandmarker;
+      FilesetResolver = mpVision.FilesetResolver;
+    } catch (e) {
+      console.warn("[AREngine] ESM import failed, trying script tag fallback...", e);
+      // Fallback: If dynamic import fails, try to load via script tag
+      await new Promise((resolve, reject) => {
+        if ((window as any).FaceLandmarker) return resolve(true);
+        const script = document.createElement('script');
+        script.src = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.js";
+        script.onload = () => resolve(true);
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+      FaceLandmarker = (window as any).FaceLandmarker;
+      FilesetResolver = (window as any).FilesetResolver;
+    }
+
+    if (!FaceLandmarker || !FilesetResolver) {
+        throw new Error("MediaPipe components not found in window or module");
+    }
 
     const filesetResolver = await FilesetResolver.forVisionTasks(
-      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
     );
 
     faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
       baseOptions: {
-        modelAssetPath:
-          'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+        modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
         delegate: 'GPU',
       },
       runningMode: 'VIDEO',
@@ -53,9 +84,12 @@ async function loadMediaPipe(): Promise<any> {
     });
 
     return faceLandmarker;
-  })();
-
-  return mediaPipeLoading;
+  } catch (err) {
+    console.error("[AREngine] Could not load MediaPipe from ESM:", err);
+    throw err;
+  } finally {
+    isLoaderActive = false;
+  }
 }
 
 // ─── AR Engine Class ──────────────────────────────────────────────────────────
