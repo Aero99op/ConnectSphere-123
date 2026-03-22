@@ -8,6 +8,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { getApinatorClient } from "@/lib/apinator";
 import { syncPosts, syncStories, getLocalPosts, getLocalStories, saveLocalProfile, getLocalProfile } from "@/lib/offline-sync";
 import { formatDistanceToNow } from "date-fns";
+import { StitchPostCard } from "./stitch-post-card";
 
 export function StitchHomeFeedContent() {
     const { user: authUser, supabase } = useAuth();
@@ -178,7 +179,7 @@ export function StitchHomeFeedContent() {
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                         <span className="font-medium text-sm tracking-wide">Report</span>
                     </Link>
-                    <Link href="/settings" className="flex items-center gap-4 px-4 py-3 text-slate-500 hover:bg-white/5 hover:text-slate-200 transition-colors">
+                    <Link href={`/profile/${authUser?.id}`} className="flex items-center gap-4 px-4 py-3 text-slate-500 hover:bg-white/5 hover:text-slate-200 transition-colors">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                         <span className="font-medium text-sm tracking-wide">Profile</span>
                     </Link>
@@ -234,51 +235,7 @@ export function StitchHomeFeedContent() {
                     {loading ? (
                         <div className="flex justify-center p-10"><Loader2 className="w-8 h-8 animate-spin text-[#ba9eff]" /></div>
                     ) : posts.map(post => (
-                        <article key={post.id} className="glass-panel rounded-3xl overflow-hidden group hover:shadow-[0_20px_50px_rgba(132,85,239,0.1)] transition-all duration-500 border-[#46484c]">
-                            <div className="p-6 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full p-[1px] bg-gradient-to-r from-[#ba9eff] to-[#53ddfc]">
-                                        <img className="w-full h-full object-cover rounded-full" src={post.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=fallback"} />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-sm tracking-tight text-white">{post.display_name}</h4>
-                                        <p className="text-[10px] text-slate-500">@{post.username} • {formatDistanceToNow(new Date(post.created_at), {addSuffix: true})}</p>
-                                    </div>
-                                </div>
-                                <button className="text-slate-500 hover:text-white transition-colors">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
-                                </button>
-                            </div>
-                            {post.media_urls && post.media_urls.length > 0 && (
-                                <div className="relative aspect-square md:aspect-video w-full overflow-hidden">
-                                    {post.media_type === "video" ? (
-                                        <video src={post.media_urls[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" controls />
-                                    ) : (
-                                        <img src={post.media_urls[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" />
-                                    )}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
-                                </div>
-                            )}
-                            <div className="p-6">
-                                <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center gap-6">
-                                        <button className="flex items-center gap-2 group/btn">
-                                            <svg className="w-5 h-5 text-slate-400 group-hover/btn:text-[#ff86c3] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
-                                            <span className="text-xs font-semibold text-slate-400">{post.likes_count}</span>
-                                        </button>
-                                        <button className="flex items-center gap-2 group/btn">
-                                            <svg className="w-5 h-5 text-slate-400 group-hover/btn:text-[#53ddfc] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <p className="text-sm leading-relaxed text-slate-300 font-body">
-                                        <span className="text-white font-semibold mr-2">{post.username}</span>
-                                        {post.caption}
-                                    </p>
-                                </div>
-                            </div>
-                        </article>
+                        <StitchPostCard key={post.id} post={post} />
                     ))}
                 </div>
             </main>
@@ -289,7 +246,7 @@ export function StitchHomeFeedContent() {
                 <Link href="/search" className="text-slate-400 scale-95 active:scale-90 transition-transform"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg></Link>
                 <Link href="/create" className="w-10 h-10 bg-gradient-to-tr from-[#ba9eff] to-[#53ddfc] rounded-full flex items-center justify-center text-black shadow-lg shadow-[#ba9eff]/30 scale-110"><svg className="w-5 h-5 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg></Link>
                 <Link href="/report" className="text-slate-400 scale-95 active:scale-90 transition-transform"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg></Link>
-                <Link href="/settings" className="text-slate-400 scale-95 active:scale-90 transition-transform"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg></Link>
+                <Link href={`/profile/${authUser?.id}`} className="text-slate-400 scale-95 active:scale-90 transition-transform"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg></Link>
             </div>
         </div>
     );

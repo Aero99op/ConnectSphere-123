@@ -136,8 +136,8 @@ export function StitchProfileContent() {
             <div className="md:hidden fixed bottom-0 w-full h-16 bg-black/80 backdrop-blur-xl border-t border-white/10 flex justify-around items-center px-4 z-50">
                 <Link href="/" className="text-slate-400 scale-95 active:scale-90 transition-transform"><svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg></Link>
                 <Link href="/search" className="text-slate-400 scale-95 active:scale-90 transition-transform"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg></Link>
-                <Link href="/create" className="text-slate-400 scale-95 active:scale-90 transition-transform"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg></Link>
-                <Link href="/report" className="text-slate-400 scale-95 active:scale-90 transition-transform"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg></Link>
+                <Link href="/create" className="w-10 h-10 bg-gradient-to-tr from-[#ba9eff] to-[#53ddfc] rounded-full flex items-center justify-center text-black shadow-lg shadow-[#ba9eff]/30 scale-110"><svg className="w-5 h-5 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg></Link>
+                <Link href="/quix" className="text-slate-400 scale-95 active:scale-90 transition-transform"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></Link>
                 <Link href={`/profile/${authUser?.id}`} className="text-[#53ddfc] scale-105 active:scale-90 transition-transform"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg></Link>
             </div>
 
@@ -233,25 +233,27 @@ export function StitchProfileContent() {
                     ) : activeTab === 'posts' && posts.length > 0 ? (
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 lg:gap-8">
                             {posts.map(post => (
-                                <div key={post.id} className="aspect-square relative group cursor-pointer overflow-hidden rounded-xl border border-white/5 glow-primary bg-zinc-900">
-                                    {(post.media_urls && post.media_urls.length > 0) ? (
-                                        post.media_type === "video" ? (
-                                            <video src={post.media_urls[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                                <Link key={post.id} href={`/post/${post.id}`}>
+                                    <div className="aspect-square relative group cursor-pointer overflow-hidden rounded-xl border border-white/5 glow-primary bg-zinc-900">
+                                        {(post.media_urls && post.media_urls.length > 0) ? (
+                                            post.media_type === "video" ? (
+                                                <video src={post.media_urls[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                                            ) : (
+                                                <img src={post.media_urls[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                                            )
                                         ) : (
-                                            <img src={post.media_urls[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                                        )
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-zinc-900 p-4 font-body text-xs text-center text-zinc-400 group-hover:text-white transition-colors duration-500">
-                                            {post.caption}
-                                        </div>
-                                    )}
-                                    <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-[2px] flex flex-col items-center justify-center gap-2 lg:gap-6 pointer-events-none">
-                                        <div className="flex items-center gap-2 font-bold text-white">
-                                            <svg className="w-5 h-5 text-[#ff86c3]" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg> 
-                                            {post.likes_count || 0}
+                                            <div className="w-full h-full flex items-center justify-center bg-zinc-900 p-4 font-body text-xs text-center text-zinc-400 group-hover:text-white transition-colors duration-500">
+                                                {post.caption}
+                                            </div>
+                                        )}
+                                        <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-[2px] flex flex-col items-center justify-center gap-2 lg:gap-6 pointer-events-none">
+                                            <div className="flex items-center gap-2 font-bold text-white">
+                                                <svg className="w-5 h-5 text-[#ff86c3]" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg> 
+                                                {post.likes_count || 0}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                </Link>
                             ))}
                         </div>
                     ) : activeTab === 'quix' && quixList.length > 0 ? (

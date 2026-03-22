@@ -189,35 +189,37 @@ function StitchSearchContent() {
                         postResults.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {postResults.map((post) => (
-                                    <div key={post.id} className="glass-card rounded-2xl overflow-hidden group hover:border-[#ba9eff]/30 hover:bg-white/[0.08] transition-all duration-300">
-                                        <div className="aspect-video w-full overflow-hidden relative bg-zinc-900 flex items-center justify-center">
-                                            {post.media_urls && post.media_urls.length > 0 ? (
-                                                post.media_type === "video" ? (
-                                                    <video src={post.media_urls[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                                    <Link href={`/post/${post.id}`} key={post.id} className="block">
+                                        <div className="glass-card rounded-2xl overflow-hidden group hover:border-[#ba9eff]/30 hover:bg-white/[0.08] transition-all duration-300 h-full">
+                                            <div className="aspect-video w-full overflow-hidden relative bg-zinc-900 flex items-center justify-center">
+                                                {post.media_urls && post.media_urls.length > 0 ? (
+                                                    post.media_type === "video" ? (
+                                                        <video src={post.media_urls[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                                                    ) : (
+                                                        <img src={post.media_urls[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                                                    )
                                                 ) : (
-                                                    <img src={post.media_urls[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                                                )
-                                            ) : (
-                                                <div className="w-full h-full p-4 flex items-center justify-center text-center text-xs text-white/50 bg-gradient-to-br from-zinc-800 to-black group-hover:scale-110 transition-transform duration-700">
-                                                    Text Post
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="p-5">
-                                            <div className="flex items-center gap-3 mb-3">
-                                                <img src={post.profiles?.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=fallback"} className="w-6 h-6 rounded-full object-cover border border-white/20" />
-                                                <span className="text-xs font-bold text-slate-300 truncate">@{post.profiles?.username}</span>
+                                                    <div className="w-full h-full p-4 flex items-center justify-center text-center text-xs text-white/50 bg-gradient-to-br from-zinc-800 to-black group-hover:scale-110 transition-transform duration-700">
+                                                        Text Post
+                                                    </div>
+                                                )}
                                             </div>
-                                            <p className="text-sm text-slate-400 font-body line-clamp-2">{post.caption || "No caption provided."}</p>
-                                            <div className="mt-4 pt-4 border-t border-white/5 flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                                <div className="flex gap-4">
-                                                    <span className="flex items-center gap-1"><Heart className="w-3.5 h-3.5" /> {formatCount(post.likes_count || 0)}</span>
-                                                    <span className="flex items-center gap-1"><MessageCircle className="w-3.5 h-3.5" /> {formatCount(post.comments_count || 0)}</span>
+                                            <div className="p-5">
+                                                <div className="flex items-center gap-3 mb-3">
+                                                    <img src={post.profiles?.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=fallback"} className="w-6 h-6 rounded-full object-cover border border-white/20" />
+                                                    <span className="text-xs font-bold text-slate-300 truncate">@{post.profiles?.username}</span>
                                                 </div>
-                                                <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                                                <p className="text-sm text-slate-400 font-body line-clamp-2">{post.caption || "No caption provided."}</p>
+                                                <div className="mt-4 pt-4 border-t border-white/5 flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                                    <div className="flex gap-4">
+                                                        <span className="flex items-center gap-1"><Heart className="w-3.5 h-3.5" /> {formatCount(post.likes_count || 0)}</span>
+                                                        <span className="flex items-center gap-1"><MessageCircle className="w-3.5 h-3.5" /> {formatCount(post.comments_count || 0)}</span>
+                                                    </div>
+                                                    <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    </Link>
                                 ))}
                             </div>
                         ) : query.length > 0 && !loading ? (
@@ -233,7 +235,7 @@ function StitchSearchContent() {
             <nav className="md:hidden fixed bottom-0 left-0 w-full bg-black/90 backdrop-blur-xl border-t border-white/5 flex justify-around items-center h-16 px-4 z-50">
                 <Link href="/" className="text-slate-400 scale-95 active:scale-90 transition-transform"><svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/></svg></Link>
                 <Link href="/search" className="text-[#53ddfc] scale-105 transition-transform"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></Link>
-                <Link href="/create" className="text-slate-400 scale-95 active:scale-90 transition-transform"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg></Link>
+                <Link href="/create" className="w-10 h-10 bg-gradient-to-tr from-[#ba9eff] to-[#53ddfc] rounded-full flex items-center justify-center text-black shadow-lg shadow-[#ba9eff]/30 scale-110"><svg className="w-5 h-5 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg></Link>
                 <Link href="/quix" className="text-slate-400 scale-95 active:scale-90 transition-transform"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></Link>
                 <Link href={`/profile/${user?.id}`} className="text-slate-400 scale-95 active:scale-90 transition-transform"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></Link>
             </nav>

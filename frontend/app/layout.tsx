@@ -15,6 +15,7 @@ import { PresenceProvider } from '@/components/providers/presence-provider'
 import { PWAProvider } from '@/components/providers/pwa-provider'
 import { ThemeProvider } from '@/components/providers/theme-provider'
 import { StitchProvider } from '@/components/providers/stitch-provider'
+import { MainContainer } from '@/components/layout/main-container'
 import React from 'react'
 
 const interfaceFont = Inter({ subsets: ['latin'], variable: '--font-inter' })
@@ -116,12 +117,10 @@ export default function RootLayout({
                                             {/* Video Call Manager (Global Listener) */}
                                             <CallManager />
 
-                                            {/* Main Content - Full Width & Centered */}
-                                            <main className="w-full h-full overflow-y-auto pb-24 transition-all duration-300">
-                                                <div className="mx-auto w-full h-full max-w-5xl">
-                                                    {children}
-                                                </div>
-                                            </main>
+                                            {/* Main Content - Dynamic Constrained & Full Width */}
+                                            <MainContainer>
+                                                {children}
+                                            </MainContainer>
 
                                             {/* Navigation Dock - Now a fixed footer managed internally by BottomNav */}
                                             <BottomNav />

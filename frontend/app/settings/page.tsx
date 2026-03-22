@@ -25,6 +25,8 @@ import {
 
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
+import { StitchSettings } from "@/components/stitch/stitch-settings";
+import { useStitchMode } from "@/components/providers/stitch-provider";
 
 export default function SettingsPage() {
     const { signOut } = useAuth();
@@ -32,6 +34,7 @@ export default function SettingsPage() {
     const router = useRouter();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const { theme } = useTheme();
+    const { isStitchMode } = useStitchMode();
 
     const handleLogout = async () => {
         setIsLoggingOut(true);
@@ -86,6 +89,10 @@ export default function SettingsPage() {
             ]
         }
     ];
+
+    if (isStitchMode) {
+        return <StitchSettings />;
+    }
 
     return (
         <div className={cn(
