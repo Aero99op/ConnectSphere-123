@@ -236,32 +236,20 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
             };
 
             pc.ontrack = (event) => {
-                const stream = event.streams[0] || new MediaStream([event.track]);
+                const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
                 
                 setParticipants(prev => {
                     const existing = prev.find(p => p.id === remoteId);
                     if (existing) {
-                        const existingStream = existing.stream;
-                        if (!existingStream) {
-                            return prev.map(p => p.id === remoteId ? { ...p, stream } : p);
-                        } else if (existingStream !== stream && !existingStream.getTracks().includes(event.track)) {
-                            existingStream.addTrack(event.track);
-                        }
-                        return prev;
+                        return prev.map(p => p.id === remoteId ? { ...p, stream } : p);
                     }
                     return prev;
                 });
 
                 setTimeout(() => {
                     const videoEl = remoteVideoRefs.current.get(remoteId);
-                    if (videoEl) {
-                        if (videoEl.srcObject !== stream) {
-                            videoEl.srcObject = stream;
-                        } else {
-                            // Re-assign explicitly to force new track to render via browser pipeline
-                            videoEl.srcObject = null;
-                            videoEl.srcObject = stream;
-                        }
+                    if (videoEl && videoEl.srcObject !== stream) {
+                        videoEl.srcObject = stream;
                     }
                 }, 100);
             };
@@ -420,11 +408,19 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
                             <div key={p.id} className="relative rounded-2xl overflow-hidden bg-[#1c1c1e] ring-1 ring-white/10 flex items-center justify-center min-h-[150px]">
                                 {callType === 'video' ? (
                                     <>
+                                        {/* Muted to bypass browser autoplay restrctions */}
                                         <video
                                             ref={el => { if (el) remoteVideoRefs.current.set(p.id, el); }}
                                             autoPlay
                                             playsInline
+                                            muted 
                                             className="w-full h-full object-cover"
+                                        />
+                                        <audio
+                                            ref={el => { if (el) { el.srcObject = p.stream; } }}
+                                            autoPlay
+                                            playsInline
+                                            className="hidden"
                                         />
                                         {/* Fallback if stream hasn't loaded video yet */}
                                         {!p.stream && (

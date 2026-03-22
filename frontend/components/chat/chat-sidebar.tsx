@@ -157,7 +157,7 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
                     .eq("conversation_id", conv.id)
                     .order("created_at", { ascending: false })
                     .limit(1)
-                    .single();
+                    .maybeSingle();
 
                 let decryptedLastMsg = lastMsg;
                 if (lastMsg) {

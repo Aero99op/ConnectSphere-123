@@ -287,27 +287,29 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
             });
 
             peerConnection.current.ontrack = (event) => {
-                const isVideo = callType === 'video';
-                const mediaElement = isVideo ? remoteVideoRef.current : remoteAudioRef.current;
+                const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
                 
-                if (mediaElement) {
-                    const stream = event.streams[0] || new MediaStream([event.track]);
-                    
-                    if (mediaElement.srcObject !== stream) {
-                        mediaElement.srcObject = stream;
-                    } else {
-                        // Force refresh trick: browser often ignores tracks added to an already active playing MediaStream unless reattached.
-                        mediaElement.srcObject = null;
-                        mediaElement.srcObject = stream;
+                if (event.track.kind === 'video' && remoteVideoRef.current) {
+                    if (remoteVideoRef.current.srcObject !== stream) {
+                        remoteVideoRef.current.srcObject = stream;
                     }
-                    
-                    // Explicitly nudge play to bypass browser autoplay blocks
-                    if (mediaElement instanceof HTMLVideoElement || mediaElement instanceof HTMLAudioElement) {
-                        mediaElement.play().catch(e => console.warn("[VideoCall] Audio/Video play blocked:", e));
+                } else if (event.track.kind === 'audio' && remoteAudioRef.current) {
+                    if (remoteAudioRef.current.srcObject !== stream) {
+                        remoteAudioRef.current.srcObject = stream;
                     }
-                    
-                    setConnectionStatus("connected");
                 }
+                
+                setConnectionStatus("connected");
+
+                // Safely trigger playback after state has settled
+                setTimeout(() => {
+                    if (remoteVideoRef.current && remoteVideoRef.current.paused) {
+                        remoteVideoRef.current.play().catch(e => console.warn("[VideoCall] Video play blocked:", e));
+                    }
+                    if (remoteAudioRef.current && remoteAudioRef.current.paused) {
+                        remoteAudioRef.current.play().catch(e => console.warn("[VideoCall] Audio play blocked:", e));
+                    }
+                }, 500);
             };
 
             peerConnection.current.onicecandidate = (event) => {
@@ -572,15 +574,7 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
 
             {/* Remote Video/Audio Context (Main) */}
             <div className="relative w-full h-full flex items-center justify-center overflow-hidden z-10 perspective-1000">
-                {/* Audio Element for Voice Calls (Hidden but crucial for playback) */}
-                <audio
-                    ref={remoteAudioRef}
-                    autoPlay
-                    playsInline
-                    className={cn(callType === 'video' ? 'hidden' : '')}
-                />
-
-                {/* Video Element for Video Calls */}
+                {/* Video Element for Video Calls (ALWAYS MUTED to bypass strict Mobile Safari/Chrome autoPlay constraints) */}
                 {callType === 'video' && (
                     <video
                         ref={remoteVideoRef}
