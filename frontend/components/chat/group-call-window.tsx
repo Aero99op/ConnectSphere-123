@@ -163,7 +163,7 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
                 channel.bind('webrtc-signal', async (rawData: any) => {
                     handleSignal(typeof rawData === 'string' ? JSON.parse(rawData) : rawData);
                 });
-                
+
                 channel.bind('webrtc-signal-chunk', async (data: any) => {
                     const payload = typeof data === 'string' ? JSON.parse(data) : data;
                     processChunk(payload, handleSignal);
@@ -237,7 +237,7 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
 
             pc.ontrack = (event) => {
                 const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
-                
+
                 setParticipants(prev => {
                     const existing = prev.find(p => p.id === remoteId);
                     if (existing) {
@@ -425,7 +425,7 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
                                             ref={el => { if (el) remoteVideoRefs.current.set(p.id, el); }}
                                             autoPlay
                                             playsInline
-                                            muted 
+                                            muted
                                             className="w-full h-full object-cover"
                                         />
                                         <audio

@@ -64,10 +64,10 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
     const [showArPanel, setShowArPanel] = useState(false);
     const [activeCategory, setActiveCategory] = useState<ARCategory | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState("");
-    
+
     // Memoize 1000+ filters to avoid re-gen on every render
     const allFilters = useRef(generateAllFilters()).current;
-    
+
     // Built-in special filters
     const SPECIAL_FILTERS = [
         { id: 'none', name: 'Off', emoji: '❌', category: 'special' },
@@ -75,8 +75,8 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
         { id: 'blur_bg', name: 'Blur BG', emoji: '🌫️', category: 'special' },
     ];
 
-    const filteredList = (activeCategory === 'all' 
-        ? allFilters 
+    const filteredList = (activeCategory === 'all'
+        ? allFilters
         : allFilters.filter(f => f.category === activeCategory)
     ).filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()) || f.emoji.includes(searchTerm));
 
@@ -239,7 +239,7 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                 }).catch(console.error);
                 return;
             }
-            
+
             // Bypass Apinator 10KB limit with chunking
             const numChunks = Math.ceil(str.length / 8000);
             const chunkId = Math.random().toString(36).substring(7);
@@ -288,7 +288,7 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
 
             peerConnection.current.ontrack = (event) => {
                 const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
-                
+
                 if (event.track.kind === 'video' && remoteVideoRef.current) {
                     if (remoteVideoRef.current.srcObject !== stream) {
                         remoteVideoRef.current.srcObject = stream;
@@ -298,7 +298,7 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                         remoteAudioRef.current.srcObject = stream;
                     }
                 }
-                
+
                 // NOTE: We DO NOT set connectionStatus to 'connected' here! 
                 // onTrack fires synchronously when SDP is processed, NOT when packets actually flow!
                 // Safely trigger playback after state has settled
@@ -333,15 +333,20 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
 
             // Listen for signaling events from Apinator
             channel.bind('receiver-ready', async () => {
-                if (!isIncoming && peerConnection.current && !hasCreatedOffer) {
-                    try {
-                        hasCreatedOffer = true;
-                        const offer = await peerConnection.current.createOffer();
-                        await peerConnection.current.setLocalDescription(offer);
-                        sendSignal('call-offer', { offer });
-                    } catch (err) {
-                        console.error("Error creating offer:", err);
-                        hasCreatedOffer = false;
+                if (!isIncoming && peerConnection.current) {
+                    if (peerConnection.current.signalingState === 'stable' && !hasCreatedOffer) {
+                        try {
+                            hasCreatedOffer = true;
+                            const offer = await peerConnection.current.createOffer();
+                            await peerConnection.current.setLocalDescription(offer);
+                            sendSignal('call-offer', { offer });
+                        } catch (err) {
+                            console.error("Error creating offer:", err);
+                            hasCreatedOffer = false;
+                        }
+                    } else if (peerConnection.current.signalingState === 'have-local-offer') {
+                        // Resend the offer in case it was lost in apinator abyss
+                        sendSignal('call-offer', { offer: peerConnection.current.localDescription });
                     }
                 }
             });
@@ -435,6 +440,10 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
             channel.bind('caller-ready', async () => {
                 if (isIncoming) {
                     sendSignal('receiver-ready', {});
+                    if (peerConnection.current && peerConnection.current.signalingState === 'stable' && isRemoteDescriptionSet) {
+                         // Resend the answer in case it was lost
+                         sendSignal('call-answer', { answer: peerConnection.current.localDescription });
+                    }
                 }
             });
 
@@ -598,6 +607,9 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                     />
                 )}
 
+                {/* Audio Element for both Video and Voice calls */}
+                <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
+
                 {/* If Audio Call or Connecting, show Avatar UI */}
                 {(callType === 'audio' || connectionStatus === 'connecting') && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#111b21]/95 backdrop-blur-xl z-10 transition-all duration-500">
@@ -677,7 +689,7 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
 
                         {/* Search Bar */}
                         <div className="mb-4 relative">
-                            <input 
+                            <input
                                 type="text"
                                 placeholder="Search filters... (e.g. fire, 💎)"
                                 value={searchTerm}
@@ -694,8 +706,8 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                                     onClick={() => setActiveCategory(cat)}
                                     className={cn(
                                         "px-4 py-1.5 rounded-full text-xs font-bold capitalize whitespace-nowrap transition-all border",
-                                        activeCategory === cat 
-                                            ? "bg-white text-black border-white shadow-lg" 
+                                        activeCategory === cat
+                                            ? "bg-white text-black border-white shadow-lg"
                                             : "bg-white/5 text-white/60 border-white/5 hover:bg-white/10"
                                     )}
                                 >

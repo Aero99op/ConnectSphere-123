@@ -257,7 +257,7 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
             .from("messages")
             .select(`
                 *,
-                sender:profiles!sender_id(username, full_name, avatar_url),
+                sender:profiles!sender_id(username, full_name, avatar_url, ecdh_public_key, ecdsa_public_key),
                 post:posts(*),
                 story:stories(*)
             `)
