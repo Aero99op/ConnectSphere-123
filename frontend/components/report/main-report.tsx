@@ -154,7 +154,14 @@ function MainReportContent() {
             }).catch(e => console.error("Apinator trigger failed", e));
 
             toast.success("Report Submitted! Authorities notified.");
-            router.push('/profile');
+            // Reset form
+            setType("");
+            setDescription("");
+            setAddress("");
+            setLocation(null);
+            setFiles([]);
+            setPreviewUrls([]);
+            setUploadedMediaUrls([]);
 
         } catch (e) {
             console.error(e);
