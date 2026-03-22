@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { ChevronLeft, Moon, Sun, Monitor, Loader2, Sparkles } from "lucide-react";
+import { ChevronLeft, Moon, Sun, Monitor, Loader2, Sparkles, Layers } from "lucide-react";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useStitchMode } from "@/components/providers/stitch-provider";
 
 type Theme = 'dark' | 'light' | 'system';
 
@@ -12,6 +13,7 @@ export default function AppearanceSettingsPage() {
     const { user: authUser, supabase } = useAuth();
     const userId = authUser?.id || null;
     const { theme: currentTheme, setTheme } = useTheme();
+    const { isStitchMode, setStitchMode, isLoadingStitch } = useStitchMode();
 
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
@@ -163,6 +165,41 @@ export default function AppearanceSettingsPage() {
                                     <span className="text-[10px] text-zinc-500">Desktop default.</span>
                                 </button>
                             </div>
+                        </div>
+
+                        {/* Stitch Mode Section */}
+                        <div className="space-y-4 pt-6 border-t border-white/5">
+                            <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-2 flex items-center gap-2">
+                                <Sparkles className="w-4 h-4 text-secondary" />
+                                Premium Experience
+                            </label>
+
+                            <button
+                                onClick={() => setStitchMode(!isStitchMode)}
+                                disabled={isLoadingStitch || isUpdating}
+                                className={`w-full flex items-center justify-between p-6 rounded-2xl transition-all ${isStitchMode
+                                    ? 'bg-gradient-to-r from-primary/20 via-secondary/10 to-tertiary/20 border-2 border-primary shadow-[0_0_30px_rgba(186,158,255,0.15)]'
+                                    : 'bg-black/40 border border-white/5 hover:bg-white/5'
+                                    }`}
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${isStitchMode ? 'bg-black border border-primary/50' : 'bg-zinc-900 border border-white/10'}`}>
+                                        <Layers className={`w-6 h-6 ${isStitchMode ? 'text-primary' : 'text-zinc-500'}`} />
+                                    </div>
+                                    <div className="flex flex-col text-left">
+                                        <div className="flex items-center gap-2">
+                                            <span className={`font-bold text-sm ${isStitchMode ? 'text-primary' : 'text-zinc-300'}`}>Stitch UI</span>
+                                            <span className="px-2 py-0.5 rounded-full bg-primary/20 text-primary text-[9px] font-bold uppercase tracking-wider border border-primary/20">Beta</span>
+                                        </div>
+                                        <span className={`text-[11px] ${isStitchMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                                            Enable the Ethereal Obsidian premium layout.
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className={`w-12 h-6 rounded-full p-1 transition-colors ${isStitchMode ? 'bg-primary' : 'bg-zinc-800'}`}>
+                                    <div className={`w-4 h-4 rounded-full bg-white transition-transform ${isStitchMode ? 'translate-x-6' : 'translate-x-0'}`} />
+                                </div>
+                            </button>
                         </div>
                     </div>
                 )}

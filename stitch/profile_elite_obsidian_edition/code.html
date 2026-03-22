@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-tertiary-fixed-variant": "#73004b",
+              "on-primary-fixed": "#000000",
+              "background": "#0c0e12",
+              "secondary-container": "#00687a",
+              "on-error-container": "#ffb2b9",
+              "surface-container-high": "#1c2025",
+              "on-primary-container": "#2b006e",
+              "on-background": "#f8f9fe",
+              "on-tertiary": "#5f003e",
+              "inverse-surface": "#f8f9fe",
+              "on-primary": "#39008c",
+              "surface-container": "#171a1e",
+              "on-secondary-container": "#ecfaff",
+              "tertiary-fixed-dim": "#f976ba",
+              "surface-container-low": "#111417",
+              "surface": "#0c0e12",
+              "on-error": "#490013",
+              "on-surface": "#f8f9fe",
+              "on-secondary": "#004b58",
+              "surface-dim": "#0c0e12",
+              "surface-variant": "#22262b",
+              "error-dim": "#d73357",
+              "on-secondary-fixed-variant": "#005969",
+              "surface-bright": "#282c32",
+              "secondary-fixed": "#65e1ff",
+              "on-primary-fixed-variant": "#370086",
+              "outline": "#73757a",
+              "secondary-fixed-dim": "#48d4f3",
+              "inverse-primary": "#6e3bd7",
+              "tertiary-container": "#f673b7",
+              "tertiary": "#ff86c3",
+              "secondary-dim": "#40ceed",
+              "error": "#ff6e84",
+              "error-container": "#a70138",
+              "surface-container-highest": "#22262b",
+              "on-tertiary-container": "#4a002f",
+              "surface-container-lowest": "#000000",
+              "primary-fixed": "#ae8dff",
+              "on-secondary-fixed": "#003a45",
+              "tertiary-fixed": "#ff8bc5",
+              "primary-container": "#ae8dff",
+              "on-surface-variant": "#a9abb0",
+              "primary-fixed-dim": "#a27cff",
+              "outline-variant": "#46484c",
+              "inverse-on-surface": "#535559",
+              "on-tertiary-fixed": "#360021",
+              "tertiary-dim": "#f271b5",
+              "surface-tint": "#ba9eff",
+              "primary-dim": "#8455ef",
+              "primary": "#ba9eff",
+              "secondary": "#53ddfc"
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glow-primary {
+            box-shadow: 0 0 40px rgba(139, 92, 246, 0.15);
+        }
+        body {
+            background-color: #000000;
+        }
+    </style>
+</head>
+<body class="text-on-surface font-body selection:bg-primary/30">
+<!-- SideNavBar (Authority Source: JSON) -->
+<nav class="fixed left-0 top-0 h-full w-64 z-40 bg-slate-950 border-r border-white/10 flex flex-col py-8 px-4 gap-2">
+<div class="mb-10 px-4">
+<h1 class="text-xl font-black text-violet-500 font-headline tracking-tighter">Connect</h1>
+<p class="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold mt-1">Elite Network</p>
+</div>
+<div class="space-y-1">
+<a class="flex items-center gap-3 text-slate-400 px-4 py-3 hover:bg-white/10 hover:text-violet-200 transition-all duration-300 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-medium text-sm">Home</span>
+</a>
+<a class="flex items-center gap-3 text-slate-400 px-4 py-3 hover:bg-white/10 hover:text-violet-200 transition-all duration-300 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+<span class="font-medium text-sm">Search</span>
+</a>
+<a class="flex items-center gap-3 text-slate-400 px-4 py-3 hover:bg-white/10 hover:text-violet-200 transition-all duration-300 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined" data-icon="bolt">bolt</span>
+<span class="font-medium text-sm">Quix</span>
+</a>
+<a class="flex items-center gap-3 text-slate-400 px-4 py-3 hover:bg-white/10 hover:text-violet-200 transition-all duration-300 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined" data-icon="add_circle">add_circle</span>
+<span class="font-medium text-sm">Create</span>
+</a>
+<a class="flex items-center gap-3 text-slate-400 px-4 py-3 hover:bg-white/10 hover:text-violet-200 transition-all duration-300 hover:translate-x-1" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="font-medium text-sm">Report</span>
+</a>
+<!-- Active State Logic applied to Profile -->
+<a class="flex items-center gap-3 text-violet-400 font-bold bg-white/5 rounded-lg px-4 py-3 duration-300 translate-x-1" href="#">
+<span class="material-symbols-outlined" data-icon="account_circle" style="font-variation-settings: 'FILL' 1;">account_circle</span>
+<span class="font-medium text-sm">Profile</span>
+</a>
+</div>
+<div class="mt-auto px-4 pb-4">
+<div class="glass-card rounded-xl p-4 flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-secondary p-[1px]">
+<img alt="User profile avatar" class="w-full h-full rounded-full object-cover border-2 border-slate-950" data-alt="Close up portrait of elegant woman" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDS-Z9bBBhvyNgxXq4zv5jfBghHrTR_IXWGJhYJzJ5HIrlwex5ZIJzWJ9omSx7BTfdUxe1c_J9JJvZ5Al_kPsU5ZsELLAtBCW5oVkiq9osZ7NEGMaxE4Mip26d8446-iNRnfjIELgIkW8_LyE8Szk2CqG0gXB_RiXUGbirBQQNWk4DxJn_ME6hO7v3xYUrYbB-f6FaEgXRkp5RkY5BjF69jqGxWF63_ccLgEjM84pWe8ljw38_NxQmE5ks7s80fBsJ--wqFpw21Gb0"/>
+</div>
+<div class="overflow-hidden">
+<p class="text-xs font-bold truncate">Julianne V.</p>
+<p class="text-[10px] text-slate-500 truncate">Elite Member</p>
+</div>
+</div>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="ml-64 min-h-screen bg-surface selection:text-white">
+<!-- Profile Header Section -->
+<header class="relative pt-12 pb-8 px-12 max-w-6xl mx-auto">
+<div class="flex flex-col md:flex-row items-center md:items-start gap-10">
+<!-- Large Circular DP -->
+<div class="relative group">
+<div class="absolute -inset-1 bg-gradient-to-r from-primary to-secondary rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+<div class="relative w-40 h-40 md:w-48 md:h-48 rounded-full p-[2px] bg-white/10">
+<img alt="Julianne V. Profile Image" class="w-full h-full rounded-full object-cover border-4 border-surface" data-alt="Stunning editorial portrait with soft lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBtu6HiU5yMMYeoP7yfl8JylM4eHmJqhrNKmJrX1JyDrGeyQC3hOS5n1mln_qOvQrIl-idR3oKXaLY53wYeVzZs6xWEsRkfR48x6xieCRaGqJTbHR6J03ydRh1yxHQJGQtU8PR46BcQDlSlE5-ZDlAijhAhDXPfpT2Eeu2s-zswIpJYDzrEytP4rg9-mnJbLYnZwIcV91DNmn5YpVUvY3YAyB4Uf1in8Nl6ejzKqrYM0yzvdXxmmaaoqmcMVglLvXH9uk5LSRAHI9k"/>
+</div>
+</div>
+<!-- User Details -->
+<div class="flex-1 space-y-6 text-center md:text-left">
+<div class="flex flex-col md:flex-row md:items-center gap-4">
+<h2 class="text-3xl font-extrabold font-headline tracking-tight text-on-surface">julianne_vanguard</h2>
+<div class="flex items-center justify-center md:justify-start gap-3">
+<button class="px-6 py-2 bg-white/5 border border-white/10 rounded-full font-semibold text-sm hover:bg-white/10 transition-colors">
+                                Edit Profile
+                            </button>
+<button class="p-2 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-sm">settings</span>
+</button>
+</div>
+</div>
+<!-- Stats Row -->
+<div class="flex items-center justify-center md:justify-start gap-8 border-y border-white/5 py-4">
+<div class="flex gap-1.5 items-baseline">
+<span class="text-lg font-bold font-headline">1.2k</span>
+<span class="text-sm text-on-surface-variant font-medium">Posts</span>
+</div>
+<div class="flex gap-1.5 items-baseline">
+<span class="text-lg font-bold font-headline">450</span>
+<span class="text-sm text-on-surface-variant font-medium">Quix</span>
+</div>
+<div class="flex gap-1.5 items-baseline">
+<span class="text-lg font-bold font-headline">12.4k</span>
+<span class="text-sm text-on-surface-variant font-medium">Followers</span>
+</div>
+<div class="flex gap-1.5 items-baseline">
+<span class="text-lg font-bold font-headline">890</span>
+<span class="text-sm text-on-surface-variant font-medium">Following</span>
+</div>
+</div>
+<!-- Bio Section (Premium Glassmorphic) -->
+<div class="glass-card p-6 rounded-2xl relative overflow-hidden max-w-2xl">
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[60px] rounded-full"></div>
+<p class="font-bold text-sm text-primary mb-2 tracking-widest uppercase">Creative Director &amp; Visionary</p>
+<p class="text-on-surface-variant leading-relaxed text-sm">
+                            Architecting digital dreams at the intersection of luxury and technology. 
+                            Exploring minimal structures and infinite voids. 
+                            📍 Based in Neo-Tokyo / London.
+                            <br/><br/>
+<span class="text-secondary">vanguard-studio.eth</span>
+</p>
+</div>
+</div>
+</div>
+</header>
+<!-- Tabs Navigation -->
+<div class="max-w-6xl mx-auto px-12 mb-8">
+<div class="flex justify-center border-t border-white/5 pt-4 gap-12">
+<button class="flex items-center gap-2 pb-4 text-sm font-bold tracking-widest uppercase border-b-2 border-primary text-primary">
+<span class="material-symbols-outlined text-sm">grid_view</span>
+                    Posts
+                </button>
+<button class="flex items-center gap-2 pb-4 text-sm font-bold tracking-widest uppercase border-b-2 border-transparent text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-sm">bolt</span>
+                    Quix
+                </button>
+<button class="flex items-center gap-2 pb-4 text-sm font-bold tracking-widest uppercase border-b-2 border-transparent text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-sm">person</span>
+                    About
+                </button>
+</div>
+</div>
+<!-- Content Grid (3-Column high-end) -->
+<div class="max-w-6xl mx-auto px-12 pb-24">
+<div class="grid grid-cols-3 gap-8">
+<!-- Post Item 1 -->
+<div class="aspect-square relative group cursor-pointer overflow-hidden rounded-xl border border-white/5 glow-primary">
+<img alt="Architectural photography" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="Modern glass skyscraper architecture against clear sky" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCK5RBJCJEdwj55T6HuhpyG95RiPQT6MVsk-tCgNedjntbw7gxxG81wcWG0Yd5S6rWEvAEeOiT7eB_mAKWzDTrBDAQbwt6ANd-uKWVjHkR5fp-q2x15u9NvEase4Zo05KEK_fMGT1uyOlc1lg-gyolRKWnpSqDS8GI6Bei93qMFKNtfGe8JxhJ8hb-MxaCFjLfAeX8Ip4-T3EchAAb2uRojh2xOdAw2-yswadn7KNqpeADcbw2yvBEYpkBuMbUnWeL90dgnN7Xithc"/>
+<div class="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-[2px] flex items-center justify-center gap-6">
+<div class="flex items-center gap-2 font-bold"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">favorite</span> 2.4k</div>
+<div class="flex items-center gap-2 font-bold"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">chat_bubble</span> 158</div>
+</div>
+</div>
+<!-- Post Item 2 -->
+<div class="aspect-square relative group cursor-pointer overflow-hidden rounded-xl border border-white/5 glow-primary">
+<img alt="Abstract design" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="Abstract smooth black architectural surfaces and curves" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBbJXuQ1XivUgKfQZqrIGxFoS2zLH30HDmegH9vzIHGQqRnTDq17KQxFyXWC0BGp3ki8EHsH8uRB8xDRuG4V7ZJUWp6bJ0DiAS4fBsYIiA6KQBzd4CpVLJ0UoaR8-zaIIZb6PN91zpwqZYSOBmz5Wraenx4v5skepizATkFJkf7Ij1zLH-h7qa0MQUtDdf3QZZgkcOJISbzGvy7KqF5PkS1-ODozJzAwnHTd_-uT7ad3s1y1IxUY5TxSzUiZdrZ1p2cE-rBg5V4CZg"/>
+<div class="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-[2px] flex items-center justify-center gap-6">
+<div class="flex items-center gap-2 font-bold"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">favorite</span> 1.8k</div>
+<div class="flex items-center gap-2 font-bold"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">chat_bubble</span> 92</div>
+</div>
+</div>
+<!-- Post Item 3 -->
+<div class="aspect-square relative group cursor-pointer overflow-hidden rounded-xl border border-white/5 glow-primary">
+<img alt="Luxury interior" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="Minimalist luxury interior with purple ambient lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAy_f_69Z1j0-EL453jQy7bwbPT2R4Wa1wJ6uwcxb2kR9b5xZO7TiHW7x7q5nl99c9g61AEqdNzcW98YcRDHJUfDbvnzqQIBkqZFWB4Qrt9kZHKsAOQzx4_zZEySaKDs84BhBWM1OOJdGNHFvkOZUrv43-2VXcqK0DFI6rDKeDv67Hm_fwO00_UvR7oy8Y-P83ZrdmpM4wW-WdjOlJZdjJZ12NiAW6iYlpfZ0fcBAHmi_DVfZXj_aXGIwuwsIHvR8PX-xVem3MJXik"/>
+<div class="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-[2px] flex items-center justify-center gap-6">
+<div class="flex items-center gap-2 font-bold"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">favorite</span> 3.1k</div>
+<div class="flex items-center gap-2 font-bold"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">chat_bubble</span> 240</div>
+</div>
+</div>
+<!-- Post Item 4 -->
+<div class="aspect-square relative group cursor-pointer overflow-hidden rounded-xl border border-white/5 glow-primary">
+<img alt="Canyon landscape" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="Atmospheric landscape of a narrow desert canyon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD4M9WsYER7Cp6H0Adq81w-cPNGrmPVeyONP62C16zuVsxGGUDKJv5h5Vvu3FLEVwsAJWGKYQhvGJia78f0h23VBpaxZNapBSRH-FAxuzU5Wjqs0uWG9jTp9O5GiIPCLrbwqiUIb5CaA8RF79doDQPSBsP6QPsOigNg8cucs8tu66ymwr0byHkAaBZDCCJPDujGbjeYSb0xZuanyd5jHSE_p69OkYiUo-Ceg3y1i_c5O_2scxFBeX2zGOe-XAMjNBK8EjAiN8Bl_xY"/>
+<div class="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-[2px] flex items-center justify-center gap-6">
+<div class="flex items-center gap-2 font-bold"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">favorite</span> 4.5k</div>
+<div class="flex items-center gap-2 font-bold"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">chat_bubble</span> 312</div>
+</div>
+</div>
+<!-- Post Item 5 -->
+<div class="aspect-square relative group cursor-pointer overflow-hidden rounded-xl border border-white/5 glow-primary">
+<img alt="Minimal lamp design" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="Modern minimal light fixture in dark room" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5DebVQxvJPcBKRtdeRK1QQIOgV_5zEqj2wLbFc2omVNOKRqETLuA4nq-bIkIYEGFFXTJAEC36HGwRaDzwRcX-ehmmOulWjjAC07sv096vzRZh7tOVyuoOpO2IQTAtTUWJO7OS0JrmpJJKKOjy_qowJGkCpEsRCt0VqTpPjVp8sruX6mWudXLwHs4iFI4QZ40yx0WYB8ERAbiPVt3Q_OO18IlvQ5uCvRgdTCiOeQERQFqIagH3S1QnMJtaQyiMe2HvKnzMdeI0SRs"/>
+<div class="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-[2px] flex items-center justify-center gap-6">
+<div class="flex items-center gap-2 font-bold"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">favorite</span> 1.2k</div>
+<div class="flex items-center gap-2 font-bold"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">chat_bubble</span> 45</div>
+</div>
+</div>
+<!-- Post Item 6 -->
+<div class="aspect-square relative group cursor-pointer overflow-hidden rounded-xl border border-white/5 glow-primary">
+<img alt="Lakeside house" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="Elegant mountain retreat by a still lake" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC5c0ZgWRAgvkrnckYyjusN5gym7HdJslf4b1VheSn116TL6bXDtSxJIr3txSGTk_DLQFjozfe7Kzef5-3M8KtUssAn1G5O3bdrzlkV0dN0txRo2D9Dpe_Fd9d1Zmumq6zHScn5hsTWwN_uEqCOAYvrK0V-lSXVDeS22eJm50Cw1s5QrqvjMdyDDTV3P2-_Dq1g2D58nwIGzZ99n7O-r8_4gnDeEXRVHAxCo9EFYUsqZRiKGFKiME_ODcvDiYvNm688u90zpjcmnvg"/>
+<div class="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-[2px] flex items-center justify-center gap-6">
+<div class="flex items-center gap-2 font-bold"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">favorite</span> 5.8k</div>
+<div class="flex items-center gap-2 font-bold"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">chat_bubble</span> 610</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Obsidian Orb (Decorative Accent) -->
+<div class="fixed bottom-8 right-8 w-14 h-14 rounded-full glass-card flex items-center justify-center cursor-pointer group hover:scale-110 transition-all duration-300 z-50">
+<div class="absolute inset-0 rounded-full bg-primary/20 blur-xl group-hover:bg-primary/40 transition-all"></div>
+<span class="material-symbols-outlined text-primary group-hover:text-white transition-colors">auto_awesome</span>
+</div>
+</body></html>

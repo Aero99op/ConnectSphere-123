@@ -14,6 +14,7 @@ import { ApinatorProvider } from '@/components/providers/apinator-provider'
 import { PresenceProvider } from '@/components/providers/presence-provider'
 import { PWAProvider } from '@/components/providers/pwa-provider'
 import { ThemeProvider } from '@/components/providers/theme-provider'
+import { StitchProvider } from '@/components/providers/stitch-provider'
 import React from 'react'
 
 const interfaceFont = Inter({ subsets: ['latin'], variable: '--font-inter' })
@@ -94,12 +95,13 @@ export default function RootLayout({
                             <ApinatorProvider>
                                 <PresenceProvider>
                                     <PWAProvider>
-                                        <ThemeProvider
-                                            attribute="class"
-                                            defaultTheme="dark"
-                                            enableSystem
-                                            disableTransitionOnChange
-                                        >
+                                        <StitchProvider>
+                                            <ThemeProvider
+                                                attribute="class"
+                                                defaultTheme="dark"
+                                                enableSystem
+                                                disableTransitionOnChange
+                                            >
                                             <div className="fixed inset-0 bg-[radial-gradient(circle_at_2px_2px,_rgba(255,255,255,0.02)_1px,_transparent_0)] bg-[size:40px_40px] pointer-events-none" />
 
                                             {/* 🚀 Premium Splash Screen */}
@@ -124,6 +126,7 @@ export default function RootLayout({
                                             {/* Navigation Dock - Now a fixed footer managed internally by BottomNav */}
                                             <BottomNav />
                                         </ThemeProvider>
+                                        </StitchProvider>
 
                                         <Toaster position="top-center" />
                                     </PWAProvider>

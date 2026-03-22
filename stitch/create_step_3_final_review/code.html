@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Connect - Final Review &amp; Upload</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@300;400;500;600&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "tertiary-dim": "#f271b5",
+              "secondary-dim": "#40ceed",
+              "surface-container-lowest": "#000000",
+              "on-surface": "#f8f9fe",
+              "primary-container": "#ae8dff",
+              "secondary-container": "#00687a",
+              "on-secondary-fixed": "#003a45",
+              "on-tertiary": "#5f003e",
+              "secondary-fixed": "#65e1ff",
+              "inverse-surface": "#f8f9fe",
+              "on-tertiary-fixed": "#360021",
+              "outline-variant": "#46484c",
+              "on-primary-fixed": "#000000",
+              "tertiary": "#ff86c3",
+              "secondary": "#53ddfc",
+              "background": "#0c0e12",
+              "error-container": "#a70138",
+              "on-primary-fixed-variant": "#370086",
+              "on-primary-container": "#2b006e",
+              "inverse-on-surface": "#535559",
+              "on-surface-variant": "#a9abb0",
+              "surface": "#0c0e12",
+              "on-tertiary-container": "#4a002f",
+              "on-background": "#f8f9fe",
+              "on-error": "#490013",
+              "surface-bright": "#282c32",
+              "primary": "#ba9eff",
+              "on-tertiary-fixed-variant": "#73004b",
+              "surface-variant": "#22262b",
+              "secondary-fixed-dim": "#48d4f3",
+              "primary-fixed": "#ae8dff",
+              "surface-tint": "#ba9eff",
+              "primary-fixed-dim": "#a27cff",
+              "inverse-primary": "#6e3bd7",
+              "surface-dim": "#0c0e12",
+              "tertiary-fixed-dim": "#f976ba",
+              "outline": "#73757a",
+              "tertiary-container": "#f673b7",
+              "error-dim": "#d73357",
+              "surface-container": "#171a1e",
+              "surface-container-low": "#111417",
+              "on-error-container": "#ffb2b9",
+              "surface-container-highest": "#22262b",
+              "on-secondary": "#004b58",
+              "primary-dim": "#8455ef",
+              "tertiary-fixed": "#ff8bc5",
+              "error": "#ff6e84",
+              "on-secondary-container": "#ecfaff",
+              "on-primary": "#39008c",
+              "on-secondary-fixed-variant": "#005969",
+              "surface-container-high": "#1c2025"
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .neon-glow-primary {
+            box-shadow: 0 0 40px rgba(139, 92, 246, 0.15);
+        }
+        .neon-glow-secondary {
+            box-shadow: 0 0 20px rgba(83, 221, 252, 0.4);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #0c0e12;
+            color: #f8f9fe;
+        }
+    </style>
+</head>
+<body class="font-body selection:bg-primary selection:text-on-primary">
+<!-- TopAppBar Mapping -->
+<header class="fixed top-0 w-full flex justify-between items-center px-6 py-4 bg-[#0c0e12]/80 backdrop-blur-2xl border-b border-white/10 z-50 shadow-[0_0_40px_rgba(139,92,246,0.15)]">
+<div class="flex items-center gap-4">
+<span class="text-2xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-[#ba9eff] to-[#8455ef] font-headline">Connect</span>
+</div>
+<div class="flex items-center gap-6">
+<button class="text-white/70 hover:text-[#53ddfc] transition-colors duration-300 active:scale-95 transition-transform">
+<span class="material-symbols-outlined">mail</span>
+</button>
+<div class="h-10 w-10 rounded-full bg-surface-container-highest border border-white/10 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="User Profile Portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCbBc-gA6GONRviHRroKZO3Gx2qL1hghFf7ySF9HopXf83K-PnFh4hBOJZx1xf-oZe-sMMUoieuhR8BUntgiFPzf6sEXWDaEpG0o9t6w1i555BZ-lWyg4l1nrLLYqvCNOhwl8_LzZAhsiPoFxN61wGlQ7QE2vjsFx30yMrpwcbSlxJSaJ6U4QCeUC65_qKACrlS8hFOxRX3xAgWG9_pqHEEyMKkCaPXT7CreEJX5DalK4aWwafNglZZWvAu7kqp24z8FdHxQaYRZcw"/>
+</div>
+</div>
+</header>
+<!-- SideNavBar Mapping -->
+<nav class="fixed left-0 top-0 h-full flex flex-col py-8 bg-[#0c0e12] w-64 border-r border-white/5 z-40 hidden md:flex pt-24">
+<div class="px-6 mb-10">
+<h2 class="text-xl font-black text-[#ba9eff] font-headline">Connect</h2>
+<p class="text-xs text-white/40 font-medium">Creator Studio</p>
+</div>
+<div class="flex-1 flex flex-col space-y-2">
+<!-- Home -->
+<a class="px-6 py-3 flex items-center gap-4 text-white/40 hover:bg-white/5 hover:text-white transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-['Plus_Jakarta_Sans'] text-sm font-medium">Home</span>
+</a>
+<!-- Search -->
+<a class="px-6 py-3 flex items-center gap-4 text-white/40 hover:bg-white/5 hover:text-white transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">search</span>
+<span class="font-['Plus_Jakarta_Sans'] text-sm font-medium">Search</span>
+</a>
+<!-- Quix -->
+<a class="px-6 py-3 flex items-center gap-4 text-white/40 hover:bg-white/5 hover:text-white transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">bolt</span>
+<span class="font-['Plus_Jakarta_Sans'] text-sm font-medium">Quix</span>
+</a>
+<!-- Create (ACTIVE) -->
+<a class="px-6 py-3 flex items-center gap-4 text-[#53ddfc] border-r-2 border-[#53ddfc] bg-gradient-to-r from-[#53ddfc]/10 to-transparent transition-all translate-x-1" href="#">
+<span class="material-symbols-outlined">add_circle</span>
+<span class="font-['Plus_Jakarta_Sans'] text-sm font-medium">Create</span>
+</a>
+<!-- Report -->
+<a class="px-6 py-3 flex items-center gap-4 text-white/40 hover:bg-white/5 hover:text-white transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">assessment</span>
+<span class="font-['Plus_Jakarta_Sans'] text-sm font-medium">Report</span>
+</a>
+<!-- Profile -->
+<a class="px-6 py-3 flex items-center gap-4 text-white/40 hover:bg-white/5 hover:text-white transition-all hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-['Plus_Jakarta_Sans'] text-sm font-medium">Profile</span>
+</a>
+</div>
+<div class="px-6 mt-auto">
+<button class="w-full py-3 bg-gradient-to-r from-primary to-primary-dim rounded-full text-on-primary font-bold text-sm shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:scale-[1.02] transition-transform">
+                Post Now
+            </button>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="md:pl-64 pt-24 min-h-screen bg-surface overflow-x-hidden">
+<div class="max-w-6xl mx-auto px-6 py-10">
+<!-- Header Section -->
+<div class="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div>
+<h1 class="text-5xl font-extrabold tracking-tighter font-headline mb-3">Final Review</h1>
+<p class="text-on-surface-variant text-lg max-w-xl font-light">Polish your masterpiece. Review your cinematic content, adjust the narrative, and publish to your global audience.</p>
+</div>
+<div class="flex gap-4">
+<button class="px-6 py-3 rounded-full border border-white/10 text-on-surface hover:bg-white/5 transition-colors font-medium text-sm">Save Draft</button>
+<button class="px-8 py-3 rounded-full bg-gradient-to-r from-primary to-primary-dim text-on-primary font-bold text-sm shadow-[0_0_40px_rgba(139,92,246,0.2)] hover:scale-105 transition-all">Publish</button>
+</div>
+</div>
+<!-- Bento Grid Content -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+<!-- Left Column: High-Quality Preview -->
+<div class="lg:col-span-7 space-y-6">
+<div class="glass-panel rounded-3xl overflow-hidden relative group aspect-[4/5] md:aspect-video">
+<img class="w-full h-full object-cover" data-alt="Edited high-fidelity cinematic 3D abstract render" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAfeM3iFgbjBkJvbx-Bv1bpeZFDyezhmCfjXtVrhRJGAh2YA7OxcKF3jWHvbercjdkQz_UfquElNwrSInezpha_-uLleScvUA2cn5r5zBlLT2q3LPpRQAyvn1g1aO19mRGEla4Ed30jH7KVqQCFzOM6_SfFju0eXKGXo7U5ImaqvYvu4REzpYN5uPo8HG4bMQeLmb0YAyc0Ic7A6aHCkTKjJjhVhB0NUb-lzoSHu3wc2QZtnjiGv69uTHcHWiqf3FkpXnjjoU_ECIw"/>
+<!-- Preview Overlay -->
+<div class="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-8">
+<div class="flex items-center gap-3">
+<span class="px-3 py-1 rounded-full bg-secondary/20 text-secondary text-xs font-bold tracking-widest uppercase border border-secondary/30">4K HDR</span>
+<span class="px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-bold tracking-widest uppercase border border-primary/30">VIBRANCE FILTER</span>
+</div>
+</div>
+<!-- Play Indicator -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-20 w-20 rounded-full glass-panel flex items-center justify-center text-white/80 group-hover:scale-110 transition-transform cursor-pointer">
+<span class="material-symbols-outlined text-4xl">play_arrow</span>
+</div>
+</div>
+<div class="flex items-center justify-between p-6 glass-panel rounded-2xl">
+<div class="flex items-center gap-4">
+<div class="h-12 w-12 rounded-xl bg-surface-container-highest flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">filter_frames</span>
+</div>
+<div>
+<p class="text-sm font-bold font-headline">Vibrance &amp; Grain</p>
+<p class="text-xs text-white/40">Applied filters</p>
+</div>
+</div>
+<button class="text-secondary text-sm font-bold hover:underline">Edit Effects</button>
+</div>
+</div>
+<!-- Right Column: Metadata & Interaction -->
+<div class="lg:col-span-5 space-y-8">
+<!-- Caption Field -->
+<div class="space-y-4">
+<label class="text-xs font-bold tracking-widest text-white/40 uppercase ml-1">Caption &amp; Context</label>
+<div class="glass-panel p-6 rounded-2xl focus-within:shadow-[0_0_20px_rgba(83,221,252,0.1)] transition-all">
+<textarea class="w-full bg-transparent border-none focus:ring-0 text-on-surface text-lg leading-relaxed font-light resize-none min-h-[160px]" placeholder="Write a caption...">Exploring the intersection of digital light and obsidian textures. A new era of visual storytelling is here. #EtherealObsidian #ConnectDesign #FutureArt</textarea>
+</div>
+</div>
+<!-- Meta Data Selectors -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="glass-panel p-5 rounded-2xl flex items-center gap-4 hover:bg-white/5 transition-colors cursor-pointer border-white/5">
+<span class="material-symbols-outlined text-secondary">location_on</span>
+<div>
+<p class="text-[10px] font-bold text-white/40 uppercase tracking-tighter">Location</p>
+<p class="text-sm font-semibold">Neo Tokyo</p>
+</div>
+</div>
+<div class="glass-panel p-5 rounded-2xl flex items-center gap-4 hover:bg-white/5 transition-colors cursor-pointer border-white/5">
+<span class="material-symbols-outlined text-primary">person_add</span>
+<div>
+<p class="text-[10px] font-bold text-white/40 uppercase tracking-tighter">Tag People</p>
+<p class="text-sm font-semibold">2 Collaborators</p>
+</div>
+</div>
+</div>
+<!-- Advanced Settings Card -->
+<div class="glass-panel p-6 rounded-3xl space-y-6">
+<div class="flex items-center justify-between">
+<h3 class="font-headline font-bold">Distribution</h3>
+<span class="material-symbols-outlined text-white/20">settings</span>
+</div>
+<div class="space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-white/40">public</span>
+<span class="text-sm">Public Discovery</span>
+</div>
+<div class="w-10 h-5 bg-primary/20 rounded-full relative p-1 cursor-pointer">
+<div class="h-3 w-3 bg-primary rounded-full absolute right-1"></div>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-white/40">chat_bubble</span>
+<span class="text-sm">Allow Comments</span>
+</div>
+<div class="w-10 h-5 bg-primary/20 rounded-full relative p-1 cursor-pointer">
+<div class="h-3 w-3 bg-primary rounded-full absolute right-1"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- CTA Section -->
+<div class="pt-6">
+<button class="w-full py-6 rounded-2xl bg-gradient-to-br from-primary via-primary-dim to-primary-dim text-on-primary font-black text-xl tracking-tight shadow-[0_20px_60px_-15px_rgba(139,92,246,0.4)] hover:shadow-[0_0_40px_rgba(83,221,252,0.4)] border border-white/10 relative overflow-hidden group transition-all duration-500 active:scale-95">
+<span class="relative z-10 flex items-center justify-center gap-3">
+                                Upload Content
+                                <span class="material-symbols-outlined">rocket_launch</span>
+</span>
+<!-- Animated Glow effect background -->
+<div class="absolute inset-0 bg-gradient-to-r from-transparent via-secondary/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+</button>
+<p class="text-center text-xs text-white/20 mt-6 font-medium tracking-widest uppercase">Content will be processed in 4K HDR before going live</p>
+</div>
+</div>
+</div>
+<!-- Footer Spacing -->
+<div class="h-20"></div>
+</div>
+</main>
+<!-- BottomNavBar Mapping (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 w-full bg-[#0c0e12]/90 backdrop-blur-xl border-t border-white/10 flex justify-around items-center py-4 px-2 z-50">
+<a class="flex flex-col items-center gap-1 text-white/40" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="text-[10px]">Home</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-white/40" href="#">
+<span class="material-symbols-outlined">search</span>
+<span class="text-[10px]">Search</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-[#53ddfc]" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add_circle</span>
+<span class="text-[10px]">Create</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-white/40" href="#">
+<span class="material-symbols-outlined">bolt</span>
+<span class="text-[10px]">Quix</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-white/40" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px]">Profile</span>
+</a>
+</nav>
+</body></html>

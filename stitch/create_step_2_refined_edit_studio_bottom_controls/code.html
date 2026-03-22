@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Connect - Edit Studio</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            backdrop-filter: blur(24px);
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .obsidian-orb {
+            backdrop-filter: blur(24px);
+            background: rgba(186, 158, 255, 0.1);
+            box-shadow: 0 0 40px rgba(139, 92, 246, 0.15);
+        }
+        body {
+            background-color: #0c0e12;
+            color: #f8f9fe;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "tertiary-dim": "#f271b5",
+                "secondary-dim": "#40ceed",
+                "surface-container-lowest": "#000000",
+                "on-surface": "#f8f9fe",
+                "primary-container": "#ae8dff",
+                "secondary-container": "#00687a",
+                "on-secondary-fixed": "#003a45",
+                "on-tertiary": "#5f003e",
+                "secondary-fixed": "#65e1ff",
+                "inverse-surface": "#f8f9fe",
+                "on-tertiary-fixed": "#360021",
+                "outline-variant": "#46484c",
+                "on-primary-fixed": "#000000",
+                "tertiary": "#ff86c3",
+                "secondary": "#53ddfc",
+                "background": "#0c0e12",
+                "error-container": "#a70138",
+                "on-primary-fixed-variant": "#370086",
+                "on-primary-container": "#2b006e",
+                "inverse-on-surface": "#535559",
+                "on-surface-variant": "#a9abb0",
+                "surface": "#0c0e12",
+                "on-tertiary-container": "#4a002f",
+                "on-background": "#f8f9fe",
+                "on-error": "#490013",
+                "surface-bright": "#282c32",
+                "primary": "#ba9eff",
+                "on-tertiary-fixed-variant": "#73004b",
+                "surface-variant": "#22262b",
+                "secondary-fixed-dim": "#48d4f3",
+                "primary-fixed": "#ae8dff",
+                "surface-tint": "#ba9eff",
+                "primary-fixed-dim": "#a27cff",
+                "inverse-primary": "#6e3bd7",
+                "surface-dim": "#0c0e12",
+                "tertiary-fixed-dim": "#f976ba",
+                "outline": "#73757a",
+                "tertiary-container": "#f673b7",
+                "error-dim": "#d73357",
+                "surface-container": "#171a1e",
+                "surface-container-low": "#111417",
+                "on-error-container": "#ffb2b9",
+                "surface-container-highest": "#22262b",
+                "on-secondary": "#004b58",
+                "primary-dim": "#8455ef",
+                "tertiary-fixed": "#ff8bc5",
+                "error": "#ff6e84",
+                "on-secondary-container": "#ecfaff",
+                "on-primary": "#39008c",
+                "on-secondary-fixed-variant": "#005969",
+                "surface-container-high": "#1c2025"
+              },
+              fontFamily: {
+                "headline": ["Plus Jakarta Sans"],
+                "body": ["Inter"],
+                "label": ["Inter"]
+              },
+              borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+            },
+          },
+        }
+    </script>
+</head>
+<body class="font-body selection:bg-primary/30">
+<!-- Sidebar Navigation -->
+<aside class="fixed left-0 top-0 h-full flex flex-col py-8 bg-[#0c0e12] w-64 border-r border-white/5 z-40">
+<div class="px-8 mb-12">
+<h1 class="text-xl font-black text-[#ba9eff] font-headline tracking-tighter">Connect</h1>
+<p class="text-[10px] uppercase tracking-widest text-white/30 font-bold mt-1">Creator Studio</p>
+</div>
+<nav class="flex-1 space-y-2">
+<a class="flex items-center px-8 py-3 text-white/40 hover:bg-white/5 hover:text-white transition-all font-['Plus_Jakarta_Sans'] text-sm font-medium hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined mr-4" data-icon="home">home</span>
+                Home
+            </a>
+<a class="flex items-center px-8 py-3 text-white/40 hover:bg-white/5 hover:text-white transition-all font-['Plus_Jakarta_Sans'] text-sm font-medium hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined mr-4" data-icon="search">search</span>
+                Search
+            </a>
+<a class="flex items-center px-8 py-3 text-white/40 hover:bg-white/5 hover:text-white transition-all font-['Plus_Jakarta_Sans'] text-sm font-medium hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined mr-4" data-icon="bolt">bolt</span>
+                Quix
+            </a>
+<a class="flex items-center px-8 py-3 text-[#53ddfc] border-r-2 border-[#53ddfc] bg-gradient-to-r from-[#53ddfc]/10 to-transparent font-['Plus_Jakarta_Sans'] text-sm font-medium hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined mr-4" data-icon="add_circle">add_circle</span>
+                Create
+            </a>
+<a class="flex items-center px-8 py-3 text-white/40 hover:bg-white/5 hover:text-white transition-all font-['Plus_Jakarta_Sans'] text-sm font-medium hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined mr-4" data-icon="assessment">assessment</span>
+                Report
+            </a>
+<a class="flex items-center px-8 py-3 text-white/40 hover:bg-white/5 hover:text-white transition-all font-['Plus_Jakarta_Sans'] text-sm font-medium hover:translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined mr-4" data-icon="person">person</span>
+                Profile
+            </a>
+</nav>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 min-h-screen relative flex items-center justify-center p-8 bg-[#0c0e12]">
+<!-- Header Actions -->
+<header class="fixed top-0 left-64 right-0 flex justify-between items-center px-10 py-8 z-30">
+<div>
+<h2 class="text-2xl font-bold font-headline tracking-tight">Edit Studio</h2>
+<p class="text-on-surface-variant text-sm">Fine-tune your masterpiece</p>
+</div>
+<div class="flex items-center gap-4">
+<button class="glass-panel px-6 py-2.5 rounded-full text-sm font-medium hover:bg-white/10 transition-colors">Discard</button>
+<button class="bg-gradient-to-br from-primary to-primary-dim px-8 py-2.5 rounded-full text-sm font-bold shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:scale-105 transition-transform active:scale-95">Done</button>
+</div>
+</header>
+<!-- Preview Area -->
+<section class="relative w-full max-w-4xl aspect-[4/5] md:aspect-video rounded-3xl overflow-hidden shadow-2xl group mb-20">
+<img alt="Content Preview" class="w-full h-full object-cover" data-alt="Abstract colorful light waves on dark background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCMZX6AHlLFxLqSLBuvrz5JdIUiAbbtIPHHTJ_rF1vEEw5GcMEmut51lKWHNkQ20OgQM3TLF2fXW4r9F0DboIqN8eMN9LjWh-t0roSWT9_fCN-3l4Fk2_7eKkdNsfA2oIGrikzSNagDjzN6qg3WgCC634Cvy6uo4TiWVO4QTi-XGHE8ddjnlx8KI6lNn9mN-DaVMVnCrcagrzML8CbNBl0hA3xdUupNy0-zIltmgdnXh2_wxfXYUHNTXOjhcUu7oKJ0q6GgaZPsWEA"/>
+<!-- Floating Preview Controls Overlay -->
+<div class="absolute inset-0 bg-gradient-to-t from-background/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+<div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-6 pointer-events-auto">
+<button class="obsidian-orb w-12 h-12 rounded-full flex items-center justify-center text-secondary hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" data-icon="play_arrow" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</button>
+<div class="glass-panel h-1.5 w-64 rounded-full overflow-hidden">
+<div class="h-full w-1/3 bg-gradient-to-r from-secondary to-primary shadow-[0_0_10px_#53ddfc]"></div>
+</div>
+<span class="text-xs font-mono text-white/70">00:12 / 00:45</span>
+</div>
+</section>
+<!-- Toolset: Horizontal Bottom Bar -->
+<nav class="fixed bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-4 z-40 p-4 glass-panel rounded-[2rem]">
+<button class="flex flex-col items-center justify-center gap-1 w-20 h-20 rounded-2xl group hover:bg-white/5 transition-all">
+<span class="material-symbols-outlined text-primary group-hover:scale-110 transition-transform" data-icon="auto_awesome">auto_awesome</span>
+<span class="text-[10px] font-bold text-white/50 uppercase tracking-tighter">Filters</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-1 w-20 h-20 rounded-2xl group hover:bg-white/5 transition-all">
+<span class="material-symbols-outlined text-secondary group-hover:scale-110 transition-transform" data-icon="music_note">music_note</span>
+<span class="text-[10px] font-bold text-white/50 uppercase tracking-tighter">Audio</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-1 w-20 h-20 rounded-2xl group hover:bg-white/5 transition-all">
+<span class="material-symbols-outlined text-secondary-fixed group-hover:scale-110 transition-transform" data-icon="crop">crop</span>
+<span class="text-[10px] font-bold text-white/50 uppercase tracking-tighter">Crop</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-1 w-20 h-20 rounded-2xl group hover:bg-white/5 transition-all">
+<span class="material-symbols-outlined text-tertiary group-hover:scale-110 transition-transform" data-icon="layers">layers</span>
+<span class="text-[10px] font-bold text-white/50 uppercase tracking-tighter">Stickers</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-1 w-20 h-20 rounded-2xl group hover:bg-white/5 transition-all">
+<span class="material-symbols-outlined text-white group-hover:scale-110 transition-transform" data-icon="title">title</span>
+<span class="text-[10px] font-bold text-white/50 uppercase tracking-tighter">Text</span>
+</button>
+</nav>
+<!-- Background Atmospheric Glows -->
+<div class="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/10 blur-[150px] pointer-events-none rounded-full"></div>
+<div class="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/10 blur-[150px] pointer-events-none rounded-full"></div>
+</main>
+<!-- Mobile Action Tray -->
+<div class="fixed bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-3 p-2 glass-panel rounded-full z-50 md:hidden">
+<button class="p-4 rounded-full bg-white/5 text-white active:scale-90 transition-transform">
+<span class="material-symbols-outlined" data-icon="undo">undo</span>
+</button>
+<button class="p-4 rounded-full bg-white/5 text-white active:scale-90 transition-transform">
+<span class="material-symbols-outlined" data-icon="redo">redo</span>
+</button>
+<div class="w-px h-8 bg-white/10 mx-2"></div>
+<button class="bg-primary px-8 py-4 rounded-full text-on-primary font-bold shadow-lg shadow-primary/20">
+            Publish
+        </button>
+</div>
+</body></html>

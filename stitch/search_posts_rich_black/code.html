@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Connect - Search Posts</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@300;400;500;600&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface-container-low": "#111417",
+            "inverse-on-surface": "#535559",
+            "error": "#ff6e84",
+            "secondary": "#53ddfc",
+            "inverse-primary": "#6e3bd7",
+            "on-background": "#f8f9fe",
+            "on-primary-fixed": "#000000",
+            "on-primary-container": "#2b006e",
+            "secondary-dim": "#40ceed",
+            "on-tertiary-fixed": "#360021",
+            "on-surface-variant": "#a9abb0",
+            "secondary-fixed": "#65e1ff",
+            "on-error": "#490013",
+            "error-container": "#a70138",
+            "surface-container-lowest": "#000000",
+            "on-tertiary": "#5f003e",
+            "secondary-fixed-dim": "#48d4f3",
+            "surface-variant": "#22262b",
+            "surface-container-highest": "#22262b",
+            "background": "#000000",
+            "outline": "#73757a",
+            "surface-bright": "#282c32",
+            "surface": "#000000",
+            "error-dim": "#d73357",
+            "surface-tint": "#ba9eff",
+            "tertiary-dim": "#f271b5",
+            "secondary-container": "#00687a",
+            "on-tertiary-fixed-variant": "#73004b",
+            "on-secondary": "#004b58",
+            "on-tertiary-container": "#4a002f",
+            "on-secondary-fixed": "#003a45",
+            "primary": "#ba9eff",
+            "surface-dim": "#000000",
+            "on-primary": "#39008c",
+            "tertiary-fixed-dim": "#f976ba",
+            "surface-container": "#0a0a0a",
+            "primary-fixed-dim": "#a27cff",
+            "tertiary-fixed": "#ff8bc5",
+            "on-error-container": "#ffb2b9",
+            "outline-variant": "#46484c",
+            "tertiary-container": "#f673b7",
+            "tertiary": "#ff86c3",
+            "primary-dim": "#8455ef",
+            "primary-container": "#ae8dff",
+            "on-surface": "#f8f9fe",
+            "inverse-surface": "#f8f9fe",
+            "primary-fixed": "#ae8dff",
+            "surface-container-high": "#121212",
+            "on-secondary-fixed-variant": "#005969",
+            "on-primary-fixed-variant": "#370086",
+            "on-secondary-container": "#ecfaff"
+          },
+          fontFamily: {
+            "headline": ["Plus Jakarta Sans"],
+            "body": ["Inter"],
+            "label": ["Inter"]
+          },
+          borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+        },
+      },
+    }
+  </script>
+<style>
+    .glass-card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .neon-glow-primary {
+      box-shadow: 0 0 20px rgba(186, 158, 255, 0.2);
+    }
+    .neon-glow-secondary {
+      box-shadow: 0 0 20px rgba(83, 221, 252, 0.2);
+    }
+    body {
+      background-color: #000000;
+      color: #f8f9fe;
+    }
+  </style>
+</head>
+<body class="font-body selection:bg-primary/30">
+<!-- Side Navigation Shell -->
+<aside class="h-screen w-64 fixed left-0 top-0 z-40 bg-black border-r border-white/5 flex flex-col py-8 px-4 gap-y-4 hidden md:flex">
+<div class="mb-8 px-2">
+<h1 class="text-xl font-black text-[#ba9eff] font-headline">Connect</h1>
+<p class="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Ethereal Edition</p>
+</div>
+<nav class="flex flex-col gap-y-2">
+<a class="flex items-center gap-x-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-200 font-medium text-sm rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">home</span>
+<span>Home</span>
+</a>
+<a class="flex items-center gap-x-3 px-4 py-3 text-[#53ddfc] bg-white/5 backdrop-blur-md rounded-lg shadow-[0_0_15px_rgba(83,221,252,0.15)] font-medium text-sm transition-all duration-200" href="#">
+<span class="material-symbols-outlined">search</span>
+<span>Search</span>
+</a>
+<a class="flex items-center gap-x-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-200 font-medium text-sm rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">bolt</span>
+<span>Quix</span>
+</a>
+<a class="flex items-center gap-x-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-200 font-medium text-sm rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">add_circle</span>
+<span>Create</span>
+</a>
+<a class="flex items-center gap-x-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-200 font-medium text-sm rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">analytics</span>
+<span>Report</span>
+</a>
+<a class="flex items-center gap-x-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-200 font-medium text-sm rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">person</span>
+<span>Profile</span>
+</a>
+</nav>
+<div class="mt-auto flex flex-col gap-y-2">
+<a class="flex items-center gap-x-3 px-4 py-2 text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-200 font-medium text-sm rounded-lg" href="#">
+<span class="material-symbols-outlined text-lg">settings</span>
+<span>Settings</span>
+</a>
+<a class="flex items-center gap-x-3 px-4 py-2 text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-200 font-medium text-sm rounded-lg" href="#">
+<span class="material-symbols-outlined text-lg">help</span>
+<span>Support</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="md:ml-64 min-h-screen relative overflow-hidden bg-black">
+<!-- Atmospheric Background Accents -->
+<div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px] pointer-events-none"></div>
+<div class="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-secondary/5 rounded-full blur-[120px] pointer-events-none"></div>
+<!-- Search Header Area -->
+<header class="sticky top-0 z-30 bg-black/80 backdrop-blur-xl px-6 pt-8 pb-4 border-b border-white/5">
+<div class="max-w-4xl mx-auto">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-secondary transition-colors">search</span>
+<input class="w-full bg-white/5 border border-white/10 rounded-full py-4 pl-12 pr-6 text-on-surface focus:ring-0 placeholder:text-slate-500 font-body transition-all group-focus-within:neon-glow-secondary group-focus-within:border-secondary/30" placeholder="Search creators, designers, developers..." type="text"/>
+<div class="absolute bottom-0 left-12 right-12 h-[1px] bg-gradient-to-r from-transparent via-secondary/40 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500"></div>
+</div>
+<nav class="flex gap-x-8 mt-8">
+<button class="pb-4 px-2 text-sm font-bold tracking-wider font-headline text-slate-500 hover:text-slate-300 transition-colors">
+            Users
+</button>
+<button class="pb-4 px-2 text-sm font-bold tracking-wider relative font-headline text-primary">
+            Posts
+            <span class="absolute bottom-0 left-0 w-full h-[2px] bg-primary shadow-[0_0_10px_rgba(186,158,255,0.8)]"></span>
+</button>
+</nav>
+</div>
+</header>
+<!-- Search Results Grid (Posts View) -->
+<section class="max-w-5xl mx-auto px-6 py-12">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Post Card 1 -->
+<div class="glass-card rounded-2xl overflow-hidden group hover:border-primary/30 hover:bg-white/[0.08] transition-all duration-300">
+<div class="aspect-video w-full overflow-hidden relative">
+<img alt="Obsidian interface design" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDnHHZb4pvXDxa6p0o72_2WZo_HDOE6lTUNa7DM5dkBcrGjtOUB2b9M3ZU3wSX22W9oIobJ4EQ37awkckKv_Wc8cP5juLsoM6Xvk3PBXLyGUKOQu1LQqE90yU2u9KKz6Yt9K0iXxrZGkfuVKiDac9ttA3u_304-FYCKhP_C2JkZR4cMM8LDB2yrzymm3h3sr879aNpAoT-IZQKZISQaLXYX-ZJvHXfiTwj9oOgqxLKcAYYuTeFgnqfb8hcNi5QTKi8wAO3eGrnPDO0"/>
+<div class="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2 py-1 rounded-md text-[10px] font-bold text-secondary uppercase tracking-widest border border-white/10">UI Design</div>
+</div>
+<div class="p-5">
+<div class="flex items-center gap-3 mb-4">
+<img alt="Elena Vance" class="w-6 h-6 rounded-full object-cover border border-white/20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAeWaVLJFSnPh37OKoXgZ14FHwqt1OU6R4LOey0YtA73bZnprqA79GXbOTxQEwpWdJd0IdrkmfJT9ykdVRmQeRpOBJ32bjWdNoXyG8eVPRm5bAxDjlOy5pRr5weKdISGMGKgt8ybA9sb475gMq431o8ZiwVcWyOK1qjO9P75HQESnfYWvIREHebjFWCwHZFHzVaB_y5qDAsLczt06sR0WPCFg77onDL707rNkB9RwFj8ye0oMrY13uT58rDsCXVc5194HWI4s8EKQs"/>
+<span class="text-xs font-bold text-slate-300">Elena Vance</span>
+</div>
+<h3 class="text-lg font-bold font-headline leading-tight tracking-tight mb-2">The Future of Obsidian Interfaces</h3>
+<p class="text-sm text-slate-400 font-body line-clamp-2">Exploring depth, glassmorphism, and neon accents in modern productivity tools.</p>
+<div class="mt-6 pt-4 border-t border-white/5 flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+<div class="flex gap-4">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">favorite</span> 1.2k</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">visibility</span> 8k</span>
+</div>
+<span>2d ago</span>
+</div>
+</div>
+</div>
+<!-- Post Card 2 -->
+<div class="glass-card rounded-2xl overflow-hidden group hover:border-primary/30 hover:bg-white/[0.08] transition-all duration-300">
+<div class="aspect-video w-full overflow-hidden relative">
+<img alt="Cyber surrealist art" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrrX7ANQwbSLUdscKwF4YZAv8AbczThSV_HZoavWPiXlR02OY3-iHn3xDCGP5Vbjd9qnTPqxFVrRA6WZ77v893iC_nR1baagMDLttHCO4B5FjAWEsgThusqLEPYMDGtgSEBlVJvST65G1Ylxxi3a1ObCuMnRUXbR0877rv0Au10rn34mtnC-3-42XYmWO1rQi13LnkKUn0jxx-2w_T_E3zD3NGMwkhbDoU40sNFeZXATR0FhCTnzgdGSvTmwiLQm5ZYe3B-iyeG4k"/>
+<div class="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2 py-1 rounded-md text-[10px] font-bold text-tertiary uppercase tracking-widest border border-white/10">3D Art</div>
+</div>
+<div class="p-5">
+<div class="flex items-center gap-3 mb-4">
+<img alt="Marcus Thorne" class="w-6 h-6 rounded-full object-cover border border-white/20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC2A7Fb0h8EOBF-Y9z-moa_S6-a2fx3ccFsVxCqJ9ReCyrXq4D0FfVhUCtV3vdyeTKEEbk93-bpaDJDY5P1WarHmgzVd_2OYXmvbzAeMbp6sx8NuOPdN73_-g3EFFQe2gZgEqGETdxa0xNSxP6wv_cp6sBpcQAtTttO-hKvanBwX0hvTnjGPTs6lA2A0W7uZeBIvxP4x0QZaLnOiNSIyuWTmVZmbOuHFEbj8FtCQ2QTPRqyzB3Re1Hn6TEbeConztOq_24qfm2M9vs"/>
+<span class="text-xs font-bold text-slate-300">Marcus Thorne</span>
+</div>
+<h3 class="text-lg font-bold font-headline leading-tight tracking-tight mb-2">Between Glass and Code</h3>
+<p class="text-sm text-slate-400 font-body line-clamp-2">New experiments in Raymarching and abstract light refraction.</p>
+<div class="mt-6 pt-4 border-t border-white/5 flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+<div class="flex gap-4">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">favorite</span> 842</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">visibility</span> 4k</span>
+</div>
+<span>4d ago</span>
+</div>
+</div>
+</div>
+<!-- Post Card 3 -->
+<div class="glass-card rounded-2xl overflow-hidden group hover:border-primary/30 hover:bg-white/[0.08] transition-all duration-300">
+<div class="aspect-video w-full overflow-hidden relative">
+<img alt="WebGL experience" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDU9AfV4hhKowK7X-oFUMkkZE018oz4S5v5w8WPvgWbHX13KXbYXm2mHdcwspAbsr7cKoWYL5hy7BfCy95w0WQC5fr2hNsclZt2CuhvD93gbMKCddPHVoO-imy9FxSyUOCG4FoaIyulmRxsMygoWDVACBv7Y42fHbU7MXrUQIgdtzrZ2I_MM5DJP-8SUsBIjFUwoucGvhKG5S9kYNJIi8-IXjGfFFVxUDQ99GSxbfYY9HHBgk47w5fY3EsVW8bUUZ5gQ_9-V19TqDU"/>
+<div class="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2 py-1 rounded-md text-[10px] font-bold text-secondary uppercase tracking-widest border border-white/10">Frontend</div>
+</div>
+<div class="p-5">
+<div class="flex items-center gap-3 mb-4">
+<img alt="Lyra Chen" class="w-6 h-6 rounded-full object-cover border border-white/20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDBho5VTUQyFAg9qQmFVldvVZ0jBYoafOBdJbRcVd1uZHcaEA4Y2TlUoggsNiO2Fa1EPZve5CmXHA-uiWEY3LWcnhDGi7AGAF_MTnpLyX2nZ0Mv2Ht7uzbiTOYbJVmiTM3JGvV5mbrchMPwRvo2Zzi5-KtxEee1DGZ9bBg0V4jau7Pl10e4juefwyKU954bRBgTDBZ0OyRaMtE_p75SuRv7fii84GrDhh5-srzksYTVBcIqhYkN7t3a-5JRzyfcy4J-9E-vHC5mYlo"/>
+<span class="text-xs font-bold text-slate-300">Lyra Chen</span>
+</div>
+<h3 class="text-lg font-bold font-headline leading-tight tracking-tight mb-2">Mastering Three.js Bloom</h3>
+<p class="text-sm text-slate-400 font-body line-clamp-2">How to achieve the perfect neon glow without sacrificing performance.</p>
+<div class="mt-6 pt-4 border-t border-white/5 flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+<div class="flex gap-4">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">favorite</span> 2.4k</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">visibility</span> 15k</span>
+</div>
+<span>1w ago</span>
+</div>
+</div>
+</div>
+<!-- Post Card 4 -->
+<div class="glass-card rounded-2xl overflow-hidden group hover:border-primary/30 hover:bg-white/[0.08] transition-all duration-300">
+<div class="aspect-video w-full overflow-hidden relative">
+<img alt="Urban Night Photography" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBHH2rH7V9xEVYO4MMxJxcMivSW5csiN5PS7avUk95L49a6t_vgV6PNqM2M_RAtX3DvQk_4DQ_-zRw6MztKVOfptxkGdWUoATkbztPfDyjnCXslAUw5zGE8dm6CX3Nmzx9HZhwKiPq3WIcBATZ-pRWYkOZXKmz9e5j9KrKj7lt5R-iaPVxKZvNPOXnYy8Bx3nu3ybDqhYiA-22e6HgOYrwaMEafUliQqjV2QOWckI5HjtaYKCEncNYc2nfIgbdo1rq_34XTYwj22uI"/>
+<div class="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2 py-1 rounded-md text-[10px] font-bold text-tertiary uppercase tracking-widest border border-white/10">Photo</div>
+</div>
+<div class="p-5">
+<div class="flex items-center gap-3 mb-4">
+<img alt="Silas Vane" class="w-6 h-6 rounded-full object-cover border border-white/20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB6s3dJKu27CebMbZjdVASM-vIrVu894qyLqxXuj7lFdvu5ui8cT-SrpNUsieGi41cif1Jb3afGkLfE1_04rNJsMxqPmCspKrpVxVq6ulHCCEgjg2fjomQF5vVWhPBoa7htrTBc5BUrr6-BP9TeXqlbEkMmAapKTFvPhIQBg_Hc2-c57Sj82IRj_iJ_VDDTHplz7O3SCgx2Z-v8LddBm1paUJZkeGyK44RYKvHPTsoarvOSLGg2Rwvu8wAXUgNMp6YRj5eM42t7Org"/>
+<span class="text-xs font-bold text-slate-300">Silas Vane</span>
+</div>
+<h3 class="text-lg font-bold font-headline leading-tight tracking-tight mb-2">City of Eternal Twilight</h3>
+<p class="text-sm text-slate-400 font-body line-clamp-2">A photo series exploring the silent neon streets of Neo-Tokyo.</p>
+<div class="mt-6 pt-4 border-t border-white/5 flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+<div class="flex gap-4">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">favorite</span> 512</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">visibility</span> 2.1k</span>
+</div>
+<span>5h ago</span>
+</div>
+</div>
+</div>
+<!-- Post Card 5 (Bento style spanning) -->
+<div class="glass-card rounded-2xl overflow-hidden group hover:border-primary/30 hover:bg-white/[0.08] transition-all duration-300 lg:col-span-2">
+<div class="flex flex-col md:flex-row h-full">
+<div class="md:w-1/2 aspect-video md:aspect-auto overflow-hidden relative">
+<img alt="Systems Architecture" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA5YPGsusO-Ce3Ok_VpvOk9hH8Xqayr1wgOkazdyg382IpWKyJlTiC7lDPzvUXIQgoLPCXvGlfoit1MgPnPKgysZAqX-P6oQVfKKZIhkh3A38qgen_GDK0NIsokZieFf_rFaE2q2q5Gl9NKYPC6tD1-zOCCjh4695EZiVpoxkiMyIqDnRxCjK2zuTpi8ZF6w2aG8IS8FurObFmkMr7Y-sFs1jIurST36NYDZ4zHAHai0pE-vUB2gLkPX9G5rR_4iAY6zQaTxfHF7aA"/>
+<div class="absolute top-3 left-3 bg-primary/20 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-black text-primary uppercase tracking-widest border border-primary/20">PRO POST</div>
+</div>
+<div class="p-6 md:w-1/2 flex flex-col justify-center">
+<div class="flex items-center gap-3 mb-4">
+<img alt="Dorian Gray" class="w-8 h-8 rounded-full object-cover border-2 border-primary/30" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDO9n4KqStNCtFfrOHjSshhXbvmoTzcrNUQwU28VTSPYGA8TSEvG66AvZ48B5rkV5-sT3U-7zuTN31u6deF8fg0mRIwPz0V7lxiZ5jGOEiYlTbKMeuZqrn0p-kFkoRSpgI71t61QX_kPaco8yXNCpwIm-EMS-DMJFQPItet1RZrikz-BIllBshUOBPCoNNxrDL9R5tVq-n1JQNL9r0o3phGuBwITDG1kwzP_ventUDqBdj_ppZKtNbZmgSyUsurLsTPFiU1PyNfNBk"/>
+<div>
+<div class="text-sm font-bold text-white leading-none">Dorian Gray</div>
+<div class="text-[10px] text-secondary font-medium">Systems Architect</div>
+</div>
+</div>
+<h3 class="text-xl font-bold font-headline leading-tight tracking-tight mb-3">Architecting the Ethereal Web</h3>
+<p class="text-sm text-slate-400 font-body leading-relaxed mb-6">A deep dive into the performance patterns required for truly immersive, high-fidelity web interfaces in 2024.</p>
+<div class="flex flex-wrap gap-2 mb-6">
+<span class="px-2 py-0.5 bg-white/5 rounded text-[9px] text-slate-500 font-bold border border-white/10 uppercase">Architecture</span>
+<span class="px-2 py-0.5 bg-white/5 rounded text-[9px] text-slate-500 font-bold border border-white/10 uppercase">Performance</span>
+</div>
+<div class="mt-auto pt-4 border-t border-white/5 flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+<div class="flex gap-4">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">favorite</span> 3.1k</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">mode_comment</span> 142</span>
+</div>
+<button class="text-primary hover:text-white transition-colors flex items-center gap-1">READ MORE <span class="material-symbols-outlined text-sm">arrow_forward</span></button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Load More Placeholder -->
+<div class="mt-16 flex justify-center">
+<button class="flex items-center gap-x-2 text-slate-500 hover:text-white transition-colors group">
+<span class="text-sm font-bold tracking-[0.2em] font-headline">SEE MORE POSTS</span>
+<span class="material-symbols-outlined group-hover:translate-y-1 transition-transform">keyboard_arrow_down</span>
+</button>
+</div>
+</section>
+</main>
+<!-- Bottom Nav Bar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full bg-black/80 backdrop-blur-xl border-t border-white/5 flex justify-around items-center h-16 px-4 z-50">
+<a class="flex flex-col items-center justify-center text-slate-400 transition-colors" href="#">
+<span class="material-symbols-outlined">home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#53ddfc] transition-colors" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">search</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary text-black w-10 h-10 rounded-full shadow-[0_0_15px_rgba(186,158,255,0.4)]" href="#">
+<span class="material-symbols-outlined">add</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 transition-colors" href="#">
+<span class="material-symbols-outlined">bolt</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 transition-colors" href="#">
+<span class="material-symbols-outlined">person</span>
+</a>
+</nav>
+</body></html>

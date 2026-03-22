@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Connect - Report Civic Issue</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;800;900&amp;family=Inter:wght@300;400;500;600&amp;family=Plus+Jakarta+Sans:wght@700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-surface": "#f8f9fe",
+                        "surface-container-highest": "#22262b",
+                        "surface-container-low": "#111417",
+                        "outline": "#73757a",
+                        "surface-variant": "#22262b",
+                        "surface-dim": "#0c0e12",
+                        "secondary": "#53ddfc",
+                        "on-surface-variant": "#a9abb0",
+                        "tertiary": "#ff86c3",
+                        "primary-fixed": "#ae8dff",
+                        "on-primary-container": "#2b006e",
+                        "surface-container-lowest": "#000000",
+                        "on-secondary-container": "#ecfaff",
+                        "secondary-dim": "#40ceed",
+                        "on-secondary-fixed": "#003a45",
+                        "surface-container-high": "#1c2025",
+                        "secondary-fixed": "#65e1ff",
+                        "background": "#0c0e12",
+                        "on-secondary": "#004b58",
+                        "on-primary-fixed-variant": "#370086",
+                        "primary-dim": "#8455ef",
+                        "primary": "#ba9eff",
+                        "surface-container": "#171a1e",
+                        "on-error": "#490013",
+                        "error-dim": "#d73357",
+                        "surface": "#0c0e12",
+                        "secondary-container": "#00687a",
+                        "inverse-on-surface": "#535559",
+                        "error": "#ff6e84",
+                        "on-primary": "#39008c",
+                        "surface-bright": "#282c32",
+                        "tertiary-fixed-dim": "#f976ba",
+                        "primary-container": "#ae8dff",
+                        "on-primary-fixed": "#000000",
+                        "secondary-fixed-dim": "#48d4f3",
+                        "tertiary-container": "#f673b7",
+                        "on-error-container": "#ffb2b9",
+                        "error-container": "#a70138",
+                        "on-tertiary-fixed": "#360021",
+                        "on-background": "#f8f9fe",
+                        "inverse-primary": "#6e3bd7",
+                        "on-secondary-fixed-variant": "#005969",
+                        "tertiary-fixed": "#ff8bc5",
+                        "surface-tint": "#ba9eff",
+                        "primary-fixed-dim": "#a27cff",
+                        "tertiary-dim": "#f271b5",
+                        "outline-variant": "#46484c",
+                        "on-tertiary-fixed-variant": "#73004b",
+                        "on-tertiary-container": "#4a002f",
+                        "inverse-surface": "#f8f9fe",
+                        "on-tertiary": "#5f003e"
+                    },
+                    fontFamily: {
+                        "headline": ["Outfit"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .ethereal-glow {
+            box-shadow: 0 0 40px rgba(139, 92, 246, 0.15);
+        }
+        .text-gradient-primary {
+            background: linear-gradient(to right, #ba9eff, #8455ef);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary/30">
+<!-- Sidebar Navigation Shell -->
+<aside class="hidden md:flex flex-col h-screen w-64 fixed left-0 top-0 border-r border-white/10 bg-[#0c0e12] py-8 z-50">
+<div class="px-6 mb-12">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-dim flex items-center justify-center shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-on-primary" style="font-variation-settings: 'FILL' 1;">bolt</span>
+</div>
+<div>
+<h1 class="text-xl font-black text-primary font-headline tracking-tighter">Connect</h1>
+<p class="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Civic Hub</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-3 space-y-1">
+<a class="flex items-center gap-4 text-slate-500 py-3 px-6 hover:bg-white/5 hover:text-[#53ddfc] transition-all duration-300 rounded-r-full group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">home</span>
+<span class="font-headline font-bold text-lg">Home</span>
+</a>
+<a class="flex items-center gap-4 text-slate-500 py-3 px-6 hover:bg-white/5 hover:text-[#53ddfc] transition-all duration-300 rounded-r-full group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">search</span>
+<span class="font-headline font-bold text-lg">Search</span>
+</a>
+<a class="flex items-center gap-4 text-slate-500 py-3 px-6 hover:bg-white/5 hover:text-[#53ddfc] transition-all duration-300 rounded-r-full group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">bolt</span>
+<span class="font-headline font-bold text-lg">Quix</span>
+</a>
+<a class="flex items-center gap-4 text-slate-500 py-3 px-6 hover:bg-white/5 hover:text-[#53ddfc] transition-all duration-300 rounded-r-full group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">add_circle</span>
+<span class="font-headline font-bold text-lg">Create</span>
+</a>
+<!-- Active Tab: Report -->
+<a class="flex items-center gap-4 text-[#ba9eff] bg-white/5 rounded-r-full border-l-4 border-[#ba9eff] py-3 px-6 translate-x-1 transition-all duration-300" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">flag</span>
+<span class="font-headline font-bold text-lg">Report</span>
+</a>
+<a class="flex items-center gap-4 text-slate-500 py-3 px-6 hover:bg-white/5 hover:text-[#53ddfc] transition-all duration-300 rounded-r-full group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">person</span>
+<span class="font-headline font-bold text-lg">Profile</span>
+</a>
+</nav>
+<div class="px-6 mt-auto">
+<button class="w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-primary-dim text-on-primary font-headline font-bold text-lg shadow-xl shadow-primary/10 hover:shadow-primary/20 active:scale-95 transition-all">
+                New Post
+            </button>
+<div class="mt-8 flex flex-col gap-4 border-t border-white/5 pt-6">
+<a class="flex items-center gap-3 text-slate-600 text-sm hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-lg">help</span>
+<span>Help</span>
+</a>
+<a class="flex items-center gap-3 text-slate-600 text-sm hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-lg">shield</span>
+<span>Privacy</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="md:ml-64 min-h-screen p-6 md:p-12 relative overflow-hidden">
+<!-- Background Ambient Glows -->
+<div class="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px]"></div>
+<div class="absolute bottom-[-10%] left-[20%] w-[400px] h-[400px] bg-secondary/5 rounded-full blur-[100px]"></div>
+<header class="max-w-5xl mx-auto mb-12">
+<h2 class="text-4xl md:text-6xl font-headline font-black tracking-tighter mb-4 text-on-surface">
+                Report <span class="text-gradient-primary">Issue</span>
+</h2>
+<p class="text-on-surface-variant text-lg max-w-2xl font-light leading-relaxed">
+                Empower your community. Report urban maintenance issues directly to city officials with cryptographic verification.
+            </p>
+</header>
+<div class="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+<!-- Main Reporting Form: Glass Card -->
+<div class="lg:col-span-8 space-y-8">
+<div class="glass-card rounded-[2rem] p-8 md:p-12 ethereal-glow">
+<!-- Step 1: Issue Type -->
+<section class="mb-12">
+<div class="flex items-center gap-3 mb-8">
+<span class="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-black text-sm">01</span>
+<h3 class="text-xl font-headline font-bold">What is the issue?</h3>
+</div>
+<div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+<!-- Category Item -->
+<button class="flex flex-col items-center justify-center gap-3 p-6 glass-card rounded-3xl hover:border-primary/40 hover:bg-white/5 transition-all duration-300 group">
+<span class="material-symbols-outlined text-3xl text-secondary group-hover:scale-110 transition-transform">construction</span>
+<span class="text-sm font-medium tracking-tight">Pothole/Road</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-3 p-6 glass-card rounded-3xl hover:border-primary/40 hover:bg-white/5 transition-all duration-300 group">
+<span class="material-symbols-outlined text-3xl text-primary group-hover:scale-110 transition-transform">delete</span>
+<span class="text-sm font-medium tracking-tight">Garbage Dump</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-3 p-6 glass-card rounded-3xl hover:border-primary/40 hover:bg-white/5 transition-all duration-300 group border-primary/20 bg-primary/5">
+<span class="material-symbols-outlined text-3xl text-tertiary group-hover:scale-110 transition-transform" style="font-variation-settings: 'FILL' 1;">water_drop</span>
+<span class="text-sm font-medium tracking-tight">Water Leakage</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-3 p-6 glass-card rounded-3xl hover:border-primary/40 hover:bg-white/5 transition-all duration-300 group">
+<span class="material-symbols-outlined text-3xl text-secondary group-hover:scale-110 transition-transform">lightbulb</span>
+<span class="text-sm font-medium tracking-tight">Street Light</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-3 p-6 glass-card rounded-3xl hover:border-primary/40 hover:bg-white/5 transition-all duration-300 group">
+<span class="material-symbols-outlined text-3xl text-primary group-hover:scale-110 transition-transform">traffic</span>
+<span class="text-sm font-medium tracking-tight">Traffic/Parking</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-3 p-6 glass-card rounded-3xl hover:border-primary/40 hover:bg-white/5 transition-all duration-300 group">
+<span class="material-symbols-outlined text-3xl text-on-surface-variant group-hover:scale-110 transition-transform">more_horiz</span>
+<span class="text-sm font-medium tracking-tight">Other</span>
+</button>
+</div>
+</section>
+<!-- Step 2: Upload Evidence -->
+<section class="mb-12">
+<div class="flex items-center gap-3 mb-6">
+<span class="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-black text-sm">02</span>
+<h3 class="text-xl font-headline font-bold">Upload Evidence</h3>
+</div>
+<div class="border-2 border-dashed border-white/10 rounded-3xl p-10 flex flex-col items-center justify-center text-center cursor-pointer hover:border-primary/30 hover:bg-primary/5 transition-all group">
+<div class="w-16 h-16 rounded-full bg-surface-container-highest flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-500">
+<span class="material-symbols-outlined text-3xl text-primary-dim">photo_camera</span>
+</div>
+<p class="font-bold text-on-surface mb-1">Drag and drop images or video</p>
+<p class="text-on-surface-variant text-sm">JPG, PNG, or MP4 up to 20MB</p>
+</div>
+</section>
+<!-- Step 3: Location -->
+<section class="mb-12">
+<div class="flex items-center gap-3 mb-6">
+<span class="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-black text-sm">03</span>
+<h3 class="text-xl font-headline font-bold">Location</h3>
+</div>
+<div class="flex flex-col sm:flex-row gap-4">
+<div class="flex-1 relative">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">location_on</span>
+<input class="w-full bg-surface-container-highest border-none rounded-2xl py-4 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant focus:ring-2 focus:ring-secondary/50 transition-all" placeholder="Enter address or landmark" type="text"/>
+</div>
+<button class="bg-surface-container-highest hover:bg-surface-container-high text-secondary px-6 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all">
+<span class="material-symbols-outlined text-xl">my_location</span>
+                                Detect Location
+                            </button>
+</div>
+</section>
+<!-- Step 4: Issue Details -->
+<section>
+<div class="flex items-center gap-3 mb-6">
+<span class="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-black text-sm">04</span>
+<h3 class="text-xl font-headline font-bold">Issue Details</h3>
+</div>
+<textarea class="w-full bg-surface-container-highest border-none rounded-2xl p-6 text-on-surface placeholder:text-on-surface-variant focus:ring-2 focus:ring-primary/50 transition-all resize-none" placeholder="Describe the severity and any specific details that might help the maintenance crew..." rows="4"></textarea>
+</section>
+</div>
+<!-- Final Submission Action -->
+<div class="flex pt-4 justify-center">
+<button class="w-full sm:w-auto px-12 py-5 rounded-full bg-gradient-to-r from-primary via-primary-dim to-tertiary text-on-primary font-headline font-black text-xl shadow-[0_0_50px_rgba(186,158,255,0.3)] hover:shadow-[0_0_60px_rgba(186,158,255,0.5)] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3">
+                        Submit Report
+                        <span class="material-symbols-outlined">send</span>
+</button>
+</div>
+</div>
+<!-- Right Sidebar: Stats & Info (Asymmetric Layout) -->
+<div class="lg:col-span-4 space-y-6">
+<!-- Live Map Card -->
+<div class="glass-card rounded-[2rem] overflow-hidden ethereal-glow">
+<div class="p-6 flex items-center justify-between border-b border-white/5">
+<h4 class="font-headline font-bold text-lg">Area Map</h4>
+<span class="text-xs font-black uppercase text-secondary tracking-widest px-2 py-1 bg-secondary/10 rounded-lg">Live</span>
+</div>
+<div class="h-64 w-full relative">
+<img alt="Minimalist dark themed city street map" class="w-full h-full object-cover grayscale opacity-50 brightness-75" data-location="City Center" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5yqRb-w1Zq7v2W4Z-57HWZvaDJg_7XogrjRXtl2stb6KZ358URGqHeUjtWDSxjZBCHkvibryG_ctMStJEY2zNWDe5jbfpNpGJYRcsbGyPNg8pVbShCNYCikOwA1-FFryykCPfbxn259pimAUGSONNpyT2fe7r6hTwI-qfYkp5GOUKXb4ocW-wWWrV3BwO_ZURY2PkiC0pWS49OaKTKAoksHWWVAHmYKjXckYlif65H44HQiIbxjJ7iFd0ErcfnuvTDkt-IOXG3rw"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
+<!-- Marker -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+<div class="w-10 h-10 bg-secondary/20 rounded-full flex items-center justify-center animate-pulse">
+<div class="w-4 h-4 bg-secondary rounded-full shadow-[0_0_15px_#53ddfc]"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Community Trust Card -->
+<div class="glass-card rounded-[2rem] p-8 space-y-6">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-2xl bg-tertiary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary">verified_user</span>
+</div>
+<div>
+<h4 class="font-headline font-bold">Community Trust</h4>
+<p class="text-xs text-on-surface-variant uppercase tracking-tighter">Contributor Level 4</p>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-sm mb-1">
+<span class="text-on-surface-variant">Reputation Points</span>
+<span class="text-primary font-bold">1,240 XP</span>
+</div>
+<div class="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-primary to-secondary w-[75%]"></div>
+</div>
+</div>
+<p class="text-sm text-on-surface-variant font-light italic">
+                        "Your reports have helped resolve 14 issues this month. High-quality evidence leads to faster response times."
+                    </p>
+</div>
+<!-- Recent Activity Card -->
+<div class="glass-card rounded-[2rem] p-8">
+<h4 class="font-headline font-bold mb-6">Recent Reports</h4>
+<div class="space-y-6">
+<div class="flex items-center gap-4 group cursor-pointer">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+<span class="material-symbols-outlined text-xl text-primary">check_circle</span>
+</div>
+<div>
+<h5 class="text-sm font-bold">Street Light Fixed</h5>
+<p class="text-xs text-on-surface-variant">32 Main St • Resolved 2h ago</p>
+</div>
+</div>
+<div class="flex items-center gap-4 group cursor-pointer">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center group-hover:bg-secondary/20 transition-colors">
+<span class="material-symbols-outlined text-xl text-secondary">pending</span>
+</div>
+<div>
+<h5 class="text-sm font-bold">Pothole Repair</h5>
+<p class="text-xs text-on-surface-variant">Oak Avenue • In Progress</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 glass-card border-t border-white/10 z-50 flex justify-around items-center px-4 py-3">
+<button class="flex flex-col items-center gap-1 text-slate-500">
+<span class="material-symbols-outlined">home</span>
+<span class="text-[10px] font-bold">Home</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-500">
+<span class="material-symbols-outlined">search</span>
+<span class="text-[10px] font-bold">Search</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">flag</span>
+<span class="text-[10px] font-bold">Report</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-500">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px] font-bold">Profile</span>
+</button>
+</nav>
+</body></html>

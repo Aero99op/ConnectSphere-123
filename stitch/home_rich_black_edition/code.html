@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Connect | Ethereal Obsidian</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@300;400;500;600&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-secondary": "#004b58",
+              "primary-dim": "#8455ef",
+              "on-surface": "#f8f9fe",
+              "error-container": "#a70138",
+              "error": "#ff6e84",
+              "surface-dim": "#000000",
+              "surface-container-highest": "#111417",
+              "on-tertiary": "#5f003e",
+              "on-surface-variant": "#a9abb0",
+              "secondary": "#53ddfc",
+              "outline-variant": "#46484c",
+              "tertiary-container": "#f673b7",
+              "inverse-primary": "#6e3bd7",
+              "primary-fixed-dim": "#a27cff",
+              "inverse-surface": "#f8f9fe",
+              "surface": "#000000",
+              "surface-variant": "#111417",
+              "secondary-fixed": "#65e1ff",
+              "on-tertiary-fixed": "#360021",
+              "on-primary-fixed": "#000000",
+              "surface-tint": "#ba9eff",
+              "tertiary-fixed": "#ff8bc5",
+              "surface-container-low": "#080808",
+              "tertiary-fixed-dim": "#f976ba",
+              "on-primary-container": "#2b006e",
+              "tertiary-dim": "#f271b5",
+              "on-secondary-fixed": "#003a45",
+              "surface-container": "#0c0c0c",
+              "secondary-fixed-dim": "#48d4f3",
+              "on-tertiary-fixed-variant": "#73004b",
+              "secondary-dim": "#40ceed",
+              "on-background": "#f8f9fe",
+              "error-dim": "#d73357",
+              "surface-container-high": "#141414",
+              "tertiary": "#ff86c3",
+              "outline": "#73757a",
+              "on-secondary-fixed-variant": "#005969",
+              "on-tertiary-container": "#4a002f",
+              "secondary-container": "#00687a",
+              "primary-fixed": "#ae8dff",
+              "on-error-container": "#ffb2b9",
+              "inverse-on-surface": "#535559",
+              "on-primary-fixed-variant": "#370086",
+              "on-secondary-container": "#ecfaff",
+              "primary-container": "#ae8dff",
+              "on-error": "#490013",
+              "surface-container-lowest": "#000000",
+              "on-primary": "#39008c",
+              "background": "#000000",
+              "surface-bright": "#1a1c1e",
+              "primary": "#ba9eff"
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .prism-clip {
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+        }
+        .glass-panel {
+            backdrop-filter: blur(24px);
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .text-glow-violet {
+            text-shadow: 0 0 15px rgba(186, 158, 255, 0.5);
+        }
+        body {
+            background-color: #000000;
+            color: #f8f9fe;
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="selection:bg-primary/30 selection:text-white overflow-x-hidden">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 bg-black/40 backdrop-blur-2xl border-b border-white/10 shadow-[0_8px_32px_rgba(139,92,246,0.15)] flex justify-between items-center px-6 h-16">
+<div class="flex items-center gap-8">
+<span class="text-2xl font-black tracking-tighter bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent font-['Plus_Jakarta_Sans']">Connect</span>
+<div class="hidden md:flex items-center bg-white/5 px-4 py-2 rounded-full border border-white/10 w-96 group focus-within:border-secondary/40 transition-all">
+<span class="material-symbols-outlined text-slate-400 text-sm mr-2">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm text-slate-200 placeholder:text-slate-500 w-full" placeholder="Search the obsidian..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-5">
+<button class="text-slate-400 hover:text-violet-300 transition-all duration-300 scale-95 active:scale-90 relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute -top-1 -right-1 w-2 h-2 bg-tertiary rounded-full shadow-[0_0_8px_rgba(255,134,195,0.6)]"></span>
+</button>
+<button class="text-slate-400 hover:text-violet-300 transition-all duration-300 scale-95 active:scale-90">
+<span class="material-symbols-outlined">maps_ugc</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-secondary p-[1px] cursor-pointer shadow-lg shadow-primary/20">
+<div class="w-full h-full rounded-full overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="User profile avatar portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBtdaVQ9NsB248xaDiheu1cf4I4u6o4SgW_OiEreKkC1_1iocGOvd7o08tj8GxyWyxKEt1uDDQHPXzLMnlaMiA82vWT6zeKE3UxWQczMA0dzJ9_uj2r1aVtjedBRqCGUJyZ3jRzRivDU9mxv74XX4pXtuz1gUQdfyluGeFAXuNm4hvqRDTOEe-8GuGm0Fk1Fi7JKI-KsrpP8okCOMhnW7wRdAwgglEBPloFqE6x4z-qLQJi5bk3nlhl1qTKxZCJY8f40IVJ5IXTLGo"/>
+</div>
+</div>
+</div>
+</nav>
+<!-- SideNavBar (Left) -->
+<aside class="h-screen w-64 fixed left-0 top-0 z-40 bg-black flex flex-col py-8 gap-4 hidden md:flex pt-20 border-r border-white/5">
+<nav class="flex flex-col gap-1 px-4">
+<a class="flex items-center gap-4 px-4 py-3 text-violet-400 font-bold border-r-2 border-violet-500 bg-gradient-to-r from-violet-500/10 to-transparent transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-weight="fill">home</span>
+<span class="font-['Plus_Jakarta_Sans'] font-medium text-sm tracking-wide">Home</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-slate-500 hover:bg-white/5 hover:text-slate-200 transition-colors" href="#">
+<span class="material-symbols-outlined">search</span>
+<span class="font-['Plus_Jakarta_Sans'] font-medium text-sm tracking-wide">Search</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-slate-500 hover:bg-white/5 hover:text-slate-200 transition-colors" href="#">
+<span class="material-symbols-outlined">bolt</span>
+<span class="font-['Plus_Jakarta_Sans'] font-medium text-sm tracking-wide">Quix</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-slate-500 hover:bg-white/5 hover:text-slate-200 transition-colors" href="#">
+<span class="material-symbols-outlined">add_circle</span>
+<span class="font-['Plus_Jakarta_Sans'] font-medium text-sm tracking-wide">Create</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-slate-500 hover:bg-white/5 hover:text-slate-200 transition-colors" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-['Plus_Jakarta_Sans'] font-medium text-sm tracking-wide">Report</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-slate-500 hover:bg-white/5 hover:text-slate-200 transition-colors" href="#">
+<span class="material-symbols-outlined">account_circle</span>
+<span class="font-['Plus_Jakarta_Sans'] font-medium text-sm tracking-wide">Profile</span>
+</a>
+</nav>
+</aside>
+<!-- SideNavBar (Right / Discovery) -->
+<aside class="h-screen w-80 fixed right-0 top-0 z-40 bg-black flex flex-col p-6 hidden lg:flex border-l border-white/5 pt-24 gap-8">
+<div>
+<h3 class="text-lg font-bold text-slate-200 font-['Plus_Jakarta_Sans'] mb-1">Discovery</h3>
+<p class="text-xs text-slate-500">Suggestions for you</p>
+</div>
+<div class="glass-panel rounded-2xl p-5 flex flex-col gap-6 shadow-xl">
+<div class="flex flex-col gap-4">
+<div class="flex items-center justify-between group cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full border border-secondary/30 p-[2px]">
+<img class="w-full h-full object-cover rounded-full" data-alt="Discovery user suggestion avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC9994ykQ_8YQt3G83LxYDBqdWLdjkEuifDHQC4j-72TzYf5hB3nXI4ZjbJigwwamt7aS_S4yS5kRLInhQFqZK37v4eFP1RthtALHhVx1Hr4U290Y4SFe3AwwKg_kLVOF9-qsJYGUALjRVBIJdy6MLwj7tqSzCqeDgtRrpADAgBmXv76OT69NGX7SMRcSqMKOivEe3NNov7SDmQbVO-0BKWn8nYy7CNWTW0M8vvGvFvUesqHjUr07aBT68fvVVJBvGmNkyrTNKu9Xg"/>
+</div>
+<div>
+<p class="text-sm font-semibold text-slate-100">Julian Voss</p>
+<p class="text-[10px] text-slate-500">Curator of Void</p>
+</div>
+</div>
+<button class="text-secondary text-[10px] font-bold tracking-widest uppercase hover:text-white transition-colors">Follow</button>
+</div>
+<div class="flex items-center justify-between group cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full border border-primary/30 p-[2px]">
+<img class="w-full h-full object-cover rounded-full" data-alt="Discovery user suggestion avatar female" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxqrKXSAtnFbZlvLnkS7nBPGeFqieqPOOidhfNcZClED4gvK6SpWG2Do7oBfRG-4tT5uOum1HKXzR0ASAbfGmk7f4mylzcf9aiCOiRpwkzu72Hiv04fKwz-D6YpFkFG1CxgeRMqjCgQhhgzi9cNGTw3LoklGkpZ6FoMoSlOrh1yFUBkYhEIo1hmSU3mSjDLGOS75sgps2UptaVsqW_4tKhp7xZWpPvX-WMgcSthhTLBedcj6nqaMPJOxj7SnGncuY4ESi1XNwb5pY"/>
+</div>
+<div>
+<p class="text-sm font-semibold text-slate-100">Elena Ray</p>
+<p class="text-[10px] text-slate-500">Digital Architect</p>
+</div>
+</div>
+<button class="text-secondary text-[10px] font-bold tracking-widest uppercase hover:text-white transition-colors">Follow</button>
+</div>
+</div>
+<div class="h-[1px] bg-white/5 w-full"></div>
+<div class="flex flex-col gap-4">
+<h4 class="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase">Trending Obsidian</h4>
+<div class="flex flex-col gap-3">
+<div class="flex flex-col group cursor-pointer">
+<span class="text-xs text-secondary/70 font-medium">#EtherealDesign</span>
+<span class="text-[10px] text-slate-500">2.4k posts</span>
+</div>
+<div class="flex flex-col group cursor-pointer">
+<span class="text-xs text-secondary/70 font-medium">#ObsidianVibe</span>
+<span class="text-[10px] text-slate-500">1.8k posts</span>
+</div>
+<div class="flex flex-col group cursor-pointer">
+<span class="text-xs text-secondary/70 font-medium">#NeonNocturne</span>
+<span class="text-[10px] text-slate-500">5.2k posts</span>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="md:ml-64 lg:mr-80 min-h-screen pt-24 px-4 pb-20 max-w-4xl mx-auto">
+<!-- Stories: Prism-Shaped -->
+<section class="mb-12 overflow-x-auto no-scrollbar flex gap-6 pb-4">
+<!-- Add Story -->
+<div class="flex flex-col items-center gap-3 shrink-0 group">
+<div class="w-16 h-16 prism-clip bg-zinc-900 flex items-center justify-center border border-white/10 group-hover:border-primary/50 transition-all cursor-pointer relative">
+<span class="material-symbols-outlined text-primary text-2xl">add</span>
+<div class="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+</div>
+<span class="text-[10px] font-medium text-slate-400">Your Story</span>
+</div>
+<!-- Story 1 -->
+<div class="flex flex-col items-center gap-3 shrink-0 cursor-pointer group">
+<div class="w-16 h-16 prism-clip p-[1px] bg-gradient-to-tr from-primary via-secondary to-tertiary shadow-[0_0_15px_rgba(186,158,255,0.2)]">
+<div class="w-full h-full prism-clip bg-black overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="Abstract gradient story content" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCNGaAiX1iiuWsM0g2YR7NL5pjDn6TONT3IPC3ccWHJsHGtdSCdMH776Y6_VDu4X0JMX-ETxdGRHW5vYYYfZK-cqz4fdDuWJWZE9oxxlDejgxr-YCZja95AXFUXfLv-bT78GxuwG3RF-KsDS960XGGRMVrO7fbNebVRV9mZ8V_hDA9sUCUXUrzwFo9IYAYea_SCaXqDcx8S1W5gJHuY0iRuoQpgN9cVPCAt8WyqH93J7LeWCOT3piiEHej0XEg3B9BWUA8h5Z_KCTY"/>
+</div>
+</div>
+<span class="text-[10px] font-medium text-slate-300">Nova.v</span>
+</div>
+<!-- Story 2 -->
+<div class="flex flex-col items-center gap-3 shrink-0 cursor-pointer group">
+<div class="w-16 h-16 prism-clip p-[1px] bg-gradient-to-tr from-primary via-secondary to-tertiary">
+<div class="w-full h-full prism-clip bg-black overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="Neon cyberpunk landscape story" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDIaGbVKhG8G5BKDs-v8h2AXrRHl-CQ8ExduDUhsqgk5PZLh573b6tkzBBGg1riDSTFwR3D_IqRBKVCZkXRgqfCt2JnP_qLVC76f_PMNdT5QP778GzXA8BQjHG7vscQ7dJpEGt_Q3I6jmVIdWi_6_iUyr8iLsU92Jx2ldnjux0_6IkveNAmTvLu-MaZmOL_R-VmvRqxdoe9qgIKnqadZxHAM_nN5nAYCuMqvX4HgXT2rRHzlCdCbG55Iy2KNUGmmyT9AZZ-ygCMWJ0"/>
+</div>
+</div>
+<span class="text-[10px] font-medium text-slate-300">Ether.Arc</span>
+</div>
+<!-- Story 3 -->
+<div class="flex flex-col items-center gap-3 shrink-0 cursor-pointer group">
+<div class="w-16 h-16 prism-clip p-[1px] bg-slate-700">
+<div class="w-full h-full prism-clip bg-black overflow-hidden">
+<img class="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500" data-alt="Minimalist architectural story image" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCtMPRX4gXtSPpe6Te3bod0_8k-Z_xLfyHsWlGXswV7n1X6ZVN251SkayimbC2LPBPIg6ZuxDBGbXwejVKajPpLWyMXlEJSTquUHB0ENo-zIzlLDmmWf7oSxs2r4og4IEvo1ZUbopqRPL2hdhO4fONMpLHck5R_sxzg3QAI5Uf5qA0iLsowZoHIR_gGDP3ouZy38NR_E-gBYWYK9gyjHkPp74k-nw73r2Fxv4z5MBVRaQsdin43TPMBDcxpET1c-61BJtonkE3P-Oo"/>
+</div>
+</div>
+<span class="text-[10px] font-medium text-slate-500">Mino.X</span>
+</div>
+<!-- Story 4 -->
+<div class="flex flex-col items-center gap-3 shrink-0 cursor-pointer group">
+<div class="w-16 h-16 prism-clip p-[1px] bg-gradient-to-tr from-primary via-secondary to-tertiary">
+<div class="w-full h-full prism-clip bg-black overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="Vibrant 3D abstract art story" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDjKzxQrE2m9h6JqYOLamf8UDaEdKyBnND09slBz_m1U2T_lmfMoH2xerSfE9-d78T-lNFTkLmZS0bYdTEpxEcIUiNTFO7AflGKG4N-6pgnbzbTkuhpg58bit4Cd4CYmL3n3YZa4sBidp7uiuN4-WogQ0_I7fByrxbqE2UFEUorRcAbhKTDIpF0OvFuAtE8u7HMxmPDusdoDxfqyVmIi88c2RZtlLplLbqKFabyAQBRPQE03htIFmrbLQoX06dSg5vBAi70X3M7ztA"/>
+</div>
+</div>
+<span class="text-[10px] font-medium text-slate-300">Glass.Me</span>
+</div>
+<!-- Story 5 -->
+<div class="flex flex-col items-center gap-3 shrink-0 cursor-pointer group">
+<div class="w-16 h-16 prism-clip p-[1px] bg-slate-700">
+<div class="w-full h-full prism-clip bg-black overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="Abstract textured fabric story" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD7aD03F6v1rEWepz2EPm0gvzeJ6RWA8jxdJTpL3lwWWWWLbE2YdOJJrQJJB0ipPSPVZ57UkZZG9Q8efZvkrnGMRwcIqTDlq0xZwiGjDZFOK0thNhzxIZN-yYZGfhMHkQIQo5xhsOIi6zCglRYP3Q5njENk3d8fe4kj2i6K_BuYYcagYGn2OGfhJgOlLZHb_uON8KMcgeCVQj0yAIxIAvAPBdB1agnjW6aRFdnF_suVojggdzeMnhr-cMKVEjQCJTHRn-0-dawvkgI"/>
+</div>
+</div>
+<span class="text-[10px] font-medium text-slate-500">Drape.V</span>
+</div>
+</section>
+<!-- Post Feed -->
+<div class="flex flex-col gap-10">
+<!-- Post 1 -->
+<article class="glass-panel rounded-3xl overflow-hidden group hover:shadow-[0_20px_50px_rgba(132,85,239,0.1)] transition-all duration-500">
+<div class="p-6 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full p-[1px] bg-gradient-to-r from-primary to-secondary">
+<img class="w-full h-full object-cover rounded-full" data-alt="User avatar for post feed" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCkq7JVoAjOpHvK0KA81V9fDuPptqe2HjwCwvgt1hMw8xx1tuDIA30Pl6F1WC75w_CvLIwUfeFtBdAYCTa0HV1gyRSQBC_J4AQ-91IK9Iw6BDbGkA6PGrzTNdaweOFenbN2E8QxKNSwMYt_WQnQ2rc0aaIbgR-eU6DOBRUHN6dvM5Immyzq2aBIq5p1_7a_wfQ-u4ksHv_sCMIOlXD1LBFTtko5CVeYkimtZ3ms3sYlWc762r_-cz_jbhkSmRoqZxayT06klOS2cnE"/>
+</div>
+<div>
+<h4 class="font-headline font-bold text-sm tracking-tight text-white">Aurora Skye</h4>
+<p class="text-[10px] text-slate-500">Glow District, Metaverse • 2h</p>
+</div>
+</div>
+<button class="text-slate-500 hover:text-white transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<div class="relative aspect-square md:aspect-video w-full overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" data-alt="Ultra high quality abstract light painting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxBn1CSbtHPfbl1gyf7LsfxHqCLq-wYEVa7kIxL3OsZTr82tO32wSlxkH6fwWApHv68QIFsw_yMw529CkGQZTWeb_bHUjP2Fj1_y3A6a3JXyFZfBHkgLAZas5JQmfXvy4aOVvxQT8Prwemu5p-Pw4YiwZg5qj2bgbSesB7lY4spPR0yH-touAjsiFeCrp6CMgIjvvY_TKpSJQfvEL3DqRK3aV9YTB_potx3IDqmbLj9i1yMZun7s6pEDi4rbtO8mh3EoE0ybCNo5o"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
+</div>
+<div class="p-6">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-6">
+<button class="flex items-center gap-2 group/btn">
+<span class="material-symbols-outlined text-slate-400 group-hover/btn:text-tertiary transition-colors">favorite</span>
+<span class="text-xs font-semibold text-slate-400">12.4k</span>
+</button>
+<button class="flex items-center gap-2 group/btn">
+<span class="material-symbols-outlined text-slate-400 group-hover/btn:text-secondary transition-colors">chat_bubble</span>
+<span class="text-xs font-semibold text-slate-400">482</span>
+</button>
+<button class="flex items-center gap-2 group/btn">
+<span class="material-symbols-outlined text-slate-400 group-hover/btn:text-primary transition-colors">share</span>
+</button>
+</div>
+<button class="text-slate-400 hover:text-white transition-colors">
+<span class="material-symbols-outlined">bookmark</span>
+</button>
+</div>
+<div class="space-y-2">
+<p class="text-sm leading-relaxed text-slate-300 font-body">
+                            The transition between <span class="text-primary font-semibold">#Ethereal</span> and <span class="text-secondary font-semibold">#Obsidian</span> is where the soul of the digital nocturne resides. Exploring depth through light leaks today. 🕯️
+                        </p>
+<p class="text-[10px] text-slate-600 uppercase tracking-widest font-bold">View all 12 comments</p>
+</div>
+</div>
+</article>
+<!-- Post 2: Bento Asymmetric Layout -->
+<article class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="glass-panel rounded-3xl p-6 flex flex-col justify-between h-80 md:h-auto border-primary/20 bg-primary/5 group">
+<div>
+<div class="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-primary" data-weight="fill">auto_awesome</span>
+</div>
+<h3 class="text-2xl font-headline font-extrabold text-white leading-tight mb-2">Weekly Spotlight: <br/><span class="text-primary text-glow-violet">The Void Collective</span></h3>
+<p class="text-sm text-slate-400 font-body leading-relaxed">A curated collection of the most significant architectural glass patterns from the last 7 days.</p>
+</div>
+<div class="flex items-center justify-between mt-8">
+<div class="flex -space-x-3">
+<img class="w-8 h-8 rounded-full border-2 border-black" data-alt="Curator avatar 1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAwiYwTVTkmkEGSAoBWQLA_FVJjmopZakSkI8UnhMsm-iTQwZMAfb-3v5UZdlkfQZqhJx_gbAkyP-0_yjsRH8ap47iG6UgHy_6AvqA_-juweQxav_863k-_dHOY6IVQjLeQTjpjSS8htlImDrou3RKZtQKkTJegZJV0Dea9zh6HDKdHcYW_vTx-cK--JmOj0Eec3XwzIYHp6nxO6HHb8-nAe2FBMLA1Q1sP9mykOszuNl_q7rXoshZ4-d4R5ONMdAaZYRZEd1FKI4"/>
+<img class="w-8 h-8 rounded-full border-2 border-black" data-alt="Curator avatar 2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDNoOBQ_xDR1yH8iMe62MMqZtpwBtxc53WtACDSLeK-AYgOGRwtFmhco_s4BNRcq502Oq5AvmHJFD8YdZ1EeqXsSTTm2oiYFLn2PFNiB0vNm0TsuH1LHg2zOSIT3Sak06t9BFLeKu7T-xCBPhYYk-HvONdngzDD5hTowV_K5AgxF-jkPQU9IdmowQAnK0QxjnRgLldFEd_xD2ZqF1JxbiyONOqonR1E6UDI-n9rlq4J6pGexrdEPkaz79saLgX44MaMmTJ9isXX31o"/>
+<div class="w-8 h-8 rounded-full bg-zinc-900 border-2 border-black flex items-center justify-center text-[10px] font-bold">+12</div>
+</div>
+<button class="px-5 py-2 bg-primary text-on-primary-container text-xs font-bold rounded-full shadow-lg shadow-primary/20 hover:scale-105 transition-transform active:scale-95">Explore Feed</button>
+</div>
+</div>
+<div class="glass-panel rounded-3xl overflow-hidden relative group h-80 md:h-96">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" data-alt="Abstract 3D architectural render" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBrLmrfSHYnkIkI2JVpMZcoTonvjShRtBRAt6oZSSeZGZrdBMyE2v26xDNyVCtaVBukKumVqxS20cHG5exDr8oEACNj77mRvVbVEDWo46MFxrGBgW1lvb4H3axlEwW6e3VC__u3klGk4smFMahDesu_23sKoyAP8-yP1VSbolkc8aFnm2lc3VxAEQUW8GlsfsJ44JF3rObc0k7Aj6A4VtcIsnrWLsoduC1W6l61DQlIHBuIDd1n-GSiLIiLP24YT67_1C8P0lRhMnk"/>
+<div class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-all duration-500"></div>
+<div class="absolute bottom-0 left-0 p-6 w-full bg-gradient-to-t from-black/90 to-transparent">
+<span class="text-[10px] font-bold tracking-widest text-secondary uppercase mb-2 block">Premium Feature</span>
+<h4 class="text-lg font-headline font-bold text-white">Hyper-Spatial Rendering</h4>
+</div>
+</div>
+</article>
+<!-- Post 3 -->
+<article class="glass-panel rounded-3xl overflow-hidden group hover:shadow-[0_20px_50px_rgba(6,182,212,0.1)] transition-all duration-500">
+<div class="p-6 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full p-[1px] bg-zinc-900">
+<img class="w-full h-full object-cover rounded-full grayscale" data-alt="User profile photo for post" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBMb5gxDF0CPby64O3f9xT4yr00UlDV5ufml3rVs5AegfnVPu4sRkFdf4dzOS34876yv1eyc66rWZp1W96MYadikF8NHYRQ9YA-uyifWgIpEOajbnJt3T7LnAXi9YFh-gNECtRJX2PUlJeuaQF_jr5Hzk-ds71HweffuR3l5t-bdn549auQl9ITk1ZKBb-y-fg88La7xxX45awaSv_qIGFIbBoelBWCchweluMMTbiPGiEy4BE8Tqyu3wmAtvdFMdf8PXgsCxjCma4"/>
+</div>
+<div>
+<h4 class="font-headline font-bold text-sm tracking-tight text-white">Xavier.Vox</h4>
+<p class="text-[10px] text-slate-500">Tokyo Terminal • 5h</p>
+</div>
+</div>
+<button class="text-slate-500 hover:text-white transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<div class="relative w-full p-4">
+<div class="rounded-2xl overflow-hidden aspect-[4/5] relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" data-alt="Dark aesthetic interior photography" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCgY1R-D9cgBza4mJ9T-LOIxEJXGSOlP6YBCAdlGvS-et6y7lzeimOLP9zuZlU6uDt7zg-GxZnYQRwrQx4mgRJxZZ8NLUzq5hlX6ElNJcG9BkHMGoYYujUx69n9EHJ5OuuHsFyuB_neoGgboNKU_oT_3_A4SkIbkTJ0uI4lh9pE_aFZ97FBWz7HIUc1OCWBc3KWOQUy4sD79nnTRCYDx2JcNoX-ljB_gl536HpckAA6wQIgdTObxMxvf_ZIgXicNxcV4OckKczNTM8"/>
+<div class="absolute inset-0 border border-white/5 pointer-events-none rounded-2xl"></div>
+</div>
+</div>
+<div class="p-6 pt-2">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-6">
+<button class="flex items-center gap-2 group/btn">
+<span class="material-symbols-outlined text-slate-400 group-hover/btn:text-tertiary transition-colors">favorite</span>
+<span class="text-xs font-semibold text-slate-400">8.9k</span>
+</button>
+<button class="flex items-center gap-2 group/btn">
+<span class="material-symbols-outlined text-slate-400 group-hover/btn:text-secondary transition-colors">chat_bubble</span>
+<span class="text-xs font-semibold text-slate-400">122</span>
+</button>
+</div>
+<button class="text-slate-400 hover:text-white transition-colors">
+<span class="material-symbols-outlined">share</span>
+</button>
+</div>
+<div class="space-y-2">
+<p class="text-sm leading-relaxed text-slate-300 font-body">
+                            Minimalism isn't about having less. It's about knowing exactly what matters in the dark. <span class="text-secondary opacity-80 italic">#ObsidianPhilosophy</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</main>
+<!-- Navigation Shell Mobile -->
+<div class="md:hidden fixed bottom-0 w-full h-16 bg-black/80 backdrop-blur-xl border-t border-white/10 flex justify-around items-center px-4 z-50">
+<button class="text-cyan-400 scale-95 active:scale-90 transition-transform">
+<span class="material-symbols-outlined" data-weight="fill">home</span>
+</button>
+<button class="text-slate-400 scale-95 active:scale-90 transition-transform">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="w-10 h-10 bg-gradient-to-tr from-violet-500 to-cyan-400 rounded-full flex items-center justify-center text-on-primary shadow-lg shadow-violet-500/30 scale-110">
+<span class="material-symbols-outlined font-bold">add</span>
+</button>
+<button class="text-slate-400 scale-95 active:scale-90 transition-transform">
+<span class="material-symbols-outlined">analytics</span>
+</button>
+<button class="text-slate-400 scale-95 active:scale-90 transition-transform">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+<!-- Floating Action Button (Only on Home Feed Context) -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-primary text-on-primary-container rounded-full shadow-[0_8px_24px_rgba(186,158,255,0.4)] md:flex hidden items-center justify-center hover:scale-110 active:scale-90 transition-all z-50">
+<span class="material-symbols-outlined text-3xl">bolt</span>
+</button>
+</body></html>

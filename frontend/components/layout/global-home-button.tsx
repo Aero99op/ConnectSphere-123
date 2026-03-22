@@ -7,11 +7,13 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Home } from "lucide-react";
 import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useStitchMode } from "@/components/providers/stitch-provider";
 
 function GlobalHomeButtonContent() {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const mode = searchParams.get('mode');
+    const { isStitchMode } = useStitchMode();
 
     const { user, supabase } = useAuth();
     const [role, setRole] = useState<'citizen' | 'official' | null>(null);
@@ -34,6 +36,8 @@ function GlobalHomeButtonContent() {
 
     // Hide in Department Mode
     if (mode === 'department' || (role === 'official' && !searchParams.has('mode'))) return null;
+
+    if (isStitchMode) return null;
 
     return (
         <Link

@@ -7,11 +7,13 @@ import { Home, Compass, PlusSquare, Play, Bell, User, Search, AlertTriangle } fr
 import { useTranslation } from "@/components/providers/language-provider";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useStitchMode } from "@/components/providers/stitch-provider";
 
 function BottomNavContent() {
     const pathname = usePathname();
     const { user, supabase } = useAuth();
     const { t } = useTranslation();
+    const { isStitchMode } = useStitchMode();
     const [role, setRole] = useState<'citizen' | 'official' | null>(null);
 
     useEffect(() => {
@@ -35,6 +37,8 @@ function BottomNavContent() {
 
     // Hide on login/auth pages, Department Dashboard, and /messages (which is full-screen)
     if (pathname.startsWith("/login") || pathname.startsWith("/auth") || pathname.startsWith("/role-selection") || pathname.startsWith("/messages") || pathname.startsWith("/dashboard")) return null;
+
+    if (isStitchMode) return null;
 
     const citizenItems = [
         { href: "/", icon: Home, label: t('nav.home') },
