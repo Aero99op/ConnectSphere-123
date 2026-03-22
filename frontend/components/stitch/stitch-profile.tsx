@@ -8,6 +8,7 @@ import { PostCard } from "@/components/feed/post-card";
 import { usePathname, useParams, useRouter } from "next/navigation";
 import { getProfileByUsername, getUserStats } from "@/lib/actions/profile";
 import { StoryAvatar } from "@/components/ui/story-avatar";
+import { cn } from "@/lib/utils";
 
 export function StitchProfileContent() {
     const { user: authUser, supabase } = useAuth();
@@ -91,6 +92,39 @@ export function StitchProfileContent() {
         </div>
     );
 
+    const handleFollowToggle = async () => {
+        if (!authUser) return router.push('/login');
+        if (authUser.id === userId) return;
+
+        setFollowLoading(true);
+        const previousFollowing = isFollowing;
+        const previousFollowers = stats.followers;
+
+        // Optimistic UI
+        setIsFollowing(!previousFollowing);
+        setStats(prev => ({
+            ...prev,
+            followers: !previousFollowing ? prev.followers + 1 : Math.max(0, prev.followers - 1)
+        }));
+
+        try {
+            if (previousFollowing) {
+                const { error } = await supabase.from('follows').delete().match({ follower_id: authUser.id, following_id: userId });
+                if (error) throw error;
+            } else {
+                const { error } = await supabase.from('follows').insert({ follower_id: authUser.id, following_id: userId });
+                if (error) throw error;
+            }
+        } catch (error) {
+            console.error("Follow failed:", error);
+            // Rollback
+            setIsFollowing(previousFollowing);
+            setStats(prev => ({ ...prev, followers: previousFollowers }));
+        } finally {
+            setFollowLoading(false);
+        }
+    };
+
     return (
         <div className="bg-[#0c0e12] text-[#f8f9fe] font-body selection:bg-[#ba9eff]/30 min-h-screen">
             <style dangerouslySetInnerHTML={{ __html: `
@@ -116,7 +150,7 @@ export function StitchProfileContent() {
                         <span className="font-medium text-sm">Search</span>
                     </Link>
                     <Link href="/quix" className="flex items-center gap-3 text-slate-400 px-4 py-3 hover:bg-white/10 hover:text-violet-200 transition-all duration-300 hover:translate-x-1">
-                        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                         <span className="font-medium text-sm">Quix</span>
                     </Link>
                     <Link href="/create" className="flex items-center gap-3 text-slate-400 px-4 py-3 hover:bg-white/10 hover:text-violet-200 transition-all duration-300 hover:translate-x-1">
@@ -177,8 +211,17 @@ export function StitchProfileContent() {
                                             </Link>
                                         </>
                                     ) : (
-                                        <button className="px-6 py-2 bg-[#ba9eff] text-black border border-white/10 rounded-full font-bold uppercase tracking-widest text-sm hover:scale-105 transition-transform" disabled={followLoading} onClick={() => {}}>
-                                            {isFollowing ? 'Unfollow' : 'Follow'}
+                                        <button 
+                                            className={cn(
+                                                "px-6 py-2 rounded-full font-bold uppercase tracking-widest text-sm transition-all active:scale-95",
+                                                isFollowing 
+                                                    ? "bg-white/10 text-white border border-white/20 hover:bg-white/20" 
+                                                    : "bg-[#ba9eff] text-black hover:scale-105"
+                                            )}
+                                            disabled={followLoading} 
+                                            onClick={handleFollowToggle}
+                                        >
+                                            {followLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isFollowing ? 'Unfollow' : 'Follow')}
                                         </button>
                                     )}
                                 </div>
