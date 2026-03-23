@@ -62,17 +62,20 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
     // ── AR State ────────────────────────────────────────────────────────────
     const [arEnabled, setArEnabled] = useState(false);
     const [showArPanel, setShowArPanel] = useState(false);
-    const [activeCategory, setActiveCategory] = useState<ARCategory | 'all'>('all');
+    const [activeCategory, setActiveCategory] = useState<ARCategory | 'all' | 'premium'>('all');
     const [searchTerm, setSearchTerm] = useState("");
 
     // Memoize 1000+ filters to avoid re-gen on every render
     const allFilters = useRef(generateAllFilters()).current;
 
-    // Built-in special filters
-    const SPECIAL_FILTERS = [
-        { id: 'none', name: 'Off', emoji: '❌', category: 'special' },
-        { id: 'beauty', name: 'Beauty', emoji: '✨', category: 'special' },
-        { id: 'blur_bg', name: 'Blur BG', emoji: '🌫️', category: 'special' },
+    // Built-in Premium filters (Snapchat-style)
+    const PREMIUM_FILTERS = [
+        { id: 'none', name: 'None', emoji: '❌', category: 'premium' },
+        { id: 'beauty', name: 'Beauty', emoji: '✨', category: 'premium' },
+        { id: 'blur_bg', name: 'Blur BG', emoji: '🌫️', category: 'premium' },
+        { id: 'dog_filter', name: 'Dog', emoji: '🐶', category: 'premium' },
+        { id: 'flower_crown', name: 'Flowers', emoji: '🌸', category: 'premium' },
+        { id: 'retro_glasses', name: 'Retro', emoji: '😎', category: 'premium' },
     ];
 
     const filteredList = (activeCategory === 'all'
@@ -662,7 +665,7 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                     {/* AR active indicator on PiP */}
                     {arEnabled && activeFilter !== 'none' && (
                         <div className="absolute top-1 left-1 bg-purple-600/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                            <span>{(getFilterById(activeFilter) || SPECIAL_FILTERS.find(f => f.id === activeFilter))?.emoji}</span>
+                            <span>{(getFilterById(activeFilter) || PREMIUM_FILTERS.find(f => f.id === activeFilter))?.emoji}</span>
                             <span>AR</span>
                         </div>
                     )}
@@ -671,13 +674,13 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
 
             {/* AR Filter Panel (Snapchat-style mega browser) */}
             {!isMinimized && showArPanel && callType === 'video' && (
-                <div className="absolute bottom-40 left-0 w-full z-40 px-4 animate-in slide-in-from-bottom-10 fade-in duration-300">
-                    <div className="relative bg-black/80 backdrop-blur-3xl rounded-[2.5rem] p-5 border border-white/10 shadow-[0_32px_64px_rgba(0,0,0,0.5)] max-h-[60vh] flex flex-col">
+                <div className="absolute bottom-32 md:bottom-40 left-0 w-full z-40 px-3 md:px-4 animate-in slide-in-from-bottom-10 fade-in duration-300">
+                    <div className="relative bg-[#111b21]/95 backdrop-blur-3xl rounded-[2.5rem] p-4 md:p-5 border border-white/10 shadow-[0_32px_64px_rgba(0,0,0,0.5)] max-h-[50vh] md:max-h-[60vh] flex flex-col">
                         {/* Panel Header */}
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
                                 <Sparkles className="w-5 h-5 text-purple-400" />
-                                <span className="text-white font-bold text-lg tracking-tight">AR Universe <span className="text-xs font-normal text-white/40 ml-1">1000+ Filters</span></span>
+                                <span className="text-white font-bold text-lg tracking-tight">AR Filters <span className="text-xs font-normal text-white/40 ml-1">Snapchat Mode</span></span>
                             </div>
                             <button
                                 onClick={() => setShowArPanel(false)}
@@ -700,7 +703,7 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
 
                         {/* Categories Bar */}
                         <div className="flex gap-2 overflow-x-auto pb-3 mb-2 scrollbar-hide no-scrollbar">
-                            {(['all', 'headwear', 'eyewear', 'facial', 'environment', 'distort', 'legendary'] as const).map(cat => (
+                            {(['all', 'premium', 'headwear', 'eyewear', 'facial', 'environment', 'distort'] as const).map(cat => (
                                 <button
                                     key={cat}
                                     onClick={() => setActiveCategory(cat)}
@@ -717,9 +720,9 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                         </div>
 
                         {/* Filter Grid (Scrollable) */}
-                        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-3 overflow-y-auto pr-1 pb-4 flex-1 scroll-smooth no-scrollbar">
-                            {/* Show Special / Built-in first if in 'all' or no search */}
-                            {(activeCategory === 'all' && !searchTerm) && SPECIAL_FILTERS.map((filter) => (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 md:gap-3 overflow-y-auto pr-1 pb-4 flex-1 scroll-smooth no-scrollbar">
+                            {/* Show Premium / Featured first if in 'all' or 'premium' or no search */}
+                            {( (activeCategory === 'all' || activeCategory === 'premium') && !searchTerm) && PREMIUM_FILTERS.map((filter) => (
                                 <button
                                     key={filter.id}
                                     onClick={() => {
@@ -727,14 +730,14 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                                         if (filter.id !== 'none') setArEnabled(true);
                                     }}
                                     className={cn(
-                                        "aspect-square flex flex-col items-center justify-center gap-1.5 rounded-2xl transition-all duration-300 border",
+                                        "aspect-square flex flex-col items-center justify-center gap-1 rounded-2xl transition-all duration-300 border",
                                         activeFilter === filter.id && arEnabled
                                             ? "bg-purple-600 border-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.4)] scale-105"
                                             : "bg-white/5 border-white/5 hover:bg-white/10"
                                     )}
                                 >
-                                    <span className="text-2xl">{filter.emoji}</span>
-                                    <span className="text-[9px] font-bold text-white/70 uppercase tracking-tighter">{filter.name}</span>
+                                    <span className="text-2xl md:text-3xl">{filter.emoji}</span>
+                                    <span className="text-[10px] font-bold text-white uppercase tracking-tighter">{filter.name}</span>
                                 </button>
                             ))}
 

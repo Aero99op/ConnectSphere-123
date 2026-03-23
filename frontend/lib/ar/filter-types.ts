@@ -9,6 +9,7 @@ export type ARCategory =
   | 'facial'       // Masks, moustaches, beards, face-paint
   | 'environment'  // Weather, particles, frame overlays
   | 'distort'     // Face distortions, glitch
+  | 'premium'     // Hand-crafted Snapchat-style sets
   | 'legendary';   // Full epic sets (Snapchat-style)
 
 export type Point = { x: number; y: number };
