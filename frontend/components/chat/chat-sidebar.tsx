@@ -56,8 +56,8 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
                 return { ...msg, content: parsed.text || "📷 Media" };
             }
         } catch (e) {
-            console.error("Preview Decryption Error:", e);
-            return { ...msg, content: "🔒 [Secure Message]" };
+            // Silent for sidebar — key rotation is expected, not an error
+            return { ...msg, content: "🔒 Encrypted message" };
         }
         return msg;
     };

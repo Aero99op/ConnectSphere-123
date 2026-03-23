@@ -156,8 +156,8 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                         if (parsed.fileKeys) msg.e2e_file_keys = parsed.fileKeys;
                     }
                 } catch (e) {
-                    console.error("Live Decryption Error:", e);
-                    msg.content = "🔒 [Encrypted message — keys changed]";
+                    // Silent — key rotation is expected
+                    msg.content = "🔒 Encrypted message";
                 }
             }
             return msg;
@@ -290,8 +290,8 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                                     m.e2e_file_keys = payload.fileKeys;
                                 }
                             } catch (decErr) {
-                                console.error("Decryption failed for msg", m.id, decErr);
-                                m.content = "🔒 [Encrypted message — keys changed]";
+                                // Silent — key rotation is expected
+                                m.content = "🔒 Encrypted message";
                             }
                         }
                     }

@@ -385,7 +385,6 @@ export async function decryptMessageAndVerify(
     if (!isValid) {
         // Non-fatal: Legacy messages or key-rotated messages may fail signature check.
         // Still attempt decryption — user sees the message with a warning rather than nothing.
-        console.warn("[E2EE] Signature could not be verified — key mismatch or legacy message. Attempting decryption anyway.");
     }
 
     // 2. Unwrap Session Key using Standard or Hybrid KDF
@@ -428,14 +427,12 @@ export async function decryptMessageAndVerify(
             );
             break; // Success! Stop trying more keys
         } catch (err) {
-            lastUnwrapError = err;
-            console.warn("[E2EE] Unwrap attempt failed with key source, trying next...", err);
+            console.debug("[E2EE] Unwrap attempt failed, trying next key source...");
         }
     }
 
     if (!rawSessionKey) {
-        console.error("[E2EE] All session key unwrap attempts failed. Keys may have been rotated.");
-        throw new Error("E2EE_KEY_ROTATION: Cannot decrypt — device keys may have changed since this message was sent.");
+        throw new Error("E2EE_KEY_ROTATION: Cannot decrypt — device keys may have changed.");
     }
 
     const sessionKey = await crypto.subtle.importKey(
