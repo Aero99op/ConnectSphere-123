@@ -4,7 +4,7 @@ import { SessionProvider, useSession, signOut as nextAuthSignOut } from 'next-au
 import { createContext, useContext, useMemo, useEffect } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { getSupabase } from '@/lib/supabase';
-import { hasDeviceKeys, generateDeviceKeys, importDeviceKeysFromDB, setActiveUserId } from '@/lib/crypto/e2ee';
+import { hasDeviceKeys, generateDeviceKeys, importDeviceKeysFromDB, getLocalPublicKeys, setActiveUserId, bufferToBase64, keyStore } from '@/lib/crypto/e2ee';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -72,16 +72,16 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
                 setActiveUserId(unifiedUser.id);
                 const hasKeys = await hasDeviceKeys();
                 
-                if (!hasKeys) {
-                    // Step 1: Try downloading keys from DB (cross-device sync)
-                    const { data: profile } = await supabaseContextClient
-                        .from('profiles')
-                        .select('ecdh_private_jwk, ecdsa_private_jwk, mlkem_private_b64, ecdh_public_key, ecdsa_public_key')
-                        .eq('id', unifiedUser.id)
-                        .single();
+                // Fetch profile to check what's in DB
+                const { data: profile } = await supabaseContextClient
+                    .from('profiles')
+                    .select('ecdh_private_jwk, ecdsa_private_jwk, mlkem_private_b64, ecdh_public_key, ecdsa_public_key')
+                    .eq('id', unifiedUser.id)
+                    .single();
 
+                if (!hasKeys) {
                     if (profile?.ecdh_private_jwk && profile?.ecdsa_private_jwk && profile?.mlkem_private_b64) {
-                        // Keys exist in DB from another device — download and import!
+                        // Case 1: Fresh browser, DB has keys -> DOWNLOAD
                         console.log("[E2EE] Downloading keys from DB (cross-device sync)...");
                         await importDeviceKeysFromDB(
                             profile.ecdh_private_jwk,
@@ -92,28 +92,66 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
                         );
                         console.log("[E2EE] ✅ Keys synced from another device!");
                     } else {
-                        // Step 2: No keys anywhere — generate fresh ones
+                        // Case 2: Fresh browser, DB empty -> GENERATE & UPLOAD
                         console.log("[E2EE] No keys found — generating new device keys...");
                         const { ecdhPublicJwk, ecdsaPublicJwk, mlkemPublic, ecdhPrivateJwk, ecdsaPrivateJwk, mlkemPrivateB64 } = await generateDeviceKeys();
                         
-                        const { error } = await supabaseContextClient
-                            .from('profiles')
-                            .update({ 
-                                ecdh_public_key: JSON.stringify(ecdhPublicJwk), 
-                                ecdsa_public_key: JSON.stringify(ecdsaPublicJwk),
-                                mlkem_public_key: mlkemPublic,
-                                // Store private keys for cross-device sync (RLS protected)
+                        await supabaseContextClient.from('profiles').update({ 
+                            ecdh_public_key: JSON.stringify(ecdhPublicJwk), 
+                            ecdsa_public_key: JSON.stringify(ecdsaPublicJwk),
+                            mlkem_public_key: mlkemPublic,
+                            ecdh_private_jwk: JSON.stringify(ecdhPrivateJwk),
+                            ecdsa_private_jwk: JSON.stringify(ecdsaPrivateJwk),
+                            mlkem_private_b64: mlkemPrivateB64
+                        }).eq('id', unifiedUser.id);
+                        console.log("[E2EE] ✅ Keys generated and synced to DB.");
+                    }
+                } else {
+                    // Case 3: Browser HAS keys, check if they are in sync with DB
+                    const { ecdh: localEcdh } = await getLocalPublicKeys();
+                    const localEcdhStr = localEcdh ? JSON.stringify(localEcdh) : null;
+                    
+                    if (!profile?.ecdh_private_jwk && localEcdh) {
+                        // DB empty but we have local keys -> UPLOAD OURS AS MASTER
+                        console.log("[E2EE] Local keys exist but DB empty — seeding sync from this device...");
+                        const ecdhPriv = await keyStore.getKey("ecdh_private") as CryptoKey;
+                        const ecdsaPriv = await keyStore.getKey("ecdsa_private") as CryptoKey;
+                        const mlkemPriv = await keyStore.getKey("mlkem_private") as Uint8Array;
+                        
+                        try {
+                            const ecdhPrivateJwk = await crypto.subtle.exportKey("jwk", ecdhPriv);
+                            const ecdsaPrivateJwk = await crypto.subtle.exportKey("jwk", ecdsaPriv);
+                            
+                            await supabaseContextClient.from('profiles').update({ 
                                 ecdh_private_jwk: JSON.stringify(ecdhPrivateJwk),
                                 ecdsa_private_jwk: JSON.stringify(ecdsaPrivateJwk),
-                                mlkem_private_b64: mlkemPrivateB64
-                            })
-                            .eq('id', unifiedUser.id);
-                            
-                        if (error) {
-                            console.error("[E2EE] Failed to upload keys:", error);
-                        } else {
-                            console.log("[E2EE] ✅ Keys generated and synced to DB.");
+                                mlkem_private_b64: bufferToBase64(mlkemPriv)
+                            }).eq('id', unifiedUser.id);
+                            console.log("[E2EE] ✅ Sync seeded successfully.");
+                        } catch (e) {
+                            // Legacy non-extractable keys? Upgrade them.
+                            console.log("[E2EE] Upgrading legacy keys for sync support...");
+                            const keys = await generateDeviceKeys();
+                            await supabaseContextClient.from('profiles').update({ 
+                                ecdh_public_key: JSON.stringify(keys.ecdhPublicJwk), 
+                                ecdsa_public_key: JSON.stringify(keys.ecdsaPublicJwk),
+                                mlkem_public_key: keys.mlkemPublic,
+                                ecdh_private_jwk: JSON.stringify(keys.ecdhPrivateJwk),
+                                ecdsa_private_jwk: JSON.stringify(keys.ecdsaPrivateJwk),
+                                mlkem_private_b64: keys.mlkemPrivateB64
+                            }).eq('id', unifiedUser.id);
                         }
+                    } else if (profile?.ecdh_private_jwk && profile?.ecdh_public_key !== localEcdhStr) {
+                        // CONFLICT: This browser has keys but they don't match the DB MASTER KEYS
+                        console.log("[E2EE] Local keys out of sync — auto-correcting from DB...");
+                        await importDeviceKeysFromDB(
+                            profile.ecdh_private_jwk,
+                            profile.ecdsa_private_jwk,
+                            profile.mlkem_private_b64,
+                            profile.ecdh_public_key,
+                            profile.ecdsa_public_key
+                        );
+                        console.log("[E2EE] ✅ Auto-sync complete!");
                     }
                 }
             } catch (err) {

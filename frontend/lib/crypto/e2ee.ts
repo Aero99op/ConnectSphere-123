@@ -167,6 +167,13 @@ export async function hasDeviceKeys() {
     return !!(k1 && k2 && k3);
 }
 
+/** Get local public JWKs from IndexedDB for sync comparison */
+export async function getLocalPublicKeys() {
+    const ecdh = await keyStore.getKey("ecdh_public_jwk") as any;
+    const ecdsa = await keyStore.getKey("ecdsa_public_jwk") as any;
+    return { ecdh, ecdsa };
+}
+
 /** Import device keys from DB (cross-device sync) — downloads keys stored by another device */
 export async function importDeviceKeysFromDB(
     ecdhPrivateJwkStr: string,
