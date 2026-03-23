@@ -7,9 +7,9 @@ import { ARCategory, ARRecipe } from './filter-types';
 
 const CATEGORIES: ARCategory[] = ['headwear', 'eyewear', 'facial', 'environment', 'distort', 'legendary'];
 
-const HEADWEAR_OPTS = ['halo', 'crown', 'horns', 'cat_ears', 'top_hat', 'none'];
-const EYEWEAR_OPTS = ['shades', 'laser_eyes', 'monocle', 'cyber_goggles', 'none'];
-const FACIAL_OPTS = ['moustache', 'beard', 'blush', 'mask', 'none'];
+const HEADWEAR_OPTS = ['halo', 'crown', 'horns', 'cat_ears', 'top_hat', 'flower_crown', 'none'];
+const EYEWEAR_OPTS = ['shades', 'laser_eyes', 'monocle', 'cyber_goggles', 'retro_glasses', 'none'];
+const FACIAL_OPTS = ['moustache', 'beard', 'blush', 'mask', 'dog_filter', 'none'];
 const ENV_OPTS = ['snow', 'fire', 'rain', 'matrix', 'none'];
 const EMOJIS = ['🔥', '✨', '💎', '💀', '👽', '🤡', '🌈', '🌪️', '❄️', '🌋', '🍀', '🍎', '🍔', '🍺', '🎮', '💡', '❤️', '💔', '⚡', '💣'];
 

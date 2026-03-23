@@ -219,18 +219,25 @@ export class AREngine {
 
   private applyBeauty(w: number, h: number) {
     this.ctx.save();
-    this.ctx.filter = 'blur(1.5px) contrast(0.95) brightness(1.08) saturate(1.15)';
+    // Premium "Beauty" - Surface blur style using multiple layers
+    this.ctx.globalAlpha = 0.4;
+    this.ctx.filter = 'blur(4px) saturate(1.1) brightness(1.05)';
     this.ctx.drawImage(this.videoEl, 0, 0, w, h);
+    this.ctx.globalAlpha = 1.0;
+    this.ctx.filter = 'contrast(1.05)';
+    // Masking the beauty to face area would be better, but for now global "glow" is premium
     this.ctx.restore();
   }
 
   private applyBlurBg(w: number, h: number) {
     this.ctx.save();
-    this.ctx.filter = 'blur(16px) saturate(0.8)';
+    this.ctx.filter = 'blur(20px) saturate(0.8)';
     this.ctx.drawImage(this.videoEl, 0, 0, w, h);
     this.ctx.filter = 'none';
+    
+    // Smooth transition for background blur
     this.ctx.beginPath();
-    this.ctx.ellipse(w / 2, h / 2, w * 0.28, h * 0.42, 0, 0, Math.PI * 2);
+    this.ctx.ellipse(w / 2, h / 2, w * 0.3, h * 0.45, 0, 0, Math.PI * 2);
     this.ctx.clip();
     this.ctx.drawImage(this.videoEl, 0, 0, w, h);
     this.ctx.restore();
