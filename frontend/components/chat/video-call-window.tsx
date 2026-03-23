@@ -320,11 +320,14 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                 console.log("[WebRTC] ICE State:", state);
                 if (state === 'connected' || state === 'completed') {
                     setConnectionStatus("connected");
-                } else if (state === 'failed' || state === 'disconnected') {
-                    console.error("[WebRTC] Connection failed (Likely Strict NAT blocking P2P mapping without TURN).");
+                } else if (state === 'failed') {
+                    console.error("[WebRTC] Connection failed (Strict NAT blocking P2P).");
                     toast.error("Call failed to connect (Network Firewall/NAT blocked).");
                     setConnectionStatus("disconnected");
                     handleEndCall(false);
+                } else if (state === 'disconnected') {
+                    console.warn("[WebRTC] Connection temporarily disconnected. Waiting to recover...");
+                    // DO NOT terminate here! WebRTC often recovers from 'disconnected'.
                 }
             };
 
