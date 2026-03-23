@@ -71,10 +71,10 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
             try {
                 setActiveUserId(unifiedUser.id);
                 const hasKeys = await hasDeviceKeys();
-                if (!hasKeys) {
-                    console.log("[E2EE] Generating device keys for top hacker protection...");
+                
+                const doGenerateAndUpload = async () => {
+                    console.log("[E2EE] Generating/regenerating device keys...");
                     const { ecdhPublicJwk, ecdsaPublicJwk, mlkemPublic } = await generateDeviceKeys();
-                    
                     const { error } = await supabaseContextClient
                         .from('profiles')
                         .update({ 
@@ -83,11 +83,37 @@ function AuthContextProvider({ children }: { children: React.ReactNode }) {
                             mlkem_public_key: mlkemPublic
                         })
                         .eq('id', unifiedUser.id);
-                        
-                    if (error) {
-                        console.error("[E2EE] Failed to upload public keys:", error);
-                    } else {
-                        console.log("[E2EE] Public keys secured in database.");
+                    if (error) console.error("[E2EE] Failed to upload public keys:", error);
+                };
+
+                if (!hasKeys) {
+                    await doGenerateAndUpload();
+                } else {
+                    // KEY SYNC CHECK: verify local keys match what's in the profile DB
+                    // If another browser/device overwrote the profile keys, we must regenerate
+                    try {
+                        const { keyStore } = await import('@/lib/crypto/e2ee');
+                        const localEcdhPub = await keyStore.getKey("ecdh_public_jwk") as any;
+                        if (localEcdhPub) {
+                            const { data: profile } = await supabaseContextClient
+                                .from('profiles')
+                                .select('ecdh_public_key')
+                                .eq('id', unifiedUser.id)
+                                .single();
+                            if (profile?.ecdh_public_key) {
+                                const dbKey = JSON.parse(profile.ecdh_public_key);
+                                // Compare the x-coordinate — if different, keys are out of sync
+                                if (dbKey.x !== localEcdhPub.x || dbKey.y !== localEcdhPub.y) {
+                                    console.log("[E2EE] Key mismatch detected — another device overwrote keys. Regenerating...");
+                                    await doGenerateAndUpload();
+                                }
+                            }
+                        } else {
+                            // Local public JWK missing (old install) — regenerate to fix
+                            await doGenerateAndUpload();
+                        }
+                    } catch (syncErr) {
+                        console.debug("[E2EE] Key sync check failed:", syncErr);
                     }
                 }
             } catch (err) {
