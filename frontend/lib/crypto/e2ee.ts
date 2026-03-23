@@ -389,35 +389,53 @@ export async function decryptMessageAndVerify(
     }
 
     // 2. Unwrap Session Key using Standard or Hybrid KDF
+    // Try multiple key sources: embedded first, then profile, to handle key rotation
     const embeddedEcdh = (typeof encryptedKeyObject === 'object' && (encryptedKeyObject as any)._hpub) ? (encryptedKeyObject as any)._hpub : null;
-    const derivationKeyJwk = embeddedEcdh || senderEcdhPublicJwkStr;
-    const senderEcdhPublic = await importPublicKey(derivationKeyJwk, "ECDH");
-    
-    let wrappingKey;
-    if (isHybrid && typeof encryptedKeyObject !== 'string' && myMlkemPrivateKey) {
-        const pqcSharedSecret = ml_kem768.decapsulate(
-            new Uint8Array(base64ToBuffer(encryptedKeyObject.pqcCiphertext!)), 
-            myMlkemPrivateKey
-        );
-        wrappingKey = await deriveHybridWrappingKey(myEcdhPrivateKey, senderEcdhPublic, new Uint8Array(pqcSharedSecret));
-    } else {
-        wrappingKey = await deriveWrappingKey(myEcdhPrivateKey, senderEcdhPublic);
-    }
     
     // SECURITY FIX (CRIT-004): Read stored wrapIv; fall back to zero-IV for backward compat with old messages
     const wrapIvB64 = (typeof encryptedKeyObject !== 'string' && encryptedKeyObject.wrapIv) ? encryptedKeyObject.wrapIv : null;
     const wrapIv = wrapIvB64 ? new Uint8Array(base64ToBuffer(wrapIvB64)) : new Uint8Array(12);
 
-    let rawSessionKey;
-    try {
-        rawSessionKey = await crypto.subtle.decrypt(
-            { name: "AES-GCM", iv: wrapIv.buffer as ArrayBuffer },
-            wrappingKey,
-            wrappedSessionKey as ArrayBuffer
-        );
-    } catch (err) {
-        console.error("[E2EE] Session key unwrap failed (OperationError). Possible key rotation mismatch or corrupted metadata.");
-        throw err;
+    // Build list of ECDH keys to try (embedded key first, then profile key)
+    const ecdhKeysToTry: any[] = [];
+    if (embeddedEcdh) ecdhKeysToTry.push(embeddedEcdh);
+    if (senderEcdhPublicJwkStr && senderEcdhPublicJwkStr !== embeddedEcdh) ecdhKeysToTry.push(senderEcdhPublicJwkStr);
+    if (ecdhKeysToTry.length === 0) ecdhKeysToTry.push(senderEcdhPublicJwkStr); // fallback
+
+    let rawSessionKey: ArrayBuffer | null = null;
+    let lastUnwrapError: any = null;
+
+    for (const ecdhKeyJwk of ecdhKeysToTry) {
+        try {
+            if (!ecdhKeyJwk) continue;
+            const senderEcdhPublic = await importPublicKey(ecdhKeyJwk, "ECDH");
+            
+            let wrappingKey;
+            if (isHybrid && typeof encryptedKeyObject !== 'string' && myMlkemPrivateKey) {
+                const pqcSharedSecret = ml_kem768.decapsulate(
+                    new Uint8Array(base64ToBuffer(encryptedKeyObject.pqcCiphertext!)), 
+                    myMlkemPrivateKey
+                );
+                wrappingKey = await deriveHybridWrappingKey(myEcdhPrivateKey, senderEcdhPublic, new Uint8Array(pqcSharedSecret));
+            } else {
+                wrappingKey = await deriveWrappingKey(myEcdhPrivateKey, senderEcdhPublic);
+            }
+
+            rawSessionKey = await crypto.subtle.decrypt(
+                { name: "AES-GCM", iv: wrapIv.buffer as ArrayBuffer },
+                wrappingKey,
+                wrappedSessionKey as ArrayBuffer
+            );
+            break; // Success! Stop trying more keys
+        } catch (err) {
+            lastUnwrapError = err;
+            console.warn("[E2EE] Unwrap attempt failed with key source, trying next...", err);
+        }
+    }
+
+    if (!rawSessionKey) {
+        console.error("[E2EE] All session key unwrap attempts failed. Keys may have been rotated.");
+        throw new Error("E2EE_KEY_ROTATION: Cannot decrypt — device keys may have changed since this message was sent.");
     }
 
     const sessionKey = await crypto.subtle.importKey(

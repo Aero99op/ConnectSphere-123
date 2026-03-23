@@ -116,7 +116,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                         }
                     } catch (e) {
                         console.error("Live Decryption Error:", e);
-                        msg.content = "🚫 [Secured / Tampered Message]";
+                        msg.content = "🔒 [Encrypted message — keys changed]";
                     }
                 }
                 return msg;
@@ -455,7 +455,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                                 }
                             } catch (decErr) {
                                 console.error("Decryption failed for msg", m.id, decErr);
-                                m.content = "🚫 [Secured / Tampered Message]";
+                                m.content = "🔒 [Encrypted message — keys changed]";
                             }
                         }
                     }
