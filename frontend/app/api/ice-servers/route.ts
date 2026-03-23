@@ -17,6 +17,11 @@ export async function GET() {
         const iceServers: RTCIceServer[] = [
             { urls: "stun:stun.l.google.com:19302" },
             { urls: "stun:global.stun.twilio.com:3478" },
+            // Free Public TURN Server fallback (Open Relay Project / metered.ca)
+            // Fixes "calls not connecting" issues on strict Mobile Data / CGNAT connections.
+            { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
+            { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" },
+            { urls: "turn:openrelay.metered.ca:443?transport=tcp", username: "openrelayproject", credential: "openrelayproject" }
         ];
 
         // TURN server support via environment variables
