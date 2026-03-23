@@ -1,4 +1,4 @@
-const CACHE_NAME = 'connect-v2';
+const CACHE_NAME = 'connect-v3';
 const ASSETS_TO_CACHE = [
     '/',
     '/settings/games',

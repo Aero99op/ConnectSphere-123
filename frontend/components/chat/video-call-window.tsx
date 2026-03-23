@@ -456,7 +456,7 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
             // Signal readiness with RETRY LOOP (fixes race condition!)
             // Both sides keep signaling until connection is established
             let readyAttempts = 0;
-            const maxAttempts = 8; // 8 attempts × 2s = 16s window
+            const maxAttempts = 15; // 15 attempts × 2s = 30s window (Better for slow mobile data)
 
             const signalReady = () => {
                 if (readyAttempts >= maxAttempts || !peerConnection.current ||
