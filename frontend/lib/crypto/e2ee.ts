@@ -76,17 +76,17 @@ export const keyStore = new KeyStore();
 
 /** Generate ECDH and ECDSA key pairs and store private keys locally */
 export async function generateDeviceKeys() {
-    // 1. ECDH for Encryption
+    // 1. ECDH for Encryption — extractable so keys can sync across devices
     const ecdhPair = await crypto.subtle.generateKey(
         { name: "ECDH", namedCurve: "P-384" },
-        false, // PRIVATE KEY IS NON-EXTRACTABLE! Top Hacker Proof.
+        true, // EXTRACTABLE — needed for cross-device key sync via DB
         ["deriveKey", "deriveBits"]
     );
 
     // 2. ECDSA for Signatures (Authentication)
     const ecdsaPair = await crypto.subtle.generateKey(
         { name: "ECDSA", namedCurve: "P-384" },
-        false, // PRIVATE KEY IS NON-EXTRACTABLE!
+        true, // EXTRACTABLE — needed for cross-device key sync via DB
         ["sign", "verify"]
     );
 
@@ -98,12 +98,11 @@ export async function generateDeviceKeys() {
     await keyStore.saveKey("ecdsa_private", ecdsaPair.privateKey);
     await keyStore.saveKey("mlkem_private", secretKey as any);
 
-    // Export Public Keys logic (we'll save these to Supabase)
+    // Export Public Keys (for Supabase profiles)
     const ecdhPublicJwk = await crypto.subtle.exportKey("jwk", ecdhPair.publicKey);
     const ecdsaPublicJwk = await crypto.subtle.exportKey("jwk", ecdsaPair.publicKey);
 
-    // FIX: Strip key_ops from exported public JWKs to prevent inconsistency on future import
-    // ECDH public keys cannot have deriveKey/deriveBits usages — only private keys can.
+    // FIX: Strip key_ops from public JWKs
     delete (ecdhPublicJwk as any).key_ops;
     delete (ecdsaPublicJwk as any).key_ops;
 
@@ -111,9 +110,17 @@ export async function generateDeviceKeys() {
     await keyStore.saveKey("ecdh_public_jwk", ecdhPublicJwk as any);
     await keyStore.saveKey("ecdsa_public_jwk", ecdsaPublicJwk as any);
 
+    // Export Private Keys as JWK (for cross-device sync via DB)
+    const ecdhPrivateJwk = await crypto.subtle.exportKey("jwk", ecdhPair.privateKey);
+    const ecdsaPrivateJwk = await crypto.subtle.exportKey("jwk", ecdsaPair.privateKey);
+    const mlkemPrivateB64 = bufferToBase64(secretKey);
     const mlkemPublicB64 = bufferToBase64(publicKey);
 
-    return { ecdhPublicJwk, ecdsaPublicJwk, mlkemPublic: mlkemPublicB64 };
+    return {
+        ecdhPublicJwk, ecdsaPublicJwk, mlkemPublic: mlkemPublicB64,
+        // Private keys for DB storage (cross-device sync)
+        ecdhPrivateJwk, ecdsaPrivateJwk, mlkemPrivateB64
+    };
 }
 
 /** Check if device keys exist */
@@ -158,6 +165,51 @@ export async function hasDeviceKeys() {
     }
     
     return !!(k1 && k2 && k3);
+}
+
+/** Import device keys from DB (cross-device sync) — downloads keys stored by another device */
+export async function importDeviceKeysFromDB(
+    ecdhPrivateJwkStr: string,
+    ecdsaPrivateJwkStr: string,
+    mlkemPrivateB64: string,
+    ecdhPublicJwkStr: string,
+    ecdsaPublicJwkStr: string
+) {
+    // Import ECDH private key
+    const ecdhPrivateJwk = JSON.parse(ecdhPrivateJwkStr);
+    delete ecdhPrivateJwk.key_ops; // Strip to avoid inconsistency
+    const ecdhPrivateKey = await crypto.subtle.importKey(
+        "jwk", ecdhPrivateJwk,
+        { name: "ECDH", namedCurve: "P-384" },
+        true, ["deriveKey", "deriveBits"]
+    );
+
+    // Import ECDSA private key
+    const ecdsaPrivateJwk = JSON.parse(ecdsaPrivateJwkStr);
+    delete ecdsaPrivateJwk.key_ops;
+    const ecdsaPrivateKey = await crypto.subtle.importKey(
+        "jwk", ecdsaPrivateJwk,
+        { name: "ECDSA", namedCurve: "P-384" },
+        true, ["sign", "verify"]
+    );
+
+    // Restore ML-KEM private key
+    const mlkemPrivate = new Uint8Array(base64ToBuffer(mlkemPrivateB64));
+
+    // Save to IndexedDB
+    await keyStore.saveKey("ecdh_private", ecdhPrivateKey);
+    await keyStore.saveKey("ecdsa_private", ecdsaPrivateKey);
+    await keyStore.saveKey("mlkem_private", mlkemPrivate as any);
+
+    // Also save public JWKs for identity persistence
+    const ecdhPublicJwk = JSON.parse(ecdhPublicJwkStr);
+    const ecdsaPublicJwk = JSON.parse(ecdsaPublicJwkStr);
+    delete ecdhPublicJwk.key_ops;
+    delete ecdsaPublicJwk.key_ops;
+    await keyStore.saveKey("ecdh_public_jwk", ecdhPublicJwk as any);
+    await keyStore.saveKey("ecdsa_public_jwk", ecdsaPublicJwk as any);
+
+    console.log("[E2EE] ✅ Keys imported from DB — cross-device sync complete!");
 }
 
 /** Import a JWK Public Key from Supabase */
