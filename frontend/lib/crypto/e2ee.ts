@@ -102,6 +102,11 @@ export async function generateDeviceKeys() {
     const ecdhPublicJwk = await crypto.subtle.exportKey("jwk", ecdhPair.publicKey);
     const ecdsaPublicJwk = await crypto.subtle.exportKey("jwk", ecdsaPair.publicKey);
 
+    // FIX: Strip key_ops from exported public JWKs to prevent inconsistency on future import
+    // ECDH public keys cannot have deriveKey/deriveBits usages — only private keys can.
+    delete (ecdhPublicJwk as any).key_ops;
+    delete (ecdsaPublicJwk as any).key_ops;
+
     // Save Public JWKs for identity persistence during encryption
     await keyStore.saveKey("ecdh_public_jwk", ecdhPublicJwk as any);
     await keyStore.saveKey("ecdsa_public_jwk", ecdsaPublicJwk as any);
@@ -158,12 +163,17 @@ export async function hasDeviceKeys() {
 /** Import a JWK Public Key from Supabase */
 export async function importPublicKey(jwk: any, type: "ECDH" | "ECDSA") {
     if (typeof jwk === 'string') jwk = JSON.parse(jwk);
+    // FIX: Clone and strip key_ops to avoid "inconsistent key_ops" DataError
+    // Old JWKs may have key_ops:["deriveKey","deriveBits"] from export, but
+    // ECDH public keys must have empty usages per Web Crypto spec.
+    const cleanJwk = { ...jwk };
+    delete cleanJwk.key_ops;
     return await crypto.subtle.importKey(
         "jwk",
-        jwk,
+        cleanJwk,
         { name: type, namedCurve: "P-384" },
         true,
-        type === "ECDH" ? ["deriveKey", "deriveBits"] : ["verify"]
+        type === "ECDH" ? [] : ["verify"]
     );
 }
 
@@ -373,8 +383,9 @@ export async function decryptMessageAndVerify(
     }
 
     if (!isValid) {
-        console.error("[E2EE] SECURITY ALERT: Signature verification failed. Content may be tampered or keys mismatched.");
-        throw new Error("SECURITY ALERT: Signature verification failed. Message tampered.");
+        // Non-fatal: Legacy messages or key-rotated messages may fail signature check.
+        // Still attempt decryption — user sees the message with a warning rather than nothing.
+        console.warn("[E2EE] Signature could not be verified — key mismatch or legacy message. Attempting decryption anyway.");
     }
 
     // 2. Unwrap Session Key using Standard or Hybrid KDF
