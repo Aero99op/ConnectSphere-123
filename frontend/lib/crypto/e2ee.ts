@@ -387,48 +387,55 @@ export async function decryptMessageAndVerify(
         // Still attempt decryption — user sees the message with a warning rather than nothing.
     }
 
-    // 2. Unwrap Session Key using Standard or Hybrid KDF
-    // Try multiple key sources: embedded first, then profile, to handle key rotation
+    // 2. Unwrap Session Key — try all key combinations to handle any rotation scenario
     const embeddedEcdh = (typeof encryptedKeyObject === 'object' && (encryptedKeyObject as any)._hpub) ? (encryptedKeyObject as any)._hpub : null;
     
-    // SECURITY FIX (CRIT-004): Read stored wrapIv; fall back to zero-IV for backward compat with old messages
+    // SECURITY FIX (CRIT-004): Read stored wrapIv; fall back to zero-IV for backward compat
     const wrapIvB64 = (typeof encryptedKeyObject !== 'string' && encryptedKeyObject.wrapIv) ? encryptedKeyObject.wrapIv : null;
     const wrapIv = wrapIvB64 ? new Uint8Array(base64ToBuffer(wrapIvB64)) : new Uint8Array(12);
 
-    // Build list of ECDH keys to try (embedded key first, then profile key)
+    // Build all ECDH key sources to try
     const ecdhKeysToTry: any[] = [];
     if (embeddedEcdh) ecdhKeysToTry.push(embeddedEcdh);
-    if (senderEcdhPublicJwkStr && senderEcdhPublicJwkStr !== embeddedEcdh) ecdhKeysToTry.push(senderEcdhPublicJwkStr);
-    if (ecdhKeysToTry.length === 0) ecdhKeysToTry.push(senderEcdhPublicJwkStr); // fallback
+    if (senderEcdhPublicJwkStr) ecdhKeysToTry.push(senderEcdhPublicJwkStr);
+    if (ecdhKeysToTry.length === 0) ecdhKeysToTry.push(senderEcdhPublicJwkStr);
 
     let rawSessionKey: ArrayBuffer | null = null;
-    let lastUnwrapError: any = null;
 
+    // Try each ECDH key with hybrid first, then non-hybrid fallback
     for (const ecdhKeyJwk of ecdhKeysToTry) {
+        if (!ecdhKeyJwk || rawSessionKey) break;
+        
+        let senderEcdhPublic: CryptoKey;
         try {
-            if (!ecdhKeyJwk) continue;
-            const senderEcdhPublic = await importPublicKey(ecdhKeyJwk, "ECDH");
-            
-            let wrappingKey;
-            if (isHybrid && typeof encryptedKeyObject !== 'string' && myMlkemPrivateKey) {
+            senderEcdhPublic = await importPublicKey(ecdhKeyJwk, "ECDH");
+        } catch { continue; }
+
+        // Attempt 1: Hybrid path (if message has PQC ciphertext)
+        if (isHybrid && typeof encryptedKeyObject !== 'string' && myMlkemPrivateKey) {
+            try {
                 const pqcSharedSecret = ml_kem768.decapsulate(
-                    new Uint8Array(base64ToBuffer(encryptedKeyObject.pqcCiphertext!)), 
+                    new Uint8Array(base64ToBuffer(encryptedKeyObject.pqcCiphertext!)),
                     myMlkemPrivateKey
                 );
-                wrappingKey = await deriveHybridWrappingKey(myEcdhPrivateKey, senderEcdhPublic, new Uint8Array(pqcSharedSecret));
-            } else {
-                wrappingKey = await deriveWrappingKey(myEcdhPrivateKey, senderEcdhPublic);
-            }
+                const wrappingKey = await deriveHybridWrappingKey(myEcdhPrivateKey, senderEcdhPublic, new Uint8Array(pqcSharedSecret));
+                rawSessionKey = await crypto.subtle.decrypt(
+                    { name: "AES-GCM", iv: wrapIv.buffer as ArrayBuffer },
+                    wrappingKey, wrappedSessionKey as ArrayBuffer
+                );
+                break;
+            } catch { /* hybrid failed, try non-hybrid next */ }
+        }
 
+        // Attempt 2: Non-hybrid ECDH-only path (fallback if ML-KEM keys rotated)
+        try {
+            const wrappingKey = await deriveWrappingKey(myEcdhPrivateKey, senderEcdhPublic);
             rawSessionKey = await crypto.subtle.decrypt(
                 { name: "AES-GCM", iv: wrapIv.buffer as ArrayBuffer },
-                wrappingKey,
-                wrappedSessionKey as ArrayBuffer
+                wrappingKey, wrappedSessionKey as ArrayBuffer
             );
-            break; // Success! Stop trying more keys
-        } catch (err) {
-            console.debug("[E2EE] Unwrap attempt failed, trying next key source...");
-        }
+            break;
+        } catch { /* this key source failed, try next */ }
     }
 
     if (!rawSessionKey) {

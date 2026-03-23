@@ -796,6 +796,13 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     };
 
     const handleDeleteMessageForMe = async (msgId: string) => {
+        // Block delete on temp optimistic messages (non-UUID IDs like "orbuia")
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(msgId);
+        if (!isUUID) {
+            toast.error("Message abhi send ho raha hai, thoda ruk ja.");
+            setMessageContextMenuId(null);
+            return;
+        }
         setMessages(prev => prev.map(m => m.id === msgId ? { ...m, deleted_for: [...(m.deleted_for || []), currentUserId] } : m));
         const { error } = await supabase.rpc('delete_message_for_me', { msg_id: msgId });
         if (error) {
