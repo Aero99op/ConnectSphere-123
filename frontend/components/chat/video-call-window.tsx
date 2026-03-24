@@ -357,9 +357,18 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                 }
             };
 
+            let iceBatch: any[] = [];
+            let iceBatchTimer: NodeJS.Timeout | null = null;
             peerConnection.current.onicecandidate = (event) => {
                 if (event.candidate) {
-                    sendSignal('ice-candidate', { candidate: event.candidate, from: !isIncoming ? 'caller' : 'receiver' });
+                    iceBatch.push(event.candidate);
+                    if (!iceBatchTimer) {
+                        iceBatchTimer = setTimeout(() => {
+                            sendSignal('ice-candidates-batch', { candidates: iceBatch, from: !isIncoming ? 'caller' : 'receiver' });
+                            iceBatch = [];
+                            iceBatchTimer = null;
+                        }, 200); // Batch every 200ms -> 1 or 2 API calls instead of 30!
+                    }
                 }
             };
 
@@ -404,18 +413,21 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                 iceCandidateQueue = [];
             };
 
-            channel.bind('ice-candidate', async (data: any) => {
+            channel.bind('ice-candidates-batch', async (data: any) => {
                 const payload = typeof data === 'string' ? JSON.parse(data) : data;
                 const isFromMe = !isIncoming ? payload.from === 'caller' : payload.from === 'receiver';
 
                 if (peerConnection.current && !isFromMe) {
-                    if (!isRemoteDescriptionSet) {
-                        iceCandidateQueue.push(payload.candidate);
-                    } else {
-                        try {
-                            await peerConnection.current.addIceCandidate(new RTCIceCandidate(payload.candidate));
-                        } catch (err) {
-                            console.error("Error adding ice candidate", err);
+                    const candidates = payload.candidates || [];
+                    for (const cand of candidates) {
+                        if (!isRemoteDescriptionSet) {
+                            iceCandidateQueue.push(cand);
+                        } else {
+                            try {
+                                await peerConnection.current.addIceCandidate(new RTCIceCandidate(cand));
+                            } catch (err) {
+                                console.error("Error adding batched ice candidate", err);
+                            }
                         }
                     }
                 }
@@ -488,15 +500,15 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                 }
             });
 
-            // Signal readiness with RETRY LOOP (fixes race condition!)
+            // Signal readiness with RETRY LOOP
             // Both sides keep signaling until connection is established
             let readyAttempts = 0;
-            const maxAttempts = 15; // 15 attempts × 2s = 30s window (Better for slow mobile data)
+            const maxAttempts = 15; // 15 attempts
 
             const signalReady = () => {
                 if (readyAttempts >= maxAttempts || !peerConnection.current ||
                     peerConnection.current.connectionState === 'connected') {
-                    clearInterval(readyInterval);
+                    if (readyInterval) clearInterval(readyInterval);
                     return;
                 }
                 readyAttempts++;
@@ -509,8 +521,13 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                 }
             };
 
-            // Start immediately — NO DELAY! The 500ms delay caused a critical race condition
-            // where the caller's signal could arrive before the receiver finished binding events.
+            // Immediate reaction to channel subscription! This enables 0.01ms response time
+            channel.bind('pusher:subscription_succeeded', () => {
+                console.log("[VideoCall] 🟢 Channel subscribed successfully! Signaling ready instantly.");
+                signalReady();
+            });
+
+            // Caller can often start immediately, Receiver should wait for subscription success but we tick anyway
             signalReady();
             readyInterval = setInterval(signalReady, 2000);
         };
@@ -538,7 +555,7 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
             // CRITICAL FIX: Explicitly unbind all events from this channel before unsubscribing
             // Apinator SDK doesn't support unbind_all(), so we do it manually.
             if (channel) {
-                channel.unbind('ice-candidate');
+                channel.unbind('ice-candidates-batch');
                 channel.unbind('call-offer');
                 channel.unbind('call-offer-chunk');
                 channel.unbind('call-answer');

@@ -16,11 +16,15 @@ interface GroupCallWindowProps {
     initialMinimized?: boolean;
 }
 
-const ICE_SERVERS = {
+const DEFAULT_ICE_SERVERS = {
     iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:global.stun.twilio.com:3478" }
+        { urls: "stun:global.stun.twilio.com:3478" },
+        { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
+        { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" },
+        { urls: "turn:openrelay.metered.ca:443?transport=tcp", username: "openrelayproject", credential: "openrelayproject" }
     ],
+    iceCandidatePoolSize: 10,
 };
 
 export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, initialMinimized = false }: GroupCallWindowProps) {
@@ -148,6 +152,17 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
                         if (pc) {
                             await pc.setRemoteDescription(new RTCSessionDescription(data));
                         }
+                    } else if (type === 'ice-candidates-batch') {
+                        if (pc) {
+                            const candidates = data || [];
+                            for (const cand of candidates) {
+                                try {
+                                    await pc.addIceCandidate(new RTCIceCandidate(cand));
+                                } catch (e) {
+                                    console.error("Error adding batched ice candidate", e);
+                                }
+                            }
+                        }
                     } else if (type === 'ice-candidate') {
                         if (pc) {
                             try {
@@ -223,15 +238,24 @@ export function GroupCallWindow({ roomId, currentUserId, callType, onEndCall, in
         };
 
         const createPeerConnection = (remoteId: string, localStream: MediaStream, sendGroupSignal: (event: string, data: any) => void) => {
-            const pc = new RTCPeerConnection(ICE_SERVERS);
+            const pc = new RTCPeerConnection(DEFAULT_ICE_SERVERS);
 
             localStream.getTracks().forEach(track => {
                 pc.addTrack(track, localStream);
             });
 
+            let iceBatch: any[] = [];
+            let iceBatchTimer: NodeJS.Timeout | null = null;
             pc.onicecandidate = (event) => {
                 if (event.candidate) {
-                    sendGroupSignal('webrtc-signal', { senderId: currentUserId, targetId: remoteId, type: 'ice-candidate', data: event.candidate });
+                    iceBatch.push(event.candidate);
+                    if (!iceBatchTimer) {
+                        iceBatchTimer = setTimeout(() => {
+                            sendGroupSignal('webrtc-signal', { senderId: currentUserId, targetId: remoteId, type: 'ice-candidates-batch', data: iceBatch });
+                            iceBatch = [];
+                            iceBatchTimer = null;
+                        }, 200);
+                    }
                 }
             };
 

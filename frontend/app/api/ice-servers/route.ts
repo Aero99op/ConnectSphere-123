@@ -20,6 +20,7 @@ export async function GET() {
             { urls: "stun:stun1.l.google.com:19302" },
             { urls: "stun:stun2.l.google.com:19302" },
             { urls: "stun:global.stun.twilio.com:3478" },
+            { urls: "stun:stun.cloudflare.com:3478" },
             // Free Public TURN Server (Open Relay Project / metered.ca)
             // These fix calls on strict Mobile Data / CGNAT (Jio, Airtel, etc.)
             { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
@@ -44,7 +45,10 @@ export async function GET() {
             });
         }
 
-        return NextResponse.json({ iceServers }, {
+        return NextResponse.json({ 
+            iceServers,
+            iceCandidatePoolSize: 10 
+        }, {
             headers: {
                 // Short cache to allow credential rotation
                 'Cache-Control': 'private, max-age=300',
