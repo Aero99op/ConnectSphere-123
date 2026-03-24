@@ -17,11 +17,19 @@ if (!globalThis._supabaseAuthenticatedClients) {
     globalThis._supabaseAuthenticatedClients = new Map();
 }
 
+// In-memory storage to prevent "Multiple GoTrueClient instances detected" warnings in browser
+// Since persistSession is false, we don't need real storage here
+const memoryStorage = {
+    getItem: (key: string) => null,
+    setItem: (key: string, value: string) => {},
+    removeItem: (key: string) => {},
+};
+
 export const getSupabase = (token?: string) => {
     if (token) {
         if (!globalThis._supabaseAuthenticatedClients!.has(token)) {
             const client = createClient(supabaseUrl, supabaseAnonKey, {
-                auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+                auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storage: memoryStorage },
                 global: { 
                     headers: { 
                         'apikey': supabaseAnonKey,

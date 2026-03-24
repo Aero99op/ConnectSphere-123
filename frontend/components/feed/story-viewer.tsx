@@ -73,6 +73,12 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
                     .eq('user_id', userId)
                     .maybeSingle();
                 if (likeData) setLiked(true);
+            } else {
+                // Juggad: Read mock likes from localStorage
+                if (typeof window !== "undefined") {
+                    const mockLiked = localStorage.getItem(`mock_like_${currentStory.id}_${userId}`);
+                    if (mockLiked === 'true') setLiked(true);
+                }
             }
         }
 
@@ -199,6 +205,10 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
                 if (!isMock) {
                     const { error } = await supabase.from('story_likes').insert({ story_id: currentStory.id, user_id: userId });
                     if (error) throw error;
+                } else {
+                    if (typeof window !== "undefined") {
+                        localStorage.setItem(`mock_like_${currentStory.id}_${userId}`, 'true');
+                    }
                 }
 
                 // Real-time Notification logic
@@ -230,6 +240,10 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
                 if (!isMock) {
                     const { error } = await supabase.from('story_likes').delete().eq('story_id', currentStory.id).eq('user_id', userId);
                     if (error) throw error;
+                } else {
+                    if (typeof window !== "undefined") {
+                        localStorage.removeItem(`mock_like_${currentStory.id}_${userId}`);
+                    }
                 }
             }
 
@@ -263,7 +277,14 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
         setComment(""); // Clear early for speed
         setPaused(false);
 
+        const isMock = currentStory.id && currentStory.id.toString().startsWith('mock');
+
         try {
+            if (isMock) {
+                toast.success("Reply saved & DM sent! ✉️");
+                return;
+            }
+
             // 1. Save to Story Comments table
             const { error: storyErr } = await supabase.from('story_comments').insert({
                 story_id: currentStory.id,
