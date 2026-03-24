@@ -13,15 +13,20 @@ export async function GET() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Base STUN servers (free, always available)
+        // Base STUN servers (free, always available) + Free TURN servers
         const iceServers: RTCIceServer[] = [
+            // Multiple STUN servers for redundancy across carriers
             { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" },
+            { urls: "stun:stun2.l.google.com:19302" },
             { urls: "stun:global.stun.twilio.com:3478" },
-            // Free Public TURN Server fallback (Open Relay Project / metered.ca)
-            // Fixes "calls not connecting" issues on strict Mobile Data / CGNAT connections.
+            // Free Public TURN Server (Open Relay Project / metered.ca)
+            // These fix calls on strict Mobile Data / CGNAT (Jio, Airtel, etc.)
             { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
             { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" },
-            { urls: "turn:openrelay.metered.ca:443?transport=tcp", username: "openrelayproject", credential: "openrelayproject" }
+            { urls: "turn:openrelay.metered.ca:443?transport=tcp", username: "openrelayproject", credential: "openrelayproject" },
+            // Alternate free STUN for CGNAT environments
+            { urls: "stun:stun.relay.metered.ca:80" },
         ];
 
         // TURN server support via environment variables

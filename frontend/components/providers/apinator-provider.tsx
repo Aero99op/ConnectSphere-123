@@ -73,10 +73,10 @@ export function ApinatorProvider({ children }: { children: React.ReactNode }) {
                     connectingTicks = 0;
                 } else if (s === 'connecting') {
                     connectingTicks++;
-                    // Relaxed to 6 ticks (60s) to allow slower connections
-                    // and avoid false Deadlock detection on Edge Runtime
-                    if (connectingTicks >= 6) {
-                        console.error("[ApinatorProvider] 🚨 Deadlock detected. Forcing socket recycle.");
+                    // Relaxed to 9 ticks (90s) to allow slower mobile connections
+                    // and avoid false deadlock detection on mobile data / Edge Runtime
+                    if (connectingTicks >= 9) {
+                        console.warn("[ApinatorProvider] ⚠️ Connection stalled. Recycling socket...");
                         apinatorClient.disconnect();
                         setTimeout(() => apinatorClient.connect(), 500);
                         connectingTicks = 0;

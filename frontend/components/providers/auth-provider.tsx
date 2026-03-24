@@ -2,7 +2,7 @@
 
 import { SessionProvider, useSession, signOut as nextAuthSignOut } from 'next-auth/react';
 import { createContext, useContext, useMemo, useEffect } from 'react';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabase } from '@/lib/supabase';
 import { hasDeviceKeys, generateDeviceKeys, importDeviceKeysFromDB, getLocalPublicKeys, setActiveUserId, bufferToBase64, keyStore } from '@/lib/crypto/e2ee';
 

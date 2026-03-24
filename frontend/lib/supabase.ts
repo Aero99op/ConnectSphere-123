@@ -10,41 +10,62 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // Use globalThis to maintain a true singleton across Next.js HMR and React StrictMode
 declare global {
     var _supabaseInstance: SupabaseClient | undefined;
-    var _supabaseAuthenticatedClients: Map<string, SupabaseClient> | undefined;
+    var _supabaseAuthClient: SupabaseClient | undefined;
+    var _supabaseAuthToken: string | undefined;
 }
 
-if (!globalThis._supabaseAuthenticatedClients) {
-    globalThis._supabaseAuthenticatedClients = new Map();
+// FIX: Use a SINGLE authenticated client that gets reused.
+// Instead of creating one client per token (which causes Multiple GoTrueClient warnings),
+// we create ONE authenticated client and update its headers when the token changes.
+function makeUniqueStorage(tokenSlice: string) {
+    // Each client gets unique storage key to prevent GoTrueClient collision warning
+    const prefix = `sb-auth-${tokenSlice}-`;
+    return {
+        getItem: (key: string) => null, // No persistence needed — NextAuth manages sessions
+        setItem: (key: string, value: string) => {},
+        removeItem: (key: string) => {},
+    };
 }
-
-// In-memory storage to prevent "Multiple GoTrueClient instances detected" warnings in browser
-// Since persistSession is false, we don't need real storage here
-const memoryStorage = {
-    getItem: (key: string) => null,
-    setItem: (key: string, value: string) => {},
-    removeItem: (key: string) => {},
-};
 
 export const getSupabase = (token?: string) => {
     if (token) {
-        if (!globalThis._supabaseAuthenticatedClients!.has(token)) {
-            const client = createClient(supabaseUrl, supabaseAnonKey, {
-                auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storage: memoryStorage },
-                global: { 
-                    headers: { 
-                        'apikey': supabaseAnonKey,
-                        'Authorization': `Bearer ${token}`
-                    } 
-                }
-            });
-            globalThis._supabaseAuthenticatedClients!.set(token, client);
+        // Reuse existing authenticated client if token hasn't changed
+        if (globalThis._supabaseAuthClient && globalThis._supabaseAuthToken === token) {
+            return globalThis._supabaseAuthClient;
         }
-        return globalThis._supabaseAuthenticatedClients!.get(token)!;
+
+        // Token changed — create new client with unique storage key
+        const tokenSlice = token.substring(token.length - 8);
+        const client = createClient(supabaseUrl, supabaseAnonKey, {
+            auth: {
+                persistSession: false,
+                autoRefreshToken: false,
+                detectSessionInUrl: false,
+                storage: makeUniqueStorage(tokenSlice),
+                // Use unique storage key to prevent GoTrueClient collision
+                storageKey: `sb-auth-${tokenSlice}`,
+            },
+            global: { 
+                headers: { 
+                    'apikey': supabaseAnonKey,
+                    'Authorization': `Bearer ${token}`
+                } 
+            }
+        });
+
+        globalThis._supabaseAuthClient = client;
+        globalThis._supabaseAuthToken = token;
+        return client;
     }
 
     if (!globalThis._supabaseInstance && supabaseUrl && supabaseAnonKey) {
         globalThis._supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
-            auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+            auth: {
+                persistSession: false,
+                autoRefreshToken: false,
+                detectSessionInUrl: false,
+                storageKey: 'sb-anon-instance', // Unique key for anon client
+            },
             global: { headers: { 'apikey': supabaseAnonKey } }
         });
     }
@@ -53,3 +74,4 @@ export const getSupabase = (token?: string) => {
 
 // Legacy export for compatibility, but better to use getSupabase()
 export const supabase = getSupabase();
+

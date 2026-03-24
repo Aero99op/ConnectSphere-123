@@ -192,12 +192,14 @@ export async function importDeviceKeysFromDB(
     );
 
     // Import ECDSA private key
+    // CRITICAL FIX: Private keys can ONLY have ["sign"] usage.
+    // "verify" is a PUBLIC key operation and causes SyntaxError on strict browsers.
     const ecdsaPrivateJwk = JSON.parse(ecdsaPrivateJwkStr);
     delete ecdsaPrivateJwk.key_ops;
     const ecdsaPrivateKey = await crypto.subtle.importKey(
         "jwk", ecdsaPrivateJwk,
         { name: "ECDSA", namedCurve: "P-384" },
-        true, ["sign", "verify"]
+        true, ["sign"]
     );
 
     // Restore ML-KEM private key

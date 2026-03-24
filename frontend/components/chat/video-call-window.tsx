@@ -321,10 +321,34 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                 if (state === 'connected' || state === 'completed') {
                     setConnectionStatus("connected");
                 } else if (state === 'failed') {
-                    console.error("[WebRTC] Connection failed (Strict NAT blocking P2P).");
-                    toast.error("Call failed to connect (Network Firewall/NAT blocked).");
-                    setConnectionStatus("disconnected");
-                    handleEndCall(false);
+                    // CRITICAL FIX: Try ICE restart before giving up
+                    console.warn("[WebRTC] ICE failed — attempting restart...");
+                    if (peerConnection.current && !isIncoming && peerConnection.current.signalingState !== 'closed') {
+                        try {
+                            peerConnection.current.restartIce();
+                            // Re-create and send offer with iceRestart flag
+                            peerConnection.current.createOffer({ iceRestart: true }).then(offer => {
+                                return peerConnection.current?.setLocalDescription(offer);
+                            }).then(() => {
+                                sendSignal('call-offer', { offer: peerConnection.current?.localDescription });
+                                console.log("[WebRTC] 🔄 ICE restart offer sent");
+                            }).catch(e => {
+                                console.error("[WebRTC] ICE restart failed:", e);
+                                toast.error("Call failed to connect (Network Firewall/NAT blocked).");
+                                setConnectionStatus("disconnected");
+                                handleEndCall(false);
+                            });
+                        } catch (e) {
+                            console.error("[WebRTC] ICE restart not supported:", e);
+                            toast.error("Call failed to connect (Network Firewall/NAT blocked).");
+                            setConnectionStatus("disconnected");
+                            handleEndCall(false);
+                        }
+                    } else {
+                        toast.error("Call failed to connect (Network Firewall/NAT blocked).");
+                        setConnectionStatus("disconnected");
+                        handleEndCall(false);
+                    }
                 } else if (state === 'disconnected') {
                     console.warn("[WebRTC] Connection temporarily disconnected. Waiting to recover...");
                     // DO NOT terminate here! WebRTC often recovers from 'disconnected'.
@@ -474,11 +498,10 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
                 }
             };
 
-            // Start immediately, then retry every 2s
-            setTimeout(() => {
-                signalReady();
-                readyInterval = setInterval(signalReady, 2000);
-            }, 500);
+            // Start immediately — NO DELAY! The 500ms delay caused a critical race condition
+            // where the caller's signal could arrive before the receiver finished binding events.
+            signalReady();
+            readyInterval = setInterval(signalReady, 2000);
         };
 
         startCall();
