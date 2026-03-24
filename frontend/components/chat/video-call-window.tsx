@@ -281,6 +281,8 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
 
             // SECURITY FIX (HIGH-05): Fetch ICE config from server (supports TURN)
             const iceConfig = await fetchIceServers();
+            // PLAN ITEM: Force 'all' transport policy to try STUN + TURN relay
+            iceConfig.iceTransportPolicy = 'all';
             peerConnection.current = new RTCPeerConnection(iceConfig);
 
             // Use AR processed stream if available (via ref to avoid stale closure), otherwise raw stream
@@ -358,6 +360,15 @@ export function VideoCallWindow({ roomId, recipientId, isIncoming, callType, onE
             peerConnection.current.onicecandidate = (event) => {
                 if (event.candidate) {
                     sendSignal('ice-candidate', { candidate: event.candidate, from: !isIncoming ? 'caller' : 'receiver' });
+                }
+            };
+
+            // PLAN ITEM: ICE gathering state logging for debugging carrier/NAT issues
+            peerConnection.current.onicegatheringstatechange = () => {
+                const state = peerConnection.current?.iceGatheringState;
+                console.log("[WebRTC] ICE Gathering State:", state);
+                if (state === 'complete') {
+                    console.log("[WebRTC] ✅ All ICE candidates gathered.");
                 }
             };
 
