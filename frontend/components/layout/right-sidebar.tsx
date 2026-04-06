@@ -104,7 +104,7 @@ function RightSidebarContent() {
 
     if (loading) {
         return (
-            <div className="hidden xl:block w-85 shrink-0 pt-8 pr-10 z-20">
+            <div className="hidden xl:block w-80 shrink-0 pt-8 pr-10 z-20">
                 <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-zinc-600" /></div>
             </div>
         );
@@ -113,7 +113,7 @@ function RightSidebarContent() {
     if (!currentUser) return null; // Don't show sidebar if not logged in
 
     return (
-        <div className="hidden xl:block w-85 shrink-0 pt-8 pr-10 z-20">
+        <div className="hidden xl:block w-80 shrink-0 pt-8 pr-10 z-20">
             <div className="sticky top-12 space-y-8">
 
                 {/* User Profile Summary */}
