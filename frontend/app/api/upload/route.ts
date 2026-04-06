@@ -24,17 +24,25 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'File too large. Max 50MB.' }, { status: 413 });
         }
 
-        // SECURITY FIX (HIGH-005): Validate file type — reject empty MIME types too
+        // SECURITY FIX (HIGH-005): Validate file type — MIME-first approach
         const allowedTypes = ['image/', 'video/', 'audio/', 'application/pdf'];
-        const isAllowed = file.type && allowedTypes.some(t => file.type.startsWith(t));
+        const isAllowedMime = file.type && allowedTypes.some(t => file.type.startsWith(t));
         
-        // Also check file extension as backup
+        // Extension check is secondary — chunks may not have extensions
         const fileName = (file as any).name || '';
         const allowedExtensions = /\.(jpg|jpeg|png|gif|webp|mp4|mov|webm|mp3|wav|ogg|pdf)$/i;
-        const hasAllowedExt = fileName ? allowedExtensions.test(fileName) : true; // Skip if no name
+        // If file has a recognizable name with extension, validate it. Otherwise skip.
+        const hasExtension = /\.\w+$/.test(fileName);
+        const hasAllowedExt = hasExtension ? allowedExtensions.test(fileName) : true;
         
-        if (!isAllowed || !hasAllowedExt) {
+        // Block only if MIME type fails (primary gate)
+        if (!isAllowedMime) {
             return NextResponse.json({ error: 'File type not allowed' }, { status: 415 });
+        }
+        
+        // If file has an explicit bad extension, block it too
+        if (hasExtension && !hasAllowedExt) {
+            return NextResponse.json({ error: 'File extension not allowed' }, { status: 415 });
         }
 
         const catboxFormData = new FormData();

@@ -279,7 +279,7 @@ export function MainHomeFeedContent() {
 
     return (
         <>
-            <div className="flex justify-center w-full min-h-screen relative p-0 sm:p-4 md:p-6 lg:p-8 xl:px-0">
+            <div className="flex justify-center w-full min-h-screen relative px-2 sm:px-4 md:px-6">
                 {/* Theme-Aware Background */}
                 <div className="fixed inset-0 z-0 bg-background pointer-events-none">
                     {theme === 'radiant-void' ? (

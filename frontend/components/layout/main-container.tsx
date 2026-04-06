@@ -30,7 +30,7 @@ export function MainContainer({ children }: { children: ReactNode }) {
             "w-full h-full overflow-y-auto transition-all duration-300",
             !isFullScreenRoute ? "pb-24 md:pb-0 md:pl-20 lg:pl-64" : ""
         )}>
-            <div className="mx-auto w-full h-full max-w-5xl">
+            <div className="mx-auto w-full h-full">
                 {children}
             </div>
         </main>

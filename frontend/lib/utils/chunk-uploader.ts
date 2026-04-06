@@ -11,17 +11,17 @@ interface ChunkInfo {
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-async function uploadChunkWithRetry(chunk: Blob, index: number, retries = 0): Promise<string> {
+async function uploadChunkWithRetry(chunk: Blob, index: number, ext: string, retries = 0): Promise<string> {
     try {
         // Use proxy to avoid CORS and potentially handle SSL issues at edge
-        const fileToUpload = new File([chunk], `chunk_${index}`, { type: chunk.type });
+        const fileToUpload = new File([chunk], `chunk_${index}${ext}`, { type: chunk.type });
         const url = await uploadToCatbox(fileToUpload, { useProxy: true });
         return url;
     } catch (error) {
         if (retries < MAX_RETRIES) {
             console.warn(`Chunk ${index} failed, retrying (${retries + 1}/${MAX_RETRIES})...`);
             await delay(1000 * Math.pow(2, retries)); // Exponential backoff: 1s, 2s, 4s
-            return uploadChunkWithRetry(chunk, index, retries + 1);
+            return uploadChunkWithRetry(chunk, index, ext, retries + 1);
         }
         throw new Error(`Failed to upload chunk ${index} after ${MAX_RETRIES} retries.`);
     }
@@ -31,6 +31,10 @@ export async function uploadFileInChunks(
     file: File,
     onProgress?: (progress: number) => void
 ): Promise<string[]> {
+    // Extract file extension from original filename for chunk naming
+    const extMatch = file.name.match(/\.[^.]+$/);
+    const ext = extMatch ? extMatch[0] : '';
+
     if (file.size <= CHUNK_SIZE) {
         // Direct upload for small files
         const url = await uploadToCatbox(file);
@@ -63,7 +67,7 @@ export async function uploadFileInChunks(
             const chunkInfo = uploadQueue.shift();
             if (!chunkInfo) break;
 
-            const url = await uploadChunkWithRetry(chunkInfo.blob, chunkInfo.index);
+            const url = await uploadChunkWithRetry(chunkInfo.blob, chunkInfo.index, ext);
             uploadedUrls[chunkInfo.index] = url;
 
             chunksUploaded++;

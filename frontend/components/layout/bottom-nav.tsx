@@ -55,13 +55,19 @@ function BottomNavContent() {
     return (
         <div className={cn(
             "fixed z-50 transition-all duration-500 pointer-events-auto border-premium",
-            // Mobile: Bottom fixed full width
-            "bottom-0 left-0 right-0 w-full bg-[#050507]/80 backdrop-blur-2xl border-t pb-1 safe-area-bottom md:pb-0",
-            // Desktop: Fixed Left Sidebar
-            "md:top-0 md:h-screen md:w-20 lg:w-64 md:border-r md:border-t-0 md:bg-[#050507]/40 md:backdrop-blur-3xl md:flex md:flex-col md:py-10 md:items-center lg:items-start shadow-premium-lg"
+            // Mobile: Bottom bar
+            "bottom-0 left-0 right-0 bg-[#050507]/80 backdrop-blur-2xl border-t pb-1 safe-area-bottom",
+            // Desktop: Override to left sidebar
+            "md:bottom-auto md:top-0 md:right-auto md:left-0 md:h-screen md:w-20 lg:w-64 md:border-r md:border-t-0 md:bg-[#050507]/40 md:backdrop-blur-3xl md:pb-0 shadow-premium-lg"
         )}>
+            {/* Desktop Logo */}
+            <div className="hidden md:flex items-center px-6 py-8 lg:py-10">
+                <span className="text-xl font-display font-black tracking-tightest bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 bg-clip-text text-transparent italic hidden lg:block">Connect</span>
+                <span className="text-xl font-display font-black tracking-tightest bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-transparent italic lg:hidden">C</span>
+            </div>
+
             {/* Nav Container */}
-            <div className="flex items-center justify-around h-14 w-full md:h-auto md:flex-col md:items-start md:gap-4 md:w-full md:px-4 lg:px-6">
+            <div className="flex items-center justify-around h-14 w-full md:h-auto md:flex-col md:items-start md:gap-2 md:w-full md:px-3 lg:px-5">
                 {navItems.map((item) => {
                     const isActive = pathname === item.href;
                     return (
@@ -77,10 +83,10 @@ function BottomNavContent() {
                         >
                             <div className={cn("p-1.5 md:p-0 rounded-xl transition-all duration-300 relative", isActive ? "bg-white/10 md:bg-transparent" : "group-hover:bg-white/5 md:group-hover:bg-transparent")}>
                                 <item.icon className={cn("w-6 h-6", isActive && "fill-orange-500/20")} strokeWidth={isActive ? 2.5 : 2} />
-                                {isActive && <div className="hidden md:block absolute -left-4 lg:-left-7 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-orange-500 rounded-r-md" />}
+                                {isActive && <div className="hidden md:block absolute -left-3 lg:-left-6 top-1/2 -translate-y-1/2 w-1 h-5 bg-orange-500 rounded-r-md" />}
                             </div>
                             <span className={cn(
-                                "text-[10px] md:text-[15px] font-medium md:hidden lg:block tracking-tighter",
+                                "text-[10px] md:text-sm font-medium md:hidden lg:block tracking-tighter",
                                 isActive ? "text-orange-500 font-bold font-display" : "text-zinc-500 group-hover:text-zinc-200"
                             )}>
                                 {item.label}
