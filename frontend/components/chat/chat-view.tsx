@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { uploadToCatbox } from "@/lib/catbox";
 import { getApinatorClient } from "@/lib/apinator";
-import { Send, ChevronLeft, Loader2, Video, Phone, MoreVertical, Image as ImageIcon, Users, LogOut, Check, CheckCheck, Smile, X } from "lucide-react";
+import { Send, ChevronLeft, Loader2, Video, Phone, MoreVertical, Image as ImageIcon, Users, LogOut, Check, CheckCheck, Smile, X, Wallpaper } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -62,6 +62,8 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
     const groupParticipantsRef = useRef<string[]>([]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [sendReadReceipts, setSendReadReceipts] = useState<boolean>(true);
+    const [chatBgUrl, setChatBgUrl] = useState<string | null>(null);
+    const bgInputRef = useRef<HTMLInputElement>(null);
 
     // Apinator-based Realtime Chat (UNLIMITED connections)
     useEffect(() => {
@@ -81,6 +83,12 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
 
         window.addEventListener('focus', handleFocus);
         if (document.hasFocus()) markMessagesAsRead();
+
+        // Load custom background
+        if (typeof window !== 'undefined') {
+            const bg = localStorage.getItem(`chat_bg_${conversationId}`);
+            if (bg) setChatBgUrl(bg);
+        }
 
         const setupSubscription = () => {
             const client = getApinatorClient();
@@ -930,8 +938,36 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         }
     };
 
+    const handleBgChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        toast.loading("Applying theme...", { id: "theme-upload" });
+        setIsUploading(true);
+        try {
+            const url = await uploadToCatbox(file, { useProxy: true });
+            setChatBgUrl(url);
+            if (typeof window !== 'undefined') {
+                localStorage.setItem(`chat_bg_${conversationId}`, url);
+            }
+            toast.success("Theme updated! 🎨", { id: "theme-upload" });
+        } catch (err) {
+            toast.error("Failed to set theme.", { id: "theme-upload" });
+        } finally {
+            setIsUploading(false);
+            if (bgInputRef.current) bgInputRef.current.value = '';
+        }
+    };
+
     return (
-        <div className="flex flex-col h-full w-full bg-[#0a0a0a] relative">
+        <div 
+            className="flex flex-col h-full w-full bg-[#0a0a0a] relative"
+            style={{
+                backgroundImage: chatBgUrl ? `linear-gradient(to bottom, rgba(0,0,0,0.65), rgba(0,0,0,0.85)), url(${chatBgUrl})` : 'none',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
+            }}
+        >
             {/* Header - Instagram Style Glassmorphism */}
             <div className="h-16 px-4 bg-black/80 backdrop-blur-xl border-b border-white/5 flex items-center justify-between sticky top-0 z-20 w-full shrink-0">
                 <div className="flex items-center gap-3">
@@ -959,6 +995,10 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                     </div>
                 </div>
                 <div className="flex items-center gap-0.5">
+                    <button onClick={() => bgInputRef.current?.click()} className="p-2.5 hover:bg-white/10 rounded-full text-white/90 transition-colors" title="Change Background">
+                        <Wallpaper className="w-5 h-5" />
+                        <input type="file" accept="image/*" className="hidden" ref={bgInputRef} onChange={handleBgChange} />
+                    </button>
                     <button onClick={() => startCall("audio")} className="p-2.5 hover:bg-white/10 rounded-full text-white/90 transition-colors" title="Voice Call">
                         <Phone className="w-5 h-5" />
                     </button>
