@@ -365,17 +365,52 @@ export function PostCard({ post }: PostProps) {
                 {/* 1. Post Header */}
                 <div className="flex items-center justify-between p-4 px-5 border-b border-white/[0.05] transition-colors duration-500">
                     <div className="flex items-center gap-3">
-                        <Link href={`/profile/${post.user_id}`} className="shrink-0">
+                        {/* Avatar — show original author's avatar for reposts */}
+                        <Link href={`/profile/${post.repost_of && originalAuthor ? post.repost_of : post.user_id}`} className="shrink-0">
                             <StoryAvatar
-                                user={{ id: post.user_id, username: post.username, full_name: post.profiles?.full_name, avatar_url: post.avatar_url }}
+                                user={post.repost_of && originalAuthor 
+                                    ? { id: post.repost_of, username: originalAuthor.username, full_name: originalAuthor.full_name, avatar_url: originalAuthor.avatar_url }
+                                    : { id: post.user_id, username: post.username, full_name: post.profiles?.full_name, avatar_url: post.avatar_url }
+                                }
                                 className="w-11 h-11 transition-transform border-premium ring-1 ring-white/10 hover:scale-105"
                             />
                         </Link>
                         <div className="flex flex-col text-left min-w-0">
-                            <div className="flex items-center gap-2">
-                                <Link href={`/profile/${post.user_id}`} className="font-display font-bold text-[15px] text-white leading-tight tracking-tight hover:text-primary transition-colors">
-                                    {post.profiles?.full_name || post.username}
-                                </Link>
+                            {/* Name Row: Original Author + "and X others" for reposts */}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                                {post.repost_of && originalAuthor ? (
+                                    <>
+                                        {/* Original author name */}
+                                        <Link href={`/profile/${post.repost_of}`} className="font-display font-bold text-[15px] text-white leading-tight tracking-tight hover:text-primary transition-colors">
+                                            {originalAuthor.full_name || originalAuthor.username}
+                                        </Link>
+                                        {/* "and X others" — clickable */}
+                                        {repostsCount > 0 && (
+                                            <button
+                                                onClick={() => setShowRepostsSheet(true)}
+                                                className="font-display font-bold text-[15px] text-zinc-400 leading-tight tracking-tight hover:text-primary transition-colors"
+                                            >
+                                                and <span className="text-white hover:text-primary">{repostsCount} {repostsCount === 1 ? 'other' : 'others'}</span>
+                                            </button>
+                                        )}
+                                    </>
+                                ) : (
+                                    <>
+                                        {/* Normal post — show post author */}
+                                        <Link href={`/profile/${post.user_id}`} className="font-display font-bold text-[15px] text-white leading-tight tracking-tight hover:text-primary transition-colors">
+                                            {post.profiles?.full_name || post.username}
+                                        </Link>
+                                        {/* "and X others" for original posts that got reposted */}
+                                        {repostsCount > 0 && (
+                                            <button
+                                                onClick={() => setShowRepostsSheet(true)}
+                                                className="font-display font-bold text-[15px] text-zinc-400 leading-tight tracking-tight hover:text-primary transition-colors"
+                                            >
+                                                and <span className="text-white hover:text-primary">{repostsCount} {repostsCount === 1 ? 'other' : 'others'}</span>
+                                            </button>
+                                        )}
+                                    </>
+                                )}
                                 {currentUserId && currentUserId !== post.user_id && isFollowing === false && (
                                     <>
                                         <span className="text-zinc-500 text-[10px]">•</span>
@@ -389,42 +424,14 @@ export function PostCard({ post }: PostProps) {
                                     </>
                                 )}
                             </div>
-                            <p className="text-[11px] font-medium text-zinc-500 flex items-center gap-1.5 uppercase tracking-widest mt-0.5">
-                                <span>@{post.username}</span>
+                            {/* Subtitle — date or @username */}
+                            <p className="text-[11px] font-medium text-zinc-500 flex items-center gap-1.5 mt-0.5">
+                                {post.created_at ? (
+                                    <span>{new Date(post.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                                ) : (
+                                    <span className="uppercase tracking-widest">@{post.username}</span>
+                                )}
                             </p>
-
-                            {/* Repost Attribution — inside header */}
-                            {(post.repost_of || repostsCount > 0) && (
-                                <div className="flex items-center gap-1 flex-wrap mt-1.5 text-[10px] leading-relaxed">
-                                    <Repeat2 className="w-3 h-3 text-primary shrink-0" />
-                                    <span className="font-bold text-zinc-500">Reposted by</span>
-                                    <Link href={`/profile/${post.user_id}`} className="font-black text-white hover:text-primary transition-colors">
-                                        @{post.repost_of ? post.username : (sampleReposter?.username || post.username)}
-                                    </Link>
-
-                                    {originalAuthor && (
-                                        <>
-                                            <span className="text-zinc-700">•</span>
-                                            <span className="font-bold text-zinc-500">Original by</span>
-                                            <Link href={`/profile/${post.repost_of}`} className="font-black text-primary hover:underline transition-colors">
-                                                @{originalAuthor.username}
-                                            </Link>
-                                        </>
-                                    )}
-
-                                    {repostsCount > 1 && (
-                                        <>
-                                            <span className="text-zinc-700">•</span>
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); setShowRepostsSheet(true); }}
-                                                className="font-bold text-zinc-500 hover:text-primary transition-colors underline decoration-dotted underline-offset-2"
-                                            >
-                                                +{repostsCount - 1} others
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
-                            )}
                         </div>
                     </div>
                     <PostOptionsSheet
