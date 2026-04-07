@@ -19,9 +19,9 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
         }
 
-        // SECURITY: Validate file size (50MB max server-side)
-        if (file.size > 50 * 1024 * 1024) {
-            return NextResponse.json({ error: 'File too large. Max 50MB.' }, { status: 413 });
+        // SECURITY: Validate file size (200MB max server-side — Catbox supports 200MB)
+        if (file.size > 200 * 1024 * 1024) {
+            return NextResponse.json({ error: 'File too large. Max 200MB.' }, { status: 413 });
         }
 
         // SECURITY FIX (HIGH-005): Validate file type — MIME-first approach

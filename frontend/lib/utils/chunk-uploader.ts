@@ -31,12 +31,15 @@ export async function uploadFileInChunks(
     file: File,
     onProgress?: (progress: number) => void
 ): Promise<string[]> {
-    // Extract file extension from original filename for chunk naming
+    // Extracts file extension and makes sure videos NEVER get chunked.
+    // Chunking an MP4 splits the 'moov' atom and breaks playback.
     const extMatch = file.name.match(/\.[^.]+$/);
     const ext = extMatch ? extMatch[0] : '';
+    const isVideo = file.type.startsWith('video/');
 
-    if (file.size <= CHUNK_SIZE) {
-        // Direct upload for small files
+    if (file.size <= CHUNK_SIZE || isVideo) {
+        // Direct upload for small files AND all video files!
+        if (onProgress) onProgress(10);
         const url = await uploadToCatbox(file);
         if (onProgress) onProgress(100);
         return [url];

@@ -5,6 +5,7 @@ import { Upload, X, FileVideo, FileImage, Loader2, CheckCircle2 } from "lucide-r
 import { cn } from "@/lib/utils";
 import { uploadFileInChunks } from "@/lib/utils/chunk-uploader";
 import { uploadToCatbox, auditUpload } from "@/lib/storage";
+import { compressVideo, needsCompression } from "@/lib/utils/video-compressor";
 import { useAuth } from "@/components/providers/auth-provider";
 import { toast } from "sonner";
 
@@ -134,12 +135,14 @@ export function FileUpload({ onUploadComplete, maxSizeMB = 500 }: FileUploadProp
     // Instagram-style: file select → instant upload
     const handleFileSelected = (selectedFile: File) => {
         const sizeMB = selectedFile.size / (1024 * 1024);
-        if (sizeMB > maxSizeMB) {
-            toast.error(`Bhai, itni badi file? Limit ${maxSizeMB}MB ki hai!`);
+        
+        // Block extremely large files upfront to save time
+        if (sizeMB > 1500) { // 1.5GB absolute limit for browser memory safety
+            toast.error(`Bhai, 1.5GB se bada file support nai karega! Mobile browser crash ho jayega.`);
             return;
         }
+        
         setFile(selectedFile);
-        // Auto-start upload immediately
         startUpload(selectedFile);
     };
 
@@ -163,6 +166,24 @@ export function FileUpload({ onUploadComplete, maxSizeMB = 500 }: FileUploadProp
                     const fileObj = new File([thumbBlob], "thumb.jpg", { type: "image/jpeg" });
                     thumbnailUrl = await uploadToCatbox(fileObj, { useProxy: true });
                 }
+
+                // 1a. Trigger Magic Compressor for large videos
+                if (needsCompression(targetFile)) {
+                    const sizeMB = (targetFile.size / 1048576).toFixed(0);
+                    setStatus(`Applying Vision Enhancer & Compression... (${sizeMB}MB)`);
+                    setProgress(0);
+                    
+                    fileToUpload = await compressVideo(targetFile, {
+                        onProgress: (pct, msg) => {
+                            setProgress(Math.round(pct * 0.7)); // Compressor takes first 70% of loading bar
+                            setStatus(msg || 'Enhancing Video Quality...');
+                        }
+                    });
+                    
+                    const compressedMB = (fileToUpload as File).size / 1048576;
+                    toast.success(`Video Ready! Shrunk to ${compressedMB.toFixed(0)}MB 🚀`);
+                }
+
             } else if (targetFile.type.startsWith("image/")) {
                 // 1b. Compress Image
                 setStatus("Compressing image... ⚡");
@@ -176,11 +197,18 @@ export function FileUpload({ onUploadComplete, maxSizeMB = 500 }: FileUploadProp
                 ? fileToUpload
                 : new File([fileToUpload], targetFile.name, { type: "image/jpeg" });
 
+            const wasCompressed = fileToUpload !== targetFile;
             urls = await uploadFileInChunks(finalFile, (percent) => {
-                setProgress(percent);
-                if (percent > 10 && percent < 30) setStatus("Uploading... (1/3)");
-                if (percent > 40 && percent < 60) setStatus("Halfway there! (2/3)");
-                if (percent > 80) setStatus("Almost done...");
+                const adjProgress = wasCompressed ? 70 + Math.round(percent * 0.3) : percent;
+                setProgress(adjProgress);
+                
+                if (wasCompressed) {
+                    setStatus(`Uploading Fast Stream... ${percent}%`);
+                } else {
+                    if (percent > 10 && percent < 30) setStatus("Uploading... (1/3)");
+                    if (percent > 40 && percent < 60) setStatus("Halfway there! (2/3)");
+                    if (percent > 80) setStatus("Almost done...");
+                }
             });
 
             // 3. Audit Log

@@ -10,7 +10,9 @@
  * Large files/chunks SHOULD go direct to avoid serverless timeouts/limits.
  */
 export async function uploadToCatbox(file: File | Blob, options: { useProxy?: boolean } = {}): Promise<string> {
-    const useProxy = options.useProxy ?? file.size < 20 * 1024 * 1024; // Default proxy for <20MB
+    // SECURITY: Cloudflare Free tier limits payload to 25MB! 
+    // Anything > 20MB MUST bypass Cloudflare and go directly to Catbox API.
+    const useProxy = options.useProxy ?? file.size < 20 * 1024 * 1024;
 
     if (useProxy) {
         return uploadViaProxy(file);
