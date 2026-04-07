@@ -94,8 +94,10 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
 
         if (!error && data) {
             const uid = userId;
+            const user1Obj = Array.isArray(data.user1) ? data.user1[0] : data.user1;
+            const user2Obj = Array.isArray(data.user2) ? data.user2[0] : data.user2;
             const otherUserId = data.user1_id === uid ? data.user2_id : data.user1_id;
-            const otherUser = data.user1_id === uid ? data.user2 : data.user1;
+            const otherUser = data.user1_id === uid ? user2Obj : user1Obj;
             
             const formatted = {
                 id: data.id,

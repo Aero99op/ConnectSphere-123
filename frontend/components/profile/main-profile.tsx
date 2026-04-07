@@ -15,6 +15,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { PostCard } from "@/components/feed/post-card";
 import { usePathname, useParams, useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { getProfileByUsername, getUserStats } from "@/lib/actions/profile"; // 🔱 New Server Actions
 
 // Utility function to determine border color based on role
@@ -116,10 +117,8 @@ export function MainUserProfileContent() {
 
             if (postsResponse.data) setPosts(postsResponse.data);
             if (quixResponse.data) setQuixList(quixResponse.data);
-            if (statsResponse.data) setStats(statsResponse.data);
             if (statsResponse.data) {
                 setStats(statsResponse.data);
-                setFollowersCount(statsResponse.data.followers);
             }
 
             setLoadingPosts(false);
@@ -140,12 +139,12 @@ export function MainUserProfileContent() {
             if (isFollowing) {
                 await supabase.from("follows").delete().eq("follower_id", currentUser.id).eq("following_id", userId);
                 setIsFollowing(false);
-                setFollowersCount(prev => prev - 1);
+                setStats(prev => ({ ...prev, followers: prev.followers - 1 }));
                 toast.success(`Unfollowed @${profile.username}`);
             } else {
                 await supabase.from("follows").insert({ follower_id: currentUser.id, following_id: userId });
                 setIsFollowing(true);
-                setFollowersCount(prev => prev + 1);
+                setStats(prev => ({ ...prev, followers: prev.followers + 1 }));
                 toast.success(`Following @${profile.username}`);
             }
         } catch (error) {
