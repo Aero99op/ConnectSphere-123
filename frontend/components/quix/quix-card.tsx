@@ -71,7 +71,11 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
 
             if (audio) {
                 if (!isMuted) {
-                    audio.currentTime = startTime;
+                    // 🛡️ FIX: Only reset to start if it's the first play or if it's way out of sync.
+                    // This prevents the music from jumping back to 0:00 every time you toggle mute.
+                    if (audio.paused && audio.currentTime <= startTime + 0.1) {
+                        audio.currentTime = startTime;
+                    }
                     audio.play().catch(e => console.log("Audio play blocked", e));
                     audio.addEventListener("timeupdate", handleAudioLoop);
                 } else {

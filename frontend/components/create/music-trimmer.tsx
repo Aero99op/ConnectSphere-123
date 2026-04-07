@@ -27,6 +27,7 @@ export function MusicTrimmer({
     
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const lastSeekRef = useRef<number>(0);
     
     // 🔥 CRITICAL: Use refs for the loop logic to avoid re-running useEffect on every drag
     const startRef = useRef(start);
@@ -42,7 +43,7 @@ export function MusicTrimmer({
         const audio = new Audio(audioUrl);
         audioRef.current = audio;
         audio.preload = "auto";
-        audio.loop = false; // We handle looping manually for precision
+        audio.loop = false; // We handle loop via timeupdate
 
         const onLoaded = () => {
             audio.currentTime = startRef.current;
@@ -70,9 +71,6 @@ export function MusicTrimmer({
         audio.addEventListener("pause", onPause);
         audio.addEventListener("ended", onEnded);
 
-        // Auto-play attempt on mount (often blocked by browser)
-        audio.play().catch(() => setIsPlaying(false));
-
         return () => {
             audio.removeEventListener("loadedmetadata", onLoaded);
             audio.removeEventListener("timeupdate", onTimeUpdate);
@@ -91,7 +89,6 @@ export function MusicTrimmer({
         if (isPlaying) {
             audio.pause();
         } else {
-            // Ensure we are within range before playing
             if (audio.currentTime < start || audio.currentTime >= end) {
                 audio.currentTime = start;
             }
@@ -99,6 +96,7 @@ export function MusicTrimmer({
         }
     };
 
+    // ⚡ PRO OPTIMIZATION: Throttle seeking and defer parent updates
     const handleDrag = (type: "start" | "end", info: any) => {
         if (!containerRef.current) return;
         const rect = containerRef.current.getBoundingClientRect();
@@ -109,15 +107,24 @@ export function MusicTrimmer({
         if (type === "start") {
             const nextStart = Math.min(newTime, end - 2);
             setStart(nextStart);
-            // Real-time scrubbing feel: sync audio while dragging
-            if (audioRef.current) {
-                audioRef.current.currentTime = nextStart;
+            
+            // 🛡️ THROTTLE: Only seek audio every 100ms during drag
+            const now = Date.now();
+            if (now - lastSeekRef.current > 100) {
+                if (audioRef.current) audioRef.current.currentTime = nextStart;
+                lastSeekRef.current = now;
             }
-            onTrimChange(nextStart, end);
         } else {
             const nextEnd = Math.max(newTime, start + 2);
             setEnd(nextEnd);
-            onTrimChange(start, nextEnd);
+        }
+    };
+
+    // 🛡️ SYNC FINAL STATE: Push to parent only when dragging stops
+    const handleDragEnd = () => {
+        onTrimChange(start, end);
+        if (audioRef.current) {
+            audioRef.current.currentTime = start;
         }
     };
 
@@ -127,11 +134,11 @@ export function MusicTrimmer({
         return `${m}:${s.toString().padStart(2, "0")}`;
     };
 
-    // Static bar patterns to avoid hydration mismatch
+    // Static bar patterns
     const bars = useRef(Array.from({ length: 40 }).map(() => Math.random()));
 
     return (
-        <div className="bg-zinc-950/40 border border-white/5 rounded-2xl p-4 space-y-4 backdrop-blur-xl">
+        <div className="bg-zinc-950/40 border border-white/5 rounded-2xl p-4 space-y-4 backdrop-blur-xl shrink-0">
             {/* Minimal Header */}
             <div className="flex items-center justify-between px-1">
                 <div className="flex items-center gap-2">
@@ -143,13 +150,13 @@ export function MusicTrimmer({
                 </div>
             </div>
 
-            {/* Premium Waveform Trimmer */}
+            {/* Waveform Trimmer */}
             <div 
                 ref={containerRef}
-                className="relative h-24 bg-black/40 rounded-xl overflow-hidden px-4 flex items-center border border-white/5"
+                className="relative h-20 bg-black/40 rounded-xl overflow-hidden px-4 flex items-center border border-white/5"
             >
-                {/* Waveform Background */}
-                <div className="absolute inset-x-4 inset-y-6 flex items-end gap-[3px] pointer-events-none opacity-40">
+                {/* Waveform Bars */}
+                <div className="absolute inset-x-4 inset-y-6 flex items-end gap-[3px] pointer-events-none opacity-30">
                     {bars.current.map((h, i) => {
                         const pos = (i / bars.current.length) * duration;
                         const isActive = pos >= start && pos <= end;
@@ -157,7 +164,7 @@ export function MusicTrimmer({
                             <div
                                 key={i}
                                 className={cn(
-                                    "flex-1 rounded-full transition-colors duration-300",
+                                    "flex-1 rounded-full",
                                     isActive ? "bg-primary" : "bg-zinc-800"
                                 )}
                                 style={{ height: `${20 + h * 70}%` }}
@@ -176,27 +183,29 @@ export function MusicTrimmer({
                 <div className="absolute inset-y-0 left-0 bg-black/70 z-10" style={{ width: `${(start / duration) * 100}%` }} />
                 <div className="absolute inset-y-0 right-0 bg-black/70 z-10" style={{ width: `${100 - (end / duration) * 100}%` }} />
 
-                {/* RANGE HANDLERS */}
+                {/* HANDLERS */}
                 <motion.div
-                    className="absolute inset-y-0 w-4 z-30 cursor-ew-resize flex items-center justify-center -ml-2"
+                    className="absolute inset-y-0 w-5 z-30 cursor-ew-resize flex items-center justify-center -ml-2.5"
                     drag="x"
                     dragMomentum={false}
                     dragConstraints={containerRef}
                     onDrag={(_, info) => handleDrag("start", info)}
+                    onDragEnd={handleDragEnd}
                     style={{ left: `${(start / duration) * 100}%` }}
                 >
-                    <div className="w-1.5 h-full bg-white rounded-full shadow-[0_0_20px_white]" />
+                    <div className="w-2 h-full bg-white rounded-full shadow-[0_0_20px_white]" />
                 </motion.div>
 
                 <motion.div
-                    className="absolute inset-y-0 w-4 z-30 cursor-ew-resize flex items-center justify-center -mr-2"
+                    className="absolute inset-y-0 w-5 z-30 cursor-ew-resize flex items-center justify-center -mr-2.5"
                     drag="x"
                     dragMomentum={false}
                     dragConstraints={containerRef}
                     onDrag={(_, info) => handleDrag("end", info)}
+                    onDragEnd={handleDragEnd}
                     style={{ left: `${(end / duration) * 100}%` }}
                 >
-                    <div className="w-1.5 h-full bg-primary rounded-full shadow-[0_0_20px_rgba(255,183,77,0.6)]" />
+                    <div className="w-2 h-full bg-primary rounded-full shadow-[0_0_20px_rgba(255,183,77,0.6)]" />
                 </motion.div>
             </div>
 
@@ -206,11 +215,7 @@ export function MusicTrimmer({
                     onClick={togglePlay}
                     className="w-12 h-12 bg-white/5 border border-white/10 rounded-full flex items-center justify-center hover:bg-white/10 transition-all active:scale-95"
                 >
-                    {isPlaying ? (
-                        <Pause className="w-5 h-5 text-primary fill-primary" />
-                    ) : (
-                        <Play className="w-5 h-5 text-white fill-white ml-1" />
-                    )}
+                    {isPlaying ? <Pause className="w-5 h-5 text-primary fill-primary" /> : <Play className="w-5 h-5 text-white fill-white ml-1" />}
                 </button>
                 
                 {onConfirm && (
