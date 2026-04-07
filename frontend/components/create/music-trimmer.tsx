@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Scissors, Play, Pause, Check, Loader2 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 interface MusicTrimmerProps {
@@ -14,9 +14,9 @@ interface MusicTrimmerProps {
 }
 
 /**
- * ─── Instagram-Style Music Trimmer ─────────────────────────────────────
- * Highlights a fixed 30s (or maxTrimDuration) window and lets the user
- * scroll the waveform underneath it.
+ * ─── Elite Draggable Multi-Slider Music Trimmer ────────────────────────
+ * EXACTLY LIKE INSTAGRAM & PRO APPS.
+ * Handlers are draggable, window is movable, and entire waveform is visible.
  */
 export function MusicTrimmer({ 
     audioUrl, 
@@ -26,39 +26,35 @@ export function MusicTrimmer({
     onConfirm 
 }: MusicTrimmerProps) {
     const [start, setStart] = useState(0);
+    const [trimDuration, setTrimDuration] = useState(Math.min(duration, maxTrimDuration));
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [peaks, setPeaks] = useState<number[]>([]);
     const [loadingPeaks, setLoadingPeaks] = useState(false);
     
     const audioRef = useRef<HTMLAudioElement | null>(null);
-    const scrollRef = useRef<HTMLDivElement>(null);
-    const lastScrollRef = useRef<number>(0);
-    
-    // Effective selection duration
-    const actualSelectionDuration = useMemo(() => Math.min(duration, maxTrimDuration), [duration, maxTrimDuration]);
-    const end = useMemo(() => Math.min(start + actualSelectionDuration, duration), [start, actualSelectionDuration, duration]);
+    const containerRef = useRef<HTMLDivElement>(null);
 
-    // ─── Waveform Generation (Offline Audio Context) ────────────────
+    // ─── Waveform Setup ───────────────────────────────────────────────
     useEffect(() => {
         let cancelled = false;
         const generatePeaks = async () => {
             if (!audioUrl) return;
             setLoadingPeaks(true);
             try {
-                const response = await fetch(audioUrl);
+                const response = await fetch(audioUrl, { mode: 'cors' }).catch(() => null);
+                if (!response || !response.ok) throw new Error("Fetch failed");
                 const arrayBuffer = await response.arrayBuffer();
-                const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-                
-                // Use OfflineAudioContext for faster-than-realtime decoding/processing
-                const offlineCtx = new OfflineAudioContext(1, arrayBuffer.byteLength, 44100);
+                const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext);
+                const audioCtx = new AudioContextClass();
+                const sampleRate = 44100;
+                const length = Math.floor(duration * sampleRate);
+                const offlineCtx = new OfflineAudioContext(1, length > 0 ? length : 1, sampleRate);
                 const audioBuffer = await offlineCtx.decodeAudioData(arrayBuffer);
-                
                 const channelData = audioBuffer.getChannelData(0);
-                const numBars = 100;
+                const numBars = 60;
                 const samplesPerBar = Math.floor(channelData.length / numBars);
                 const newPeaks: number[] = [];
-                
                 for (let i = 0; i < numBars; i++) {
                     const startSample = i * samplesPerBar;
                     let max = 0;
@@ -66,102 +62,87 @@ export function MusicTrimmer({
                         const val = Math.abs(channelData[startSample + j] || 0);
                         if (val > max) max = val;
                     }
-                    // Normalize a bit
-                    newPeaks.push(Math.pow(max, 0.8)); 
+                    newPeaks.push(Math.pow(max, 0.8));
                 }
-                
-                if (!cancelled) {
-                    setPeaks(newPeaks);
-                    setLoadingPeaks(false);
-                }
+                if (!cancelled) { setPeaks(newPeaks); setLoadingPeaks(false); }
             } catch (err) {
-                console.error("Waveform generation failed:", err);
-                const fallback = Array.from({ length: 60 }).map(() => 0.2 + Math.random() * 0.5);
-                if (!cancelled) {
-                    setPeaks(fallback);
-                    setLoadingPeaks(false);
-                }
+                console.warn("Waveform fallback used.");
+                const seed = audioUrl.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                const pseudoRandom = (s: number) => { const x = Math.sin(s) * 10000; return x - Math.floor(x); };
+                const fallback = Array.from({ length: 60 }).map((_, i) => 0.2 + pseudoRandom(seed + i) * 0.6);
+                if (!cancelled) { setPeaks(fallback); setLoadingPeaks(false); }
             }
         };
-
         generatePeaks();
         return () => { cancelled = true; };
-    }, [audioUrl]);
+    }, [audioUrl, duration]);
 
-    // ─── Audio Logic ────────────────────────────────────────────────
+    // ─── Audio Core ──────────────────────────────────────────────────
     useEffect(() => {
         const audio = new Audio(audioUrl);
         audioRef.current = audio;
         audio.preload = "auto";
-
         const onTimeUpdate = () => {
-            const time = audio.currentTime;
-            setCurrentTime(time);
-            
-            // 🔥 TIGHT CLAMPING: Ensure audio NEVER plays outside [start, end]
-            const currentEnd = Math.min(start + actualSelectionDuration, duration);
-            
-            // If it goes past the end, loop back
-            if (time >= currentEnd - 0.02) {
+            setCurrentTime(audio.currentTime);
+            const end = start + trimDuration;
+            if (audio.currentTime >= end - 0.02) {
                 audio.currentTime = start;
                 if (!audio.paused) audio.play().catch(() => {});
             }
-            
-            // If it somehow drifts before the start, jump back to start
-            if (time < start - 0.1) {
-                audio.currentTime = start;
-            }
+            if (audio.currentTime < start - 0.1) audio.currentTime = start;
         };
-
         const onPlay = () => setIsPlaying(true);
         const onPause = () => setIsPlaying(false);
-
         audio.addEventListener("timeupdate", onTimeUpdate);
         audio.addEventListener("play", onPlay);
         audio.addEventListener("pause", onPause);
-
         return () => {
             audio.removeEventListener("timeupdate", onTimeUpdate);
             audio.removeEventListener("play", onPlay);
             audio.removeEventListener("pause", onPause);
-            audio.pause();
-            audio.src = "";
-            audioRef.current = null;
+            audio.pause(); audio.src = ""; audioRef.current = null;
         };
-    }, [audioUrl, start, actualSelectionDuration, duration]);
+    }, [audioUrl, start, trimDuration]);
 
     const togglePlay = () => {
         if (!audioRef.current) return;
         const audio = audioRef.current;
-        if (isPlaying) {
-            audio.pause();
-        } else {
-            if (audio.currentTime < start || audio.currentTime >= end) {
-                audio.currentTime = start;
-            }
+        if (isPlaying) { audio.pause(); } else {
+            if (audio.currentTime < start || audio.currentTime >= start + trimDuration) audio.currentTime = start;
             audio.play().catch(() => {});
         }
     };
 
-    // ─── Scroll/Sliding Logic ───────────────────────────────────────
-    const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-        const target = e.currentTarget;
-        const scrollLeft = target.scrollLeft;
-        const totalScrollableWidth = target.scrollWidth - target.clientWidth;
-        if (totalScrollableWidth <= 0) return;
+    // ─── Drag Logic ──────────────────────────────────────────────────
+    const handleDrag = useCallback((type: "start" | "end" | "window", info: any) => {
+        if (!containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        const clientX = info.point.x;
+        const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
+        const timeAtX = (x / rect.width) * duration;
 
-        const scrollRatio = scrollLeft / totalScrollableWidth;
-        const maxOffset = Math.max(0, duration - actualSelectionDuration);
-        const newStart = scrollRatio * maxOffset;
-        
-        setStart(newStart);
-        onTrimChange(newStart, newStart + actualSelectionDuration);
-        
-        // Sync audio current time if it's playing or just moved
-        if (audioRef.current && Math.abs(audioRef.current.currentTime - newStart) > 0.5) {
-             audioRef.current.currentTime = newStart;
+        if (type === "start") {
+            const newStart = Math.min(timeAtX, start + trimDuration - 1);
+            const newDur = (start + trimDuration) - newStart;
+            if (newDur <= maxTrimDuration) {
+                setStart(newStart);
+                setTrimDuration(newDur);
+            }
+        } else if (type === "end") {
+            const newEnd = Math.max(timeAtX, start + 1);
+            const newDur = Math.min(newEnd - start, maxTrimDuration);
+            setTrimDuration(newDur);
+        } else if (type === "window") {
+            // Dragging the whole window keeps duration fixed
+            const newStart = Math.max(0, Math.min(timeAtX - (trimDuration / 2), duration - trimDuration));
+            setStart(newStart);
         }
-    }, [duration, actualSelectionDuration, onTrimChange]);
+    }, [duration, start, trimDuration, maxTrimDuration]);
+
+    const handleDragEnd = () => {
+        onTrimChange(start, start + trimDuration);
+        if (audioRef.current) audioRef.current.currentTime = start;
+    };
 
     const formatTime = (sec: number) => {
         const m = Math.floor(sec / 60);
@@ -169,116 +150,125 @@ export function MusicTrimmer({
         return `${m}:${s.toString().padStart(2, "0")}`;
     };
 
-    // Calculate yellow meter progress (0 to 1) within the 30s selection
-    const progress = Math.max(0, Math.min(1, (currentTime - start) / actualSelectionDuration));
+    const progress = Math.max(0, Math.min(1, (currentTime - start) / trimDuration));
 
     return (
-        <div className="bg-zinc-950/60 border border-white/10 rounded-2xl p-4 space-y-4 backdrop-blur-2xl shrink-0 shadow-2xl relative overflow-hidden">
+        <div className="bg-zinc-950/90 border border-white/10 rounded-2xl p-4 space-y-4 backdrop-blur-2xl shrink-0 shadow-2xl relative overflow-hidden group/trimmer">
             {/* Header */}
             <div className="flex items-center justify-between px-1 relative z-10">
                 <div className="flex items-center gap-2">
                     <Scissors className="w-4 h-4 text-primary" />
-                    <span className="text-[11px] font-black uppercase tracking-widest text-white/80">Elite Trimmer</span>
+                    <span className="text-[11px] font-black uppercase tracking-widest text-primary/80">ELITE AUDIO EDITOR</span>
                 </div>
-                <div className="text-[11px] font-mono text-primary font-black bg-primary/20 px-2 py-1 rounded-lg border border-primary/20">
-                    {formatTime(start)} — {formatTime(end)}
+                <div className="text-[11px] font-mono text-primary font-black bg-primary/20 px-2 py-1 rounded-lg border border-primary/30">
+                    {formatTime(start)} — {formatTime(start + trimDuration)}
+                    <span className="text-zinc-600 ml-2">({trimDuration.toFixed(1)}s)</span>
                 </div>
             </div>
 
-            {/* Waveform Area */}
-            <div className="relative h-28 flex items-center bg-black/40 rounded-2xl border border-white/5 overflow-hidden group">
-                
-                {/* 
-                    Fixed Selection Box (Center Window)
-                    We use a fixed size for the window (approx 40% of container width)
-                    and the user scrolls the waveform behind it.
-                */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
-                    <div 
-                        className={cn(
-                            "relative h-[85%] border-2 border-white rounded-xl shadow-[0_0_40px_rgba(255,255,255,0.1)] bg-white/5 backdrop-blur-[1px] transition-all duration-500",
-                            duration > actualSelectionDuration ? "w-[45%]" : "w-[95%]"
-                        )}
-                    >
-                        {/* THE YELLOW METER - Fills up within the selection box */}
-                        <motion.div 
-                            className="absolute inset-y-0 left-0 bg-primary/80 shadow-[0_0_20px_rgba(255,183,77,0.4)] rounded-lg"
-                            animate={{ width: `${progress * 100}%` }}
-                            transition={{ duration: 0.1, ease: "linear" }}
-                        />
-                        
-                        {/* Decorative Handlers */}
-                        <div className="absolute inset-y-0 -left-1.5 w-3 flex flex-col justify-center gap-1">
-                             <div className="w-full h-8 bg-white rounded-full shadow-lg" />
-                        </div>
-                        <div className="absolute inset-y-0 -right-1.5 w-3 flex flex-col justify-center gap-1">
-                             <div className="w-full h-8 bg-white rounded-full shadow-lg" />
-                        </div>
-                    </div>
+            {/* Trimmer Container */}
+            <div 
+                ref={containerRef}
+                className="relative h-24 bg-black/40 rounded-xl border border-white/5 overflow-hidden flex items-center"
+            >
+                {/* Waveform Background (Static) */}
+                <div className="absolute inset-x-4 inset-y-6 flex items-end gap-[2px] opacity-20 pointer-events-none">
+                    {peaks.map((h, i) => (
+                        <div key={i} className="flex-1 rounded-full bg-white" style={{ height: `${20 + h * 80}%` }} />
+                    ))}
                 </div>
 
-                {/* SCROLLABLE CONTENT */}
-                <div 
-                    onScroll={handleScroll}
-                    className="absolute inset-0 overflow-x-auto no-scrollbar scroll-smooth flex items-center h-full px-[27.5%] md:px-[27.5%]"
+                {/* THE MOVABLE SELECTION BOX */}
+                <motion.div
+                    className="absolute inset-y-0 z-20 cursor-grab active:cursor-grabbing border-y-2 border-primary/40 bg-primary/5"
+                    style={{ 
+                        left: `${(start / duration) * 100}%`,
+                        width: `${(trimDuration / duration) * 100}%` 
+                    }}
+                    drag="x"
+                    dragMomentum={false}
+                    dragElastic={0}
+                    dragConstraints={containerRef}
+                    onDrag={(_, info) => handleDrag("window", info)}
+                    onDragEnd={handleDragEnd}
                 >
-                    {/* The Waveform itself */}
-                    <div className="flex items-center gap-[2px] h-full" style={{ minWidth: duration > actualSelectionDuration ? "100%" : "auto" }}>
-                        {loadingPeaks ? (
-                            <div className="flex items-center gap-2 px-8">
-                                <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                                <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Generating...</span>
-                            </div>
-                        ) : (
-                            peaks.map((h, i) => (
-                                <div
-                                    key={i}
-                                    className="w-[3px] rounded-full transition-all duration-700 bg-white/20"
-                                    style={{ 
-                                        height: `${20 + h * 60}%`,
-                                        opacity: 0.3 + (h * 0.7)
-                                    }}
-                                />
-                            ))
-                        )}
-                    </div>
-                    
-                    {/* Invisible spacer to allow scrolling till the end */}
-                    <div className="flex-shrink-0 w-[100%] h-1" />
-                </div>
+                    {/* YELLOW PROGRESS METER */}
+                    <div 
+                        className="absolute inset-y-0 left-0 bg-primary/30 border-r border-primary/50 shadow-[0_0_20px_rgba(255,183,77,0.2)]"
+                        style={{ width: `${progress * 100}%` }}
+                    />
 
-                {/* Dark Gradient Overlays for edges */}
-                <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-black/60 to-transparent pointer-events-none z-20" />
-                <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-black/60 to-transparent pointer-events-none z-20" />
+                    {/* WAVEFORM INSIDE BOX (Bright) */}
+                    <div className="absolute inset-x-0 inset-y-6 flex items-end gap-[2px] pointer-events-none">
+                        {peaks.map((h, i) => {
+                            const pos = (i / peaks.length) * duration;
+                            const isActive = pos >= start && pos <= start + trimDuration;
+                            return (
+                                <div 
+                                    key={i} 
+                                    className={cn("flex-1 rounded-full transition-opacity", isActive ? "bg-primary opacity-100" : "bg-white opacity-0")} 
+                                    style={{ height: `${20 + h * 80}%` }} 
+                                />
+                            );
+                        })}
+                    </div>
+
+                    {/* Draggable Handles (Left/Right) */}
+                    <motion.div
+                        className="absolute inset-y-0 -left-2 w-4 cursor-ew-resize flex items-center justify-center z-30"
+                        drag="x"
+                        dragMomentum={false}
+                        dragElastic={0}
+                        onDrag={(_, info) => handleDrag("start", info)}
+                        onDragEnd={handleDragEnd}
+                    >
+                        <div className="w-1.5 h-12 bg-white rounded-full shadow-[0_0_15px_white] ring-4 ring-black/50" />
+                    </motion.div>
+
+                    <motion.div
+                        className="absolute inset-y-0 -right-2 w-4 cursor-ew-resize flex items-center justify-center z-30"
+                        drag="x"
+                        dragMomentum={false}
+                        dragElastic={0}
+                        onDrag={(_, info) => handleDrag("end", info)}
+                        onDragEnd={handleDragEnd}
+                    >
+                        <div className="w-1.5 h-12 bg-primary rounded-full shadow-[0_0_15px_rgba(255,183,77,1)] ring-4 ring-black/50" />
+                    </motion.div>
+
+                    {/* Current Time Label inside box */}
+                    <div className="absolute top-1 left-2 text-[8px] font-mono text-primary/40 font-bold uppercase tracking-tighter">
+                        {formatTime(currentTime)}
+                    </div>
+                </motion.div>
             </div>
 
-            {/* Play/Confirm Controls */}
-            <div className="flex justify-center items-center gap-6 pb-2">
+            {/* Controls */}
+            <div className="flex justify-center items-center gap-10">
                 <button
                     onClick={togglePlay}
-                    className="w-14 h-14 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center hover:bg-white/10 transition-all active:scale-90 group"
+                    className="w-16 h-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center hover:bg-white/10 transition-all active:scale-90 shadow-2xl"
                 >
                     {isPlaying ? (
-                        <Pause className="w-6 h-6 text-primary fill-primary" />
+                        <Pause className="w-8 h-8 text-primary fill-primary" />
                     ) : (
-                        <Play className="w-6 h-6 text-white fill-white ml-1" />
+                        <Play className="w-8 h-8 text-white fill-white ml-2" />
                     )}
                 </button>
                 
                 {onConfirm && (
                     <button
                         onClick={onConfirm}
-                        className="w-14 h-14 bg-primary/20 border border-primary/40 rounded-2xl flex items-center justify-center hover:bg-primary/30 transition-all active:scale-90 shadow-xl group"
+                        className="w-16 h-16 bg-primary/20 border border-primary/40 rounded-2xl flex items-center justify-center hover:bg-primary/30 transition-all active:scale-90 shadow-xl"
                     >
-                        <Check className="w-6 h-6 text-primary" />
+                        <Check className="w-8 h-8 text-primary stroke-[4]" />
                     </button>
                 )}
             </div>
-            
-            <div className="flex flex-col items-center gap-1 opacity-40">
-                <p className="text-[8px] font-mono uppercase tracking-[0.3em]">Scroll Waveform to select part</p>
-                <div className="w-1 h-1 bg-primary rounded-full animate-bounce" />
-            </div>
+
+            <p className="text-center text-[9px] font-mono text-zinc-600 uppercase tracking-[0.4em] pt-2">
+                Drag box to move · Pull edges to resize
+            </p>
         </div>
     );
 }
