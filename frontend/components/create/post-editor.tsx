@@ -466,7 +466,7 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
                                         </div>
                                     </Button>
                                 </DrawerTrigger>
-                                <DrawerContent className="bg-zinc-900 border-white/5 h-[60vh]">
+                                <DrawerContent className="bg-zinc-900 border-white/5 h-[75vh]">
                                     <div className="p-4 max-w-md mx-auto w-full">
                                         <DrawerHeader>
                                             <DrawerTitle className="text-white text-center">Elite Tracks 🎵</DrawerTitle>

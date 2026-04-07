@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Scissors, Play, Pause, Check } from "lucide-react";
+import { motion, useMotionValue, useTransform } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 interface MusicTrimmerProps {
@@ -12,89 +13,87 @@ interface MusicTrimmerProps {
     onConfirm?: () => void;
 }
 
-export function MusicTrimmer({ audioUrl, duration, onTrimChange, maxTrimDuration = 30, onConfirm }: MusicTrimmerProps) {
+export function MusicTrimmer({ 
+    audioUrl, 
+    duration, 
+    onTrimChange, 
+    maxTrimDuration = 30, 
+    onConfirm 
+}: MusicTrimmerProps) {
     const [start, setStart] = useState(0);
     const [end, setEnd] = useState(Math.min(duration, maxTrimDuration));
-    const [isPlaying, setIsPlaying] = useState(true); // Default to playing for Instagram feel
+    const [isPlaying, setIsPlaying] = useState(true);
     const [currentTime, setCurrentTime] = useState(0);
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
 
+    // Sync audio to state changes
     useEffect(() => {
         if (!audioRef.current) {
             audioRef.current = new Audio(audioUrl);
         } else if (audioRef.current.src !== audioUrl) {
             audioRef.current.src = audioUrl;
+            setStart(0);
+            setEnd(Math.min(duration, maxTrimDuration));
         }
 
         const audio = audioRef.current;
         
-        // Auto-play on mount/url change
-        if (isPlaying) {
+        // Handle metadata loaded
+        const onLoaded = () => {
             audio.currentTime = start;
-            audio.play().catch(() => setIsPlaying(false));
-        }
-
+            if (isPlaying) audio.play().catch(() => setIsPlaying(false));
+        };
+        
+        audio.addEventListener("loadedmetadata", onLoaded);
+        
+        // Loop Logic
         const updateProgress = () => {
-            if (!audio) return;
             setCurrentTime(audio.currentTime);
-            
-            // Precise Instagram-style loop boundary
             if (audio.currentTime >= end - 0.1) {
                 audio.currentTime = start;
-                if (!audio.paused) {
-                    audio.play().catch(() => {});
-                }
+                audio.play().catch(() => {});
             }
         };
 
         audio.addEventListener("timeupdate", updateProgress);
-        
-        // Reset to start on mount or URL change
-        audio.currentTime = start;
 
         return () => {
+            audio.removeEventListener("loadedmetadata", onLoaded);
             audio.removeEventListener("timeupdate", updateProgress);
             audio.pause();
         };
-    }, [audioUrl, start, end]);
+    }, [audioUrl, start, end, duration, maxTrimDuration]);
 
     const togglePlay = () => {
         if (!audioRef.current) return;
-        const audio = audioRef.current;
         if (isPlaying) {
-            audio.pause();
+            audioRef.current.pause();
         } else {
-            // Restart from start point if finished or outside range
-            if (audio.currentTime >= end || audio.currentTime < start) {
-                audio.currentTime = start;
+            if (audioRef.current.currentTime >= end || audioRef.current.currentTime < start) {
+                audioRef.current.currentTime = start;
             }
-            audio.play().catch(() => {});
+            audioRef.current.play().catch(() => {});
         }
         setIsPlaying(!isPlaying);
     };
 
-    const handleRangeChange = (e: React.ChangeEvent<HTMLInputElement>, type: "start" | "end") => {
-        const val = parseFloat(e.target.value);
-        let nS = start;
-        let nE = end;
+    const handleDrag = (type: "start" | "end", info: any) => {
+        if (!containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        const clientX = info.point ? info.point.x : info.clientX;
+        const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
+        const newTime = (x / rect.width) * duration;
 
         if (type === "start") {
-            nS = Math.min(val, end - 2); // Maintain min 2s clip
-            setStart(nS);
+            const nextStart = Math.min(newTime, end - 2);
+            setStart(nextStart);
+            if (audioRef.current) audioRef.current.currentTime = nextStart;
+            onTrimChange(nextStart, end);
         } else {
-            nE = Math.max(val, start + 2);
-            setEnd(nE);
-        }
-
-        onTrimChange(nS, nE);
-
-        // Instagram native feel: Jump to new start and play immediately while adjusting
-        if (audioRef.current) {
-            audioRef.current.currentTime = nS;
-            if (audioRef.current.paused) {
-                audioRef.current.play().catch(() => {});
-                setIsPlaying(true);
-            }
+            const nextEnd = Math.max(newTime, start + 2);
+            setEnd(nextEnd);
+            onTrimChange(start, nextEnd);
         }
     };
 
@@ -104,104 +103,109 @@ export function MusicTrimmer({ audioUrl, duration, onTrimChange, maxTrimDuration
         return `${m}:${s.toString().padStart(2, "0")}`;
     };
 
+    // Waveform heights randomizer
+    const bars = useRef(Array.from({ length: 40 }).map(() => Math.random()));
+
     return (
-        <div className="bg-zinc-950/40 border border-white/10 rounded-2xl p-5 space-y-5 backdrop-blur-sm">
+        <div className="bg-zinc-950/60 border border-white/10 rounded-2xl p-4 space-y-4 backdrop-blur-xl shadow-2xl">
+            {/* Header info */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center animate-pulse">
+                    <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center animate-pulse border border-primary/20">
                         <Scissors className="w-4 h-4 text-primary" />
                     </div>
-                    <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-white italic">Trim Best Part</h3>
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/80 italic">Precision Cut</h3>
                 </div>
-                <div className="text-[10px] font-black text-primary bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-full shadow-[0_0_15px_rgba(255,183,77,0.1)]">
+                <div className="text-[10px] font-mono font-black text-primary bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-full">
                     {formatTime(start)} - {formatTime(end)} ({Math.round(end - start)}s)
                 </div>
             </div>
 
-            {/* Visual Waveform & Trimmer Combined */}
-            <div className="relative h-24 bg-black/60 rounded-xl overflow-hidden px-2 border border-white/5 group/wave flex items-center">
-                
-                {/* Visual Waveform Bars */}
-                <div className="absolute inset-x-2 top-4 bottom-4 flex items-end gap-[3px]">
-                    {Array.from({ length: 50 }).map((_, i) => {
-                        const pos = (i / 50) * duration;
+            {/* Premium Trimmer Waveform */}
+            <div 
+                ref={containerRef}
+                className="relative h-28 bg-black/60 rounded-xl overflow-hidden px-4 flex items-center group/wave border border-white/5"
+            >
+                {/* Background Waveform Bars */}
+                <div className="absolute inset-x-4 inset-y-6 flex items-end gap-[4px] pointer-events-none">
+                    {bars.current.map((h, i) => {
+                        const pos = (i / bars.current.length) * duration;
                         const isActive = pos >= start && pos <= end;
                         return (
                             <div
                                 key={i}
                                 className={cn(
-                                    "flex-1 rounded-full transition-all duration-500",
-                                    isActive 
-                                        ? "bg-primary shadow-[0_0_10px_rgba(255,183,77,0.4)]" 
-                                        : "bg-zinc-800"
+                                    "flex-1 rounded-full transition-all duration-300",
+                                    isActive ? "bg-primary shadow-[0_0_8px_rgba(255,183,77,0.4)]" : "bg-zinc-800"
                                 )}
                                 style={{ 
-                                    height: isActive ? `${40 + Math.random() * 50}%` : `${15 + Math.random() * 20}%`,
-                                    opacity: isActive ? 1 : 0.3
+                                    height: isActive ? `${40 + h * 55}%` : `${15 + h * 25}%`,
+                                    opacity: isActive ? 0.9 : 0.2
                                 }}
                             />
                         );
                     })}
                 </div>
 
-                {/* Playhead Indicator */}
+                {/* PLAYHEAD */}
                 <div
-                    className="absolute top-0 bottom-0 w-0.5 bg-white z-20 transition-all duration-75 shadow-[0_0_10px_white]"
-                    style={{ left: `calc(8px + ${(currentTime / duration) * (100 - (16/100 * 100))}%)` }} 
-                    // Approximate alignment with the inset padding
+                    className="absolute top-0 bottom-0 w-0.5 bg-white z-20 pointer-events-none shadow-[0_0_15px_white]"
+                    style={{ left: `${(currentTime / duration) * 100}%` }}
                 />
-                
-                {/* Inactive Range Overlays (Darkens outside trim area) */}
-                <div className="absolute inset-y-0 left-0 bg-black/60 pointer-events-none z-10" style={{ width: `${(start / duration) * 100}%` }} />
-                <div className="absolute inset-y-0 right-0 bg-black/60 pointer-events-none z-10" style={{ width: `${100 - (end / duration) * 100}%` }} />
-                
-                {/* Active Range Outline */}
+
+                {/* INACTIVE AREA OVERLAYS (Black Out) */}
+                <div className="absolute inset-y-0 left-0 bg-black/60 z-10" style={{ width: `${(start / duration) * 100}%` }} />
+                <div className="absolute inset-y-0 right-0 bg-black/60 z-10" style={{ width: `${100 - (end / duration) * 100}%` }} />
+
+                {/* ACTIVE RANGE OUTLINE */}
                 <div 
-                    className="absolute inset-y-0 bg-primary/5 pointer-events-none border-y-2 border-primary/40 z-10"
+                    className="absolute inset-y-0 bg-primary/5 border-y-2 border-primary/40 z-10"
                     style={{ left: `${(start / duration) * 100}%`, right: `${100 - (end / duration) * 100}%` }}
                 />
 
-                {/* Overlaid Range Inputs for Tall Thumbs */}
-                <div className="absolute inset-x-0 inset-y-0 flex items-center">
-                    <input
-                        type="range"
-                        min={0}
-                        max={duration}
-                        step={0.1}
-                        value={start}
-                        onChange={(e) => handleRangeChange(e, "start")}
-                        className="absolute w-full h-full appearance-none bg-transparent pointer-events-none z-30 [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-24 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-x-2 [&::-webkit-slider-thumb]:border-y-0 [&::-webkit-slider-thumb]:border-black/50 [&::-webkit-slider-thumb]:rounded-sm [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:shadow-[0_0_15px_rgba(255,255,255,0.4)] [&::-webkit-slider-thumb]:cursor-grab active:[&::-webkit-slider-thumb]:cursor-grabbing [&::-webkit-slider-thumb]:active:opacity-90"
-                    />
-                    <input
-                        type="range"
-                        min={0}
-                        max={duration}
-                        step={0.1}
-                        value={end}
-                        onChange={(e) => handleRangeChange(e, "end")}
-                        className="absolute w-full h-full appearance-none bg-transparent pointer-events-none z-30 [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-24 [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:border-x-2 [&::-webkit-slider-thumb]:border-y-0 [&::-webkit-slider-thumb]:border-black/50 [&::-webkit-slider-thumb]:rounded-sm [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:shadow-[0_0_15px_rgba(255,183,77,0.4)] [&::-webkit-slider-thumb]:cursor-grab active:[&::-webkit-slider-thumb]:cursor-grabbing [&::-webkit-slider-thumb]:active:opacity-90"
-                    />
-                </div>
+                {/* CUSTOM TALL HANDLERS (Framer Motion) */}
+                <motion.div
+                    className="absolute inset-y-0 w-2.5 z-30 cursor-ew-resize flex items-center justify-center -ml-1"
+                    drag="x"
+                    dragMomentum={false}
+                    dragConstraints={containerRef}
+                    onDrag={(_, info) => handleDrag("start", info)}
+                    style={{ left: `${(start / duration) * 100}%` }}
+                >
+                    <div className="w-1.5 h-full bg-white rounded-full shadow-[0_0_20px_white] ring-4 ring-black/50" />
+                </motion.div>
+
+                <motion.div
+                    className="absolute inset-y-0 w-2.5 z-30 cursor-ew-resize flex items-center justify-center -mr-1"
+                    drag="x"
+                    dragMomentum={false}
+                    dragConstraints={containerRef}
+                    onDrag={(_, info) => handleDrag("end", info)}
+                    style={{ left: `${(end / duration) * 100}%` }}
+                >
+                    <div className="w-1.5 h-full bg-primary rounded-full shadow-[0_0_20px_rgba(255,183,77,0.6)] ring-4 ring-black/50" />
+                </motion.div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex justify-center items-center gap-4 pt-2">
+            {/* Main Controls */}
+            <div className="flex justify-center items-center gap-6 pb-2">
                 <button
                     onClick={togglePlay}
-                    className="w-14 h-14 bg-white/5 border border-white/10 rounded-full flex items-center justify-center hover:bg-white/10 hover:border-primary/50 transition-all active:scale-90 group/play"
+                    className="w-14 h-14 bg-white/5 border border-white/10 rounded-full flex items-center justify-center hover:bg-white/10 hover:border-primary transition-all active:scale-95 group/play"
                 >
                     {isPlaying ? (
-                        <Pause className="w-6 h-6 text-white text-primary fill-current drop-shadow-[0_0_10px_rgba(255,183,77,0.5)]" />
+                        <Pause className="w-6 h-6 text-primary fill-primary drop-shadow-[0_0_12px_rgba(255,183,77,0.5)]" />
                     ) : (
-                        <Play className="w-6 h-6 text-white fill-current ml-1 group-hover/play:text-primary transition-colors" />
+                        <Play className="w-6 h-6 text-white fill-current ml-1" />
                     )}
                 </button>
+                
                 {onConfirm && (
                     <button
                         onClick={onConfirm}
-                        className="w-14 h-14 bg-primary/20 border border-primary/40 rounded-full flex items-center justify-center hover:bg-primary/30 transition-all active:scale-90 shadow-[0_0_15px_rgba(255,183,77,0.2)]"
+                        className="w-14 h-14 bg-primary/20 border border-primary/40 rounded-full flex items-center justify-center hover:bg-primary/30 transition-all active:scale-95 shadow-[0_0_20px_rgba(255,183,77,0.2)]"
                     >
-                        <Check className="w-6 h-6 text-primary drop-shadow-[0_0_5px_rgba(255,183,77,0.5)]" />
+                        <Check className="w-6 h-6 text-primary drop-shadow-[0_0_8px_rgba(255,183,77,0.5)]" />
                     </button>
                 )}
             </div>
