@@ -7,8 +7,9 @@ import { StoryAvatar } from "@/components/ui/story-avatar";
 import {
     Grid, Bookmark, LogOut, Loader2, ArrowLeft,
     AtSign, MapPin, Briefcase, Calendar, Info, Medal, Globe, Clapperboard, Play,
-    Settings, User, Sparkles
+    Settings, User, Sparkles, X
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -74,6 +75,7 @@ export function MainUserProfileContent() {
     const [followersList, setFollowersList] = useState<any[]>([]);
     const [followingList, setFollowingList] = useState<any[]>([]);
     const [loadingFollowsList, setLoadingFollowsList] = useState(false);
+    const [showEnlargedAvatar, setShowEnlargedAvatar] = useState(false);
 
     useEffect(() => {
         const fetchUserProfile = async () => {
@@ -310,6 +312,7 @@ export function MainUserProfileContent() {
                                     "w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 border-4 object-cover bg-zinc-900 shadow-2xl relative z-10 transition-transform duration-500 hover:scale-105",
                                     theme === 'radiant-void' ? "rounded-xl border-black" : `rounded-[28px] sm:rounded-[36px] border-[#050507] ${profileBorderColor}`
                                 )}
+                                onClick={() => setShowEnlargedAvatar(true)}
                             />
                         </div>
 
@@ -694,6 +697,50 @@ export function MainUserProfileContent() {
                     )}
                 </div>
             </div>
+
+            {/* Enlarged Avatar Modal */}
+            <AnimatePresence>
+                {showEnlargedAvatar && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 sm:p-10"
+                        onClick={() => setShowEnlargedAvatar(false)}
+                    >
+                        {/* Close Button Desktop */}
+                        <button 
+                            className="absolute top-6 right-6 p-3 bg-white/10 rounded-full hover:bg-white/20 transition-all hidden sm:block"
+                            onClick={(e) => { e.stopPropagation(); setShowEnlargedAvatar(false); }}
+                        >
+                            <X className="w-6 h-6 text-white" />
+                        </button>
+                        
+                        {/* Mobile Swipe Indicator (Bottom since we swipe UP to close) */}
+                        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 sm:hidden opacity-50">
+                            <span className="text-[10px] font-mono uppercase tracking-[0.2em]">Swipe up to close</span>
+                            <div className="w-8 h-1 bg-white/20 rounded-full animate-bounce" />
+                        </div>
+
+                        <motion.img 
+                            src={profile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`}
+                            alt={profile.username}
+                            initial={{ scale: 0.8, y: 50 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.8, y: 50 }}
+                            className="max-w-full max-h-[70vh] sm:max-h-[85vh] rounded-3xl object-contain shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10"
+                            onClick={(e) => e.stopPropagation()}
+                            drag="y"
+                            dragConstraints={{ top: -200, bottom: 0 }}
+                            onDragEnd={(e, info) => {
+                                if (info.offset.y < -100) { // Swipe up
+                                    setShowEnlargedAvatar(false);
+                                }
+                            }}
+                        />
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

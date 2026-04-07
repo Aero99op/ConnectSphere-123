@@ -58,14 +58,15 @@ export function StoryAvatar({ user, className, onClick }: StoryAvatarProps) {
         <>
             <div 
                 className={cn(
-                    "relative group cursor-pointer shrink-0 rounded-full",
+                    "relative group cursor-pointer shrink-0",
+                    className?.includes('rounded') ? "" : "rounded-full",
                     hasUnseen ? "p-[3px] bg-gradient-to-tr from-orange-500 via-pink-500 to-purple-500" : "p-[2px] bg-zinc-800",
                     className
                 )}
                 onClick={handleAvatarClick}
             >
-                <div className={cn("bg-[#050507] p-[2px] w-full h-full", className?.includes('rounded') ? "" : "rounded-full")}>
-                    <Avatar className={cn("w-full h-full", className?.includes('rounded') ? "" : "rounded-full")}>
+                <div className={cn("bg-[#050507] p-[2px] w-full h-full", className?.includes('rounded') ? className.split(' ').find(c => c.startsWith('rounded')) : "rounded-full")}>
+                    <Avatar className={cn("w-full h-full", className?.includes('rounded') ? className.split(' ').find(c => c.startsWith('rounded')) : "rounded-full")}>
                         <AvatarImage src={user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`} className="object-cover" />
                         <AvatarFallback className="bg-zinc-900 font-display font-black text-white">
                             {user.username?.charAt(0).toUpperCase()}
