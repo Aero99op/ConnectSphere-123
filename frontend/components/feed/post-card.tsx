@@ -362,28 +362,36 @@ export function PostCard({ post }: PostProps) {
         <div className="group relative w-full mb-1">
             {/* Repost Attribution Bar */}
             {(post.repost_of || repostsCount > 0) && (
-                <div 
-                    onClick={() => setShowRepostsSheet(true)}
-                    className="flex items-center gap-2 px-6 py-2 mb-[-12px] relative z-0 bg-zinc-900/30 rounded-t-2xl border-x border-t border-white/5 cursor-pointer hover:bg-zinc-900/50 transition-colors group/repost"
-                >
-                    <Repeat2 className="w-3.5 h-3.5 text-primary animate-pulse-slow" />
-                    <div className="flex items-center gap-1.5 overflow-hidden">
-                        <span className="text-[10px] font-bold text-zinc-400 whitespace-nowrap">
-                            {post.repost_of ? t('post.reposted_by') : (sampleReposter ? t('post.reposted_by') : t('post.reposts_title'))}
-                        </span>
-                        <span className="text-[10px] font-black text-white truncate max-w-[100px]">
-                            {post.repost_of ? post.username : (sampleReposter?.username || '')}
-                        </span>
-                        {repostsCount > (post.repost_of ? 0 : 1) && (
-                            <span className="text-[10px] font-bold text-zinc-500 whitespace-nowrap">
-                                + {repostsCount - (post.repost_of ? 0 : 1)} {t('post.others')}
-                            </span>
-                        )}
+                <div className="flex items-center gap-2 px-4 py-2 mb-[-12px] relative z-0 bg-zinc-900/40 rounded-t-2xl border-x border-t border-white/5">
+                    <Repeat2 className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <div className="flex items-center gap-1 flex-wrap text-[10px] leading-relaxed">
+                        {/* Who reposted */}
+                        <span className="font-bold text-zinc-400">Reposted by</span>
+                        <Link href={`/profile/${post.user_id}`} className="font-black text-white hover:text-primary transition-colors">
+                            @{post.repost_of ? post.username : (sampleReposter?.username || post.username)}
+                        </Link>
+
+                        {/* Original author */}
                         {originalAuthor && (
                             <>
-                                <span className="text-zinc-700 mx-1">•</span>
-                                <span className="text-[10px] font-bold text-zinc-400 whitespace-nowrap">{t('post.original_by')}</span>
-                                <span className="text-[10px] font-black text-primary truncate max-w-[80px]">@{originalAuthor.username}</span>
+                                <span className="text-zinc-700 mx-0.5">•</span>
+                                <span className="font-bold text-zinc-400">Original by</span>
+                                <Link href={`/profile/${post.repost_of}`} className="font-black text-primary hover:underline transition-colors">
+                                    @{originalAuthor.username}
+                                </Link>
+                            </>
+                        )}
+
+                        {/* Others count — clickable */}
+                        {repostsCount > 1 && (
+                            <>
+                                <span className="text-zinc-700 mx-0.5">•</span>
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); setShowRepostsSheet(true); }}
+                                    className="font-bold text-zinc-500 hover:text-primary transition-colors underline decoration-dotted underline-offset-2"
+                                >
+                                    +{repostsCount - 1} others
+                                </button>
                             </>
                         )}
                     </div>
