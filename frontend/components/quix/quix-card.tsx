@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ShareSheet } from "@/components/feed/share-sheet";
 import { CommentSheet } from "@/components/feed/comment-sheet";
+import { RepostsSheet } from "@/components/feed/reposts-sheet";
 import { useTranslation } from "@/components/providers/language-provider";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -32,6 +33,7 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
     const [repostsCount, setRepostsCount] = useState(quix.reposts_count || 0);
     const [showShareSheet, setShowShareSheet] = useState(false);
     const [showComments, setShowComments] = useState(false);
+    const [showRepostsSheet, setShowRepostsSheet] = useState(false);
     const [showHeartAnimation, setShowHeartAnimation] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -388,6 +390,13 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
                 quixId={quix.id}
                 open={showComments}
                 onOpenChange={setShowComments}
+            />
+
+            <RepostsSheet
+                open={showRepostsSheet}
+                onOpenChange={setShowRepostsSheet}
+                entityType="quix"
+                entityId={quix.id}
             />
 
             <div className="absolute bottom-6 left-4 pr-16 z-20 max-w-[80%]">

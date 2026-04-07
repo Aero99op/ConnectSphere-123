@@ -40,10 +40,13 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
-    // Skip API calls and Supabase traffic (handled in app space via IndexedDB)
+    // Skip API calls and large external media providers
     if (url.pathname.startsWith('/api') || 
         url.hostname.includes('supabase.co') || 
-        url.hostname.includes('catbox.moe')) {
+        url.hostname.includes('catbox.moe') ||
+        url.hostname.includes('soundhelix.com') ||
+        url.hostname.includes('apple.com') ||
+        url.hostname.includes('mzstatic.com')) {
         return;
     }
 
@@ -74,8 +77,10 @@ self.addEventListener('fetch', (event) => {
                 }
                 return networkResponse;
             }).catch((err) => {
-                console.log('[SW] Fetch failed, returning cache if available:', url.pathname);
-                return cachedResponse;
+                console.log('[SW] Fetch failed for:', url.pathname, err);
+                if (cachedResponse) return cachedResponse;
+                // If no cache, we should just let the error propagate or return a meaningful failure
+                throw err;
             });
 
             return cachedResponse || fetchPromise;

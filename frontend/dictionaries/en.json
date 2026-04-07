@@ -40,7 +40,11 @@
         "unreposted": "Removed from reposts.",
         "options": "Quix Options",
         "delete_confirm_title": "Delete Quix?",
-        "delete_confirm_desc": "This action is permanent. This video will be gone forever."
+        "delete_confirm_desc": "This action is permanent. This video will be gone forever.",
+        "reposted_by": "Reposted by @",
+        "original_by": "Original by @",
+        "others": "and others",
+        "reposts_title": "Reposts"
     },
     "post": {
         "likes": "likes",
@@ -69,7 +73,11 @@
         "delete_success": "Post deleted successfully",
         "remention_success": "Repost successful! 🔄",
         "remention_loading": "Reposting...",
-        "e2e_removal": "End-to-end encryption enabled"
+        "e2e_removal": "End-to-end encryption enabled",
+        "reposted_by": "Reposted by @",
+        "original_by": "Original by @",
+        "others": "and others",
+        "reposts_title": "Reposts"
     },
     "settings": {
         "title": "Settings",

@@ -12,6 +12,7 @@ import { useTranslation } from "@/components/providers/language-provider";
 import { toast } from "sonner";
 import Link from "next/link";
 import { QuixOptionsSheet } from "@/components/quix/quix-options-sheet";
+import { RepostsSheet } from "@/components/feed/reposts-sheet";
 import { notifyStoryShare } from "@/lib/utils/mentions";
 import { StoryAvatar } from "@/components/ui/story-avatar";
 
@@ -33,6 +34,7 @@ export function StitchQuixCard({ quix, isActive }: QuixCardProps) {
     const [repostsCount, setRepostsCount] = useState(quix.reposts_count || 0);
     const [showShareSheet, setShowShareSheet] = useState(false);
     const [showComments, setShowComments] = useState(false);
+    const [showRepostsSheet, setShowRepostsSheet] = useState(false);
     const [showHeartAnimation, setShowHeartAnimation] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -339,12 +341,17 @@ export function StitchQuixCard({ quix, isActive }: QuixCardProps) {
                     </div>
                     <span className="text-[11px] font-bold text-white/90">Share</span>
                 </div>
-                {/* Save Bookmarks */}
-                <div onClick={handleSave} className="flex flex-col items-center group/btn cursor-pointer">
-                    <div className="w-12 h-12 rounded-full glass-panel flex items-center justify-center mb-1 group-active/btn:scale-95 transition-all text-white hover:text-yellow-500">
-                        <Bookmark className={cn("w-6 h-6", isSaved && "fill-yellow-500 text-yellow-500")} />
+                {/* Repost Icon (Manual Addition if missing from Sidebar) */}
+                <div className="flex flex-col items-center group/btn cursor-pointer">
+                    <div onClick={handleRepost} className="w-12 h-12 rounded-full glass-panel flex items-center justify-center mb-1 group-active/btn:scale-95 transition-all text-white hover:text-[#53ddfc]">
+                        <Repeat className={cn("w-6 h-6", isReposted && "text-primary")} />
                     </div>
-                    <span className="text-[11px] font-bold text-white/90">Save</span>
+                    <span 
+                        onClick={() => setShowRepostsSheet(true)}
+                        className="text-[11px] font-bold text-white/90 hover:text-primary transition-colors"
+                    >
+                        {repostsCount}
+                    </span>
                 </div>
                 
                 <QuixOptionsSheet
@@ -364,6 +371,7 @@ export function StitchQuixCard({ quix, isActive }: QuixCardProps) {
 
             <ShareSheet open={showShareSheet} onOpenChange={setShowShareSheet} entityType="quix" entityId={quix.id} />
             <CommentSheet quixId={quix.id} open={showComments} onOpenChange={setShowComments} />
+            <RepostsSheet open={showRepostsSheet} onOpenChange={setShowRepostsSheet} entityType="quix" entityId={quix.id} />
 
             {/* Content Details (Bottom Left) */}
             <div className="absolute left-4 right-20 bottom-8 z-20 flex flex-col space-y-4">

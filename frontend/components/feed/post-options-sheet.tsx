@@ -104,7 +104,7 @@ export function PostOptionsSheet({ post, isOwner, onDelete, onRemention }: PostO
             media_urls: post.media_urls,
             thumbnail_url: post.thumbnail_url,
             media_type: post.media_type,
-            repost_of: post.id
+            repost_of: post.repost_of || post.id
         });
 
         if (error) {

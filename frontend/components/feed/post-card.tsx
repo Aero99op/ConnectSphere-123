@@ -10,11 +10,13 @@ import { downloadAndMergeChunks } from "@/lib/utils/chunk-uploader";
 import { CommentSheet } from "@/components/feed/comment-sheet";
 import { ShareSheet } from "@/components/feed/share-sheet";
 import { PostOptionsSheet } from "@/components/feed/post-options-sheet";
+import { RepostsSheet } from "@/components/feed/reposts-sheet";
 import { StoryAvatar } from "@/components/ui/story-avatar";
 import { toast } from "sonner";
 import { getApinatorClient } from "@/lib/apinator";
 import Link from "next/link";
 import { useTranslation } from "@/components/providers/language-provider";
+import { Repeat2 } from "lucide-react";
 
 interface PostProps {
     post: {
@@ -27,8 +29,9 @@ interface PostProps {
         thumbnail_url: string;
         media_type: 'image' | 'video' | 'text';
         likes_count: number;
-        profiles?: { full_name: string };
+        profiles?: { full_name: string; username: string };
         created_at?: string;
+        repost_of?: string;
     };
 }
 
@@ -43,10 +46,17 @@ export function PostCard({ post }: PostProps) {
     const [isMuted, setIsMuted] = useState(true);
     const [showComments, setShowComments] = useState(false);
     const [showShareSheet, setShowShareSheet] = useState(false);
+    const [showRepostsSheet, setShowRepostsSheet] = useState(false);
     const [isBookmarked, setIsBookmarked] = useState(false);
     const [isDeleted, setIsDeleted] = useState(false);
     const [isFollowing, setIsFollowing] = useState<boolean | null>(null);
     const [isFollowingLoading, setIsFollowingLoading] = useState(false);
+
+    // Repost Attribution State
+    const [repostsCount, setRepostsCount] = useState(0);
+    const [originalAuthor, setOriginalAuthor] = useState<any>(null);
+    const [sampleReposter, setSampleReposter] = useState<any>(null);
+
     const currentUserId = authUser?.id || null;
     const isLikeProcessing = useRef(false);
 
@@ -67,6 +77,39 @@ export function PostCard({ post }: PostProps) {
                         setIsFollowing(followData !== null);
                     }
                 }
+
+                // Check Repost Attribution
+                const targetPostId = post.repost_of || post.id;
+                
+                // 1. Fetch Reposts Count
+                const { count } = await supabase
+                    .from('posts')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('repost_of', targetPostId);
+                setRepostsCount(count || 0);
+
+                // 2. Fetch Sample Reposter (different from post owner if possible)
+                if ((count || 0) > 0) {
+                    const { data: reposterData } = await supabase
+                        .from('posts')
+                        .select('profiles!user_id(username)')
+                        .eq('repost_of', targetPostId)
+                        .neq('user_id', post.user_id)
+                        .limit(1)
+                        .maybeSingle();
+                    if (reposterData) setSampleReposter((reposterData as any).profiles);
+                }
+
+                // 3. Fetch Original Author if this IS a repost
+                if (post.repost_of) {
+                    const { data: originalPost } = await supabase
+                        .from('posts')
+                        .select('profiles!user_id(username, full_name, avatar_url, role)')
+                        .eq('id', post.repost_of)
+                        .maybeSingle();
+                    if (originalPost) setOriginalAuthor((originalPost as any).profiles);
+                }
+
             } catch (e) {
                 console.warn("Persistence check failed (Expected if new):", e);
             }
@@ -317,8 +360,37 @@ export function PostCard({ post }: PostProps) {
 
     return (
         <div className="group relative w-full mb-1">
+            {/* Repost Attribution Bar */}
+            {(post.repost_of || repostsCount > 0) && (
+                <div 
+                    onClick={() => setShowRepostsSheet(true)}
+                    className="flex items-center gap-2 px-6 py-2 mb-[-12px] relative z-0 bg-zinc-900/30 rounded-t-2xl border-x border-t border-white/5 cursor-pointer hover:bg-zinc-900/50 transition-colors group/repost"
+                >
+                    <Repeat2 className="w-3.5 h-3.5 text-primary animate-pulse-slow" />
+                    <div className="flex items-center gap-1.5 overflow-hidden">
+                        <span className="text-[10px] font-bold text-zinc-400 whitespace-nowrap">
+                            {post.repost_of ? t('post.reposted_by') : (sampleReposter ? t('post.reposted_by') : t('post.reposts_title'))}
+                        </span>
+                        <span className="text-[10px] font-black text-white truncate max-w-[100px]">
+                            {post.repost_of ? post.username : (sampleReposter?.username || '')}
+                        </span>
+                        {repostsCount > (post.repost_of ? 0 : 1) && (
+                            <span className="text-[10px] font-bold text-zinc-500 whitespace-nowrap">
+                                + {repostsCount - (post.repost_of ? 0 : 1)} {t('post.others')}
+                            </span>
+                        )}
+                        {originalAuthor && (
+                            <>
+                                <span className="text-zinc-700 mx-1">•</span>
+                                <span className="text-[10px] font-bold text-zinc-400 whitespace-nowrap">{t('post.original_by')}</span>
+                                <span className="text-[10px] font-black text-primary truncate max-w-[80px]">@{originalAuthor.username}</span>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
 
-            <div className="group/card w-full overflow-hidden transition-all duration-500 bg-zinc-950/50 border border-white/5 rounded-2xl shadow-premium-md">
+            <div className="group/card w-full overflow-hidden transition-all duration-500 bg-zinc-950/50 border border-white/5 rounded-2xl shadow-premium-md relative z-10">
                 {/* 1. Post Header */}
                 <div className="flex items-center justify-between p-4 px-5 border-b border-white/[0.05] transition-colors duration-500">
                     <div className="flex items-center gap-3">
@@ -446,10 +518,18 @@ export function PostCard({ post }: PostProps) {
                 <div className="p-4 px-5">
                     {/* Music Bar if exists */}
                     {(post as any).customization?.music && (
-                        <div className="mb-3 flex items-center gap-2 px-3 py-1.5 rounded-lg w-fit bg-white/5 text-zinc-400">
-                            <div className="w-1.5 h-1.5 rounded-full animate-pulse bg-primary" />
-                            <span className="text-[10px] font-bold uppercase tracking-widest">
-                                {(post as any).customization.music.name} - {(post as any).customization.music.artist}
+                        <div className="mb-3 flex items-center gap-2.5 px-3 py-2 rounded-xl w-fit bg-white/5 border border-white/5 text-zinc-400 group/music hover:bg-white/[0.08] transition-all cursor-default">
+                            {(post as any).customization.music.artwork ? (
+                                <img 
+                                    src={(post as any).customization.music.artwork} 
+                                    alt="" 
+                                    className="w-7 h-7 rounded-lg object-cover ring-1 ring-white/10 shrink-0" 
+                                />
+                            ) : (
+                                <div className="w-1.5 h-1.5 rounded-full animate-pulse bg-primary shrink-0" />
+                            )}
+                            <span className="text-[10px] font-bold uppercase tracking-widest truncate max-w-[200px]">
+                                {(post as any).customization.music.name} — {(post as any).customization.music.artist}
                             </span>
                         </div>
                     )}
@@ -538,6 +618,13 @@ export function PostCard({ post }: PostProps) {
                 onOpenChange={setShowShareSheet}
                 entityType="post"
                 entityId={post.id}
+            />
+
+            <RepostsSheet
+                open={showRepostsSheet}
+                onOpenChange={setShowRepostsSheet}
+                entityId={post.repost_of || post.id}
+                entityType="post"
             />
         </div>
     );
