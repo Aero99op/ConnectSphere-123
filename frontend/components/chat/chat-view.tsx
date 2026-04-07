@@ -963,7 +963,7 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
         <div 
             className="flex flex-col h-full w-full bg-[#0a0a0a] relative"
             style={{
-                backgroundImage: chatBgUrl ? `linear-gradient(to bottom, rgba(0,0,0,0.65), rgba(0,0,0,0.85)), url(${chatBgUrl})` : 'none',
+                backgroundImage: chatBgUrl ? `url(${chatBgUrl})` : 'none',
                 backgroundSize: 'cover',
                 backgroundPosition: 'center'
             }}
