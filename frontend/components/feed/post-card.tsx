@@ -51,6 +51,7 @@ export function PostCard({ post }: PostProps) {
     const [isDeleted, setIsDeleted] = useState(false);
     const [musicPlaying, setMusicPlaying] = useState(false);
     const musicAudioRef = useRef<HTMLAudioElement | null>(null);
+    const postRef = useRef<HTMLDivElement>(null);
     const [isFollowing, setIsFollowing] = useState<boolean | null>(null);
     const [isFollowingLoading, setIsFollowingLoading] = useState(false);
 
@@ -360,32 +361,63 @@ export function PostCard({ post }: PostProps) {
 
     const { theme } = useTheme();
 
-    // Music playback handler
+    // Music playback handler (Manual Override)
     const toggleMusic = () => {
+        if (!musicAudioRef.current) return;
+        if (musicPlaying) {
+            musicAudioRef.current.pause();
+            setMusicPlaying(false);
+        } else {
+            musicAudioRef.current.play().then(() => setMusicPlaying(true)).catch((e) => {
+                setMusicPlaying(false);
+                toast.error('Browser blocked autoplay! Tap again.');
+            });
+        }
+    };
+
+    // Autoplay Music via Intersection Observer
+    useEffect(() => {
         const musicData = (post as any).customization?.music;
         if (!musicData?.url) return;
 
-        if (musicPlaying && musicAudioRef.current) {
-            musicAudioRef.current.pause();
-            setMusicPlaying(false);
-            return;
-        }
-
+        // Initialize audio engine
         if (!musicAudioRef.current) {
-            musicAudioRef.current = new Audio(musicData.url);
-            musicAudioRef.current.volume = 0.7;
-            musicAudioRef.current.onended = () => setMusicPlaying(false);
-            musicAudioRef.current.onerror = () => {
-                setMusicPlaying(false);
-                toast.error('Music load nahi hua!');
-            };
+            const audio = new Audio(musicData.url);
+            audio.volume = 0.5;
+            audio.loop = true;
+            audio.onended = () => setMusicPlaying(false);
+            audio.onerror = () => setMusicPlaying(false);
+            musicAudioRef.current = audio;
         }
-        musicAudioRef.current.play().then(() => setMusicPlaying(true)).catch(() => setMusicPlaying(false));
-    };
 
-    // Cleanup music audio on unmount
-    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const entry = entries[0];
+                if (!musicAudioRef.current) return;
+
+                if (entry.isIntersecting) {
+                    musicAudioRef.current.play()
+                        .then(() => setMusicPlaying(true))
+                        .catch(() => {
+                            // Safari/Chrome autoplay policy strictness
+                            setMusicPlaying(false);
+                        });
+                } else {
+                    musicAudioRef.current.pause();
+                    setMusicPlaying(false);
+                }
+            },
+            {
+                threshold: 0.6 // 60% of the post must be visible to trigger autoplay
+            }
+        );
+
+        if (postRef.current) observer.observe(postRef.current);
+
         return () => {
+            if (postRef.current) observer.unobserve(postRef.current);
+            observer.disconnect();
+            
             if (musicAudioRef.current) {
                 musicAudioRef.current.pause();
                 musicAudioRef.current.src = '';
@@ -397,7 +429,7 @@ export function PostCard({ post }: PostProps) {
     if (isDeleted) return null;
 
     return (
-        <div className="group relative w-full mb-1">
+        <div ref={postRef} className="group relative w-full mb-1">
 
             <div className="group/card w-full overflow-hidden transition-all duration-500 bg-zinc-950/50 border border-white/5 rounded-2xl shadow-premium-md">
                 {/* 1. Post Header */}
