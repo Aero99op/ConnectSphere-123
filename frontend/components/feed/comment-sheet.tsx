@@ -134,11 +134,6 @@ export function CommentSheet({ postId, quixId, open, onOpenChange }: CommentShee
 
     return (
         <Drawer open={open} onOpenChange={onOpenChange}>
-            <DrawerTrigger asChild>
-                <button className="text-foreground hover:text-primary transition-colors">
-                    <MessageCircle className="w-6 h-6" />
-                </button>
-            </DrawerTrigger>
             <DrawerContent className="h-[70vh] bg-black border-t border-white/10">
                 <DrawerHeader>
                     <DrawerTitle className="text-white text-center">Baatcheet ({comments.length})</DrawerTitle>
