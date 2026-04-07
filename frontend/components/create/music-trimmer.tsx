@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Scissors, Play, Pause } from "lucide-react";
+import { Scissors, Play, Pause, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MusicTrimmerProps {
@@ -9,9 +9,10 @@ interface MusicTrimmerProps {
     duration: number; // in seconds
     onTrimChange: (start: number, end: number) => void;
     maxTrimDuration?: number;
+    onConfirm?: () => void;
 }
 
-export function MusicTrimmer({ audioUrl, duration, onTrimChange, maxTrimDuration = 30 }: MusicTrimmerProps) {
+export function MusicTrimmer({ audioUrl, duration, onTrimChange, maxTrimDuration = 30, onConfirm }: MusicTrimmerProps) {
     const [start, setStart] = useState(0);
     const [end, setEnd] = useState(Math.min(duration, maxTrimDuration));
     const [isPlaying, setIsPlaying] = useState(true); // Default to playing for Instagram feel
@@ -117,50 +118,51 @@ export function MusicTrimmer({ audioUrl, duration, onTrimChange, maxTrimDuration
                 </div>
             </div>
 
-            {/* Visual Waveform */}
-            <div className="relative h-20 bg-black/40 rounded-xl overflow-hidden flex items-end gap-[3px] px-3 border border-white/5 group/wave">
-                {Array.from({ length: 50 }).map((_, i) => {
-                    const pos = (i / 50) * duration;
-                    const isActive = pos >= start && pos <= end;
-                    return (
-                        <div
-                            key={i}
-                            className={cn(
-                                "flex-1 rounded-full transition-all duration-500",
-                                isActive 
-                                    ? "bg-primary shadow-[0_0_10px_rgba(255,183,77,0.4)] h-[50%]" 
-                                    : "bg-zinc-800 h-[25%]"
-                            )}
-                            style={{ 
-                                height: isActive ? `${40 + Math.random() * 50}%` : `${15 + Math.random() * 20}%`,
-                                opacity: isActive ? 1 : 0.3
-                            }}
-                        />
-                    );
-                })}
+            {/* Visual Waveform & Trimmer Combined */}
+            <div className="relative h-24 bg-black/60 rounded-xl overflow-hidden px-2 border border-white/5 group/wave flex items-center">
+                
+                {/* Visual Waveform Bars */}
+                <div className="absolute inset-x-2 top-4 bottom-4 flex items-end gap-[3px]">
+                    {Array.from({ length: 50 }).map((_, i) => {
+                        const pos = (i / 50) * duration;
+                        const isActive = pos >= start && pos <= end;
+                        return (
+                            <div
+                                key={i}
+                                className={cn(
+                                    "flex-1 rounded-full transition-all duration-500",
+                                    isActive 
+                                        ? "bg-primary shadow-[0_0_10px_rgba(255,183,77,0.4)]" 
+                                        : "bg-zinc-800"
+                                )}
+                                style={{ 
+                                    height: isActive ? `${40 + Math.random() * 50}%` : `${15 + Math.random() * 20}%`,
+                                    opacity: isActive ? 1 : 0.3
+                                }}
+                            />
+                        );
+                    })}
+                </div>
 
                 {/* Playhead Indicator */}
                 <div
-                    className="absolute top-0 bottom-0 w-0.5 bg-white z-10 transition-all duration-75 shadow-[0_0_15px_white]"
-                    style={{ left: `${(currentTime / duration) * 100}%` }}
+                    className="absolute top-0 bottom-0 w-0.5 bg-white z-20 transition-all duration-75 shadow-[0_0_10px_white]"
+                    style={{ left: `calc(8px + ${(currentTime / duration) * (100 - (16/100 * 100))}%)` }} 
+                    // Approximate alignment with the inset padding
                 />
                 
-                {/* Active Range Overlay */}
+                {/* Inactive Range Overlays (Darkens outside trim area) */}
+                <div className="absolute inset-y-0 left-0 bg-black/60 pointer-events-none z-10" style={{ width: `${(start / duration) * 100}%` }} />
+                <div className="absolute inset-y-0 right-0 bg-black/60 pointer-events-none z-10" style={{ width: `${100 - (end / duration) * 100}%` }} />
+                
+                {/* Active Range Outline */}
                 <div 
-                    className="absolute top-0 bottom-0 bg-primary/5 pointer-events-none border-x border-primary/20"
+                    className="absolute inset-y-0 bg-primary/5 pointer-events-none border-y-2 border-primary/40 z-10"
                     style={{ left: `${(start / duration) * 100}%`, right: `${100 - (end / duration) * 100}%` }}
                 />
-            </div>
 
-            {/* Range Controls */}
-            <div className="space-y-6 pt-2">
-                <div className="relative h-2 flex items-center mx-1">
-                    <div className="absolute inset-0 h-1.5 bg-zinc-800 rounded-full" />
-                    <div
-                        className="absolute h-1.5 bg-primary shadow-[0_0_15px_rgba(255,183,77,0.3)]"
-                        style={{ left: `${(start / duration) * 100}%`, right: `${100 - (end / duration) * 100}%` }}
-                    />
-                    
+                {/* Overlaid Range Inputs for Tall Thumbs */}
+                <div className="absolute inset-x-0 inset-y-0 flex items-center">
                     <input
                         type="range"
                         min={0}
@@ -168,7 +170,7 @@ export function MusicTrimmer({ audioUrl, duration, onTrimChange, maxTrimDuration
                         step={0.1}
                         value={start}
                         onChange={(e) => handleRangeChange(e, "start")}
-                        className="absolute w-full appearance-none bg-transparent pointer-events-none z-30 [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-4 [&::-webkit-slider-thumb]:border-zinc-900 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:shadow-xl [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:active:scale-125 transition-transform"
+                        className="absolute w-full h-full appearance-none bg-transparent pointer-events-none z-30 [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-24 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-x-2 [&::-webkit-slider-thumb]:border-y-0 [&::-webkit-slider-thumb]:border-black/50 [&::-webkit-slider-thumb]:rounded-sm [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:shadow-[0_0_15px_rgba(255,255,255,0.4)] [&::-webkit-slider-thumb]:cursor-grab active:[&::-webkit-slider-thumb]:cursor-grabbing [&::-webkit-slider-thumb]:active:opacity-90"
                     />
                     <input
                         type="range"
@@ -177,22 +179,31 @@ export function MusicTrimmer({ audioUrl, duration, onTrimChange, maxTrimDuration
                         step={0.1}
                         value={end}
                         onChange={(e) => handleRangeChange(e, "end")}
-                        className="absolute w-full appearance-none bg-transparent pointer-events-none z-30 [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:border-4 [&::-webkit-slider-thumb]:border-zinc-900 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:shadow-xl [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:active:scale-125 transition-transform"
+                        className="absolute w-full h-full appearance-none bg-transparent pointer-events-none z-30 [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-24 [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:border-x-2 [&::-webkit-slider-thumb]:border-y-0 [&::-webkit-slider-thumb]:border-black/50 [&::-webkit-slider-thumb]:rounded-sm [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:shadow-[0_0_15px_rgba(255,183,77,0.4)] [&::-webkit-slider-thumb]:cursor-grab active:[&::-webkit-slider-thumb]:cursor-grabbing [&::-webkit-slider-thumb]:active:opacity-90"
                     />
                 </div>
+            </div>
 
-                <div className="flex justify-center">
+            {/* Action Buttons */}
+            <div className="flex justify-center items-center gap-4 pt-2">
+                <button
+                    onClick={togglePlay}
+                    className="w-14 h-14 bg-white/5 border border-white/10 rounded-full flex items-center justify-center hover:bg-white/10 hover:border-primary/50 transition-all active:scale-90 group/play"
+                >
+                    {isPlaying ? (
+                        <Pause className="w-6 h-6 text-white text-primary fill-current drop-shadow-[0_0_10px_rgba(255,183,77,0.5)]" />
+                    ) : (
+                        <Play className="w-6 h-6 text-white fill-current ml-1 group-hover/play:text-primary transition-colors" />
+                    )}
+                </button>
+                {onConfirm && (
                     <button
-                        onClick={togglePlay}
-                        className="w-14 h-14 bg-white/5 border border-white/10 rounded-full flex items-center justify-center hover:bg-white/10 hover:border-primary/50 transition-all active:scale-90 group/play"
+                        onClick={onConfirm}
+                        className="w-14 h-14 bg-primary/20 border border-primary/40 rounded-full flex items-center justify-center hover:bg-primary/30 transition-all active:scale-90 shadow-[0_0_15px_rgba(255,183,77,0.2)]"
                     >
-                        {isPlaying ? (
-                            <Pause className="w-6 h-6 text-white text-primary fill-current drop-shadow-[0_0_10px_rgba(255,183,77,0.5)]" />
-                        ) : (
-                            <Play className="w-6 h-6 text-white fill-current ml-1 group-hover/play:text-primary transition-colors" />
-                        )}
+                        <Check className="w-6 h-6 text-primary drop-shadow-[0_0_5px_rgba(255,183,77,0.5)]" />
                     </button>
-                </div>
+                )}
             </div>
         </div>
     );

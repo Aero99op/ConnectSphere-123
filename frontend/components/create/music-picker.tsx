@@ -52,9 +52,10 @@ function itunesTrackToInternal(t: iTunesTrack) {
 interface MusicPickerProps {
     onSelect: (track: any) => void;
     selectedTrack?: any;
+    onClose?: () => void;
 }
 
-export function MusicPicker({ onSelect, selectedTrack }: MusicPickerProps) {
+export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerProps) {
     const [activeTab, setActiveTab] = useState<"discover" | "uploads">("discover");
     const [query, setQuery] = useState("");
     const [results, setResults] = useState<any[]>([]);
@@ -292,6 +293,9 @@ export function MusicPicker({ onSelect, selectedTrack }: MusicPickerProps) {
                         onTrimChange={(start, end) => {
                             setTrimData({ start, end });
                             onSelect({ ...selectedTrack, startTime: start, endTime: end });
+                        }}
+                        onConfirm={() => {
+                            if (onClose) onClose();
                         }}
                     />
                 </div>

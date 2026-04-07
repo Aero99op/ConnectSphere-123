@@ -74,6 +74,7 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
     const [selectedMusic, setSelectedMusic] = useState<any>(null);
     const [activeTab, setActiveTab] = useState<"filters" | "music" | "stickers" | "crop">("filters");
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [isMusicDrawerOpen, setIsMusicDrawerOpen] = useState(false);
     const [crop, setCrop] = useState({ x: 0, y: 0, w: 100, h: 100 }); // Percentage based
 
     const containerRef = useRef<HTMLDivElement>(null);
@@ -451,7 +452,7 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
 
                     {activeTab === "music" && (
                         <div className="flex items-center justify-center h-full">
-                            <Drawer>
+                            <Drawer open={isMusicDrawerOpen} onOpenChange={setIsMusicDrawerOpen}>
                                 <DrawerTrigger asChild>
                                     <Button className="bg-zinc-800 border border-white/10 rounded-2xl flex items-center gap-3 px-6 py-6 hover:bg-zinc-700 transition-all">
                                         <Music className="w-5 h-5 text-primary" />
@@ -474,6 +475,7 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
                                         <MusicPicker
                                             onSelect={(track) => { setSelectedMusic(track); }}
                                             selectedTrack={selectedMusic}
+                                            onClose={() => setIsMusicDrawerOpen(false)}
                                         />
                                     </div>
                                 </DrawerContent>
