@@ -315,7 +315,7 @@ export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerPro
             </div>
 
             {/* Tracks List */}
-            <div className="space-y-1.5 max-h-[30vh] overflow-y-auto no-scrollbar pr-1">
+            <div className="space-y-1.5 max-h-[25vh] overflow-y-auto no-scrollbar pr-1 flex-1 min-h-0">
                 {(activeTab === "discover" && loadingTrending && !query) ? (
                     <div className="flex items-center justify-center py-8">
                         <Loader2 className="w-6 h-6 animate-spin text-primary" />

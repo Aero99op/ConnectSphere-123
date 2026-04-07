@@ -466,8 +466,8 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
                                         </div>
                                     </Button>
                                 </DrawerTrigger>
-                                <DrawerContent className="bg-zinc-900 border-white/5 h-[75vh]">
-                                    <div className="p-4 max-w-md mx-auto w-full">
+                                <DrawerContent className="bg-zinc-900 border-white/5 h-[85vh] flex flex-col">
+                                    <div className="p-4 max-w-md mx-auto w-full flex-1 flex flex-col overflow-hidden">
                                         <DrawerHeader>
                                             <DrawerTitle className="text-white text-center">Elite Tracks 🎵</DrawerTitle>
                                             <DrawerDescription className="hidden">Select background music for your content</DrawerDescription>

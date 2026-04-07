@@ -51,7 +51,7 @@ export async function compressVideo(
                 // 🧠 THE MATH: Calculate maximum possible bitrate to fit exactly in 190MB
                 // Formula: (190MB * 8 bits * 0.9 safety margin) / duration in seconds
                 let optimalBitrate = Math.floor((MAX_OUTPUT_BYTES * 8 * 0.9) / duration);
-                
+
                 // Cap it at 20 Mbps (Instagram uses ~2.5 to 5 Mbps, so 20 is INSANE quality)
                 if (optimalBitrate > 20_000_000) optimalBitrate = 20_000_000;
                 // Floor it at 500 kbps (so it never becomes completely unwatchable)
@@ -119,11 +119,11 @@ export async function compressVideo(
                     const blob = new Blob(chunks, { type: 'video/webm' });
                     const baseName = file.name.replace(/\.[^.]+$/, '');
                     const compressedFile = new File([blob], `${baseName}_enhanced.webm`, { type: 'video/webm' });
-                    
+
                     const origMB = (file.size / 1048576).toFixed(1);
                     const newMB = (compressedFile.size / 1048576).toFixed(1);
-                    console.log(`[Enhancer] ${origMB}MB -> ${newMB}MB | Target Bitrate: ${(optimalBitrate/1e6).toFixed(1)}Mbps`);
-                    
+                    console.log(`[Enhancer] ${origMB}MB -> ${newMB}MB | Target Bitrate: ${(optimalBitrate / 1e6).toFixed(1)}Mbps`);
+
                     resolve(compressedFile);
                 };
 
@@ -135,7 +135,7 @@ export async function compressVideo(
                 // Start
                 recorder.start(1000);
                 video.currentTime = 0;
-                
+
                 // Don't play at double speed here, drawing needs to sync perfectly for 60fps
                 await video.play();
 
@@ -144,10 +144,10 @@ export async function compressVideo(
                         if (recorder.state === 'recording') recorder.stop();
                         return;
                     }
-                    
+
                     // The drawing applies the enhancer filter we set!
                     ctx.drawImage(video, 0, 0, w, h);
-                    
+
                     if (onProgress && duration > 0) {
                         const pct = Math.round((video.currentTime / duration) * 100);
                         const estOut = ((optimalBitrate * duration) / 8 / 1048576).toFixed(0);
@@ -158,7 +158,12 @@ export async function compressVideo(
                 drawFrame();
 
                 video.onended = () => {
-                    if (recorder.state === 'recording') recorder.stop();
+                    // 🛡️ CRITICAL FIX: Terminal delay ensures the MediaRecorder 
+                    // captures the final frames and audio buffers before closing.
+                    // Without this, the last 1-2 seconds are often truncated.
+                    setTimeout(() => {
+                        if (recorder.state === 'recording') recorder.stop();
+                    }, 500);
                 };
 
             } catch (err) {

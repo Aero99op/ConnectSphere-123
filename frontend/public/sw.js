@@ -1,4 +1,4 @@
-const CACHE_NAME = 'connect-v3';
+const CACHE_NAME = 'connect-v4'; // Upgraded version to clear old stale caches
 const ASSETS_TO_CACHE = [
     '/',
     '/settings/games',
@@ -6,29 +6,21 @@ const ASSETS_TO_CACHE = [
     '/logo.svg',
 ];
 
-// Install Event - Cache Core Assets
+// Install Event
 self.addEventListener('install', (event) => {
-    console.log('[SW] Installing...');
     event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
-            console.log('[SW] Pre-caching core assets');
-            return cache.addAll(ASSETS_TO_CACHE);
-        })
+        caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
     );
     self.skipWaiting();
 });
 
 // Activate Event
 self.addEventListener('activate', (event) => {
-    console.log('[SW] Activated');
     event.waitUntil(
         caches.keys().then((cacheNames) => {
             return Promise.all(
                 cacheNames.map((cache) => {
-                    if (cache !== CACHE_NAME) {
-                        console.log('[SW] Clearing old cache:', cache);
-                        return caches.delete(cache);
-                    }
+                    if (cache !== CACHE_NAME) return caches.delete(cache);
                 })
             );
         })
@@ -36,83 +28,67 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// Fetch Event - Stale-While-Revalidate for Assets
+// Fetch Event - Dynamic Strategy
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
-    // Skip API calls and large external media providers
-    if (url.pathname.startsWith('/api') || 
+    // 🛡️ SKIP SW FOR MEDIA & DYNAMIC DATA
+    // 1. Large Media Providers (Catbox, Apple, etc.)
+    // 2. Local Media (mp4, mp3, webm) - Browsers handle Range requests better than SW
+    // 3. Next.js Data Fetching (_next/data) - Prevents stale "Disappearing Music"
+    // 4. API calls
+    if (
+        url.pathname.startsWith('/api') || 
+        url.pathname.includes('_next/data') ||
+        url.pathname.match(/\.(mp4|mp3|webm|wav|m4a|ogg)$/i) ||
         url.hostname.includes('supabase.co') || 
         url.hostname.includes('catbox.moe') ||
-        url.hostname.includes('soundhelix.com') ||
-        url.hostname.includes('apple.com') ||
-        url.hostname.includes('mzstatic.com')) {
-        return;
+        url.hostname.includes('mzstatic.com') ||
+        url.hostname.includes('apple.com')
+    ) {
+        return; // Let browser handle normally
     }
 
-    // Navigation Fallback: Serve the root shell for any page navigation
+    // Navigation Fallback
     if (event.request.mode === 'navigate') {
         event.respondWith(
-            fetch(event.request).catch(() => {
-                console.log('[SW] Offline: Serving cached root for navigation');
-                return caches.match('/');
-            })
+            fetch(event.request).catch(() => caches.match('/'))
         );
         return;
     }
 
-    // Static Assets & Chunks: Stale-While-Revalidate
+    // Static Assets: Stale-While-Revalidate
     event.respondWith(
         caches.match(event.request).then((cachedResponse) => {
             const fetchPromise = fetch(event.request).then((networkResponse) => {
-                // Update cache with fresh version
-                if (networkResponse && networkResponse.status === 200) {
+                if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
                     const responseToCache = networkResponse.clone();
-                    const requestUrl = new URL(event.request.url);
-                    if ((requestUrl.protocol === 'http:' || requestUrl.protocol === 'https:') && event.request.method === 'GET') {
-                        caches.open(CACHE_NAME).then((cache) => {
-                            cache.put(event.request, responseToCache);
-                        });
-                    }
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(event.request, responseToCache);
+                    });
                 }
                 return networkResponse;
-            }).catch((err) => {
-                console.log('[SW] Fetch failed for:', url.pathname, err);
-                if (cachedResponse) return cachedResponse;
-                // If no cache, we should just let the error propagate or return a meaningful failure
-                throw err;
-            });
+            }).catch(() => cachedResponse);
 
             return cachedResponse || fetchPromise;
         })
     );
 });
 
-// ------------- WEB PUSH (PWA) -------------
-
-// Handle Incoming Payload-less Push Pings
-self.addEventListener('push', function(event) {
-    console.log('[SW] Push Received.');
-
-    // Since we avoid Cloudflare Edge Crypto errors by not sending payloads,
-    // the SW wakes up and fetches the latest unread activity directly.
+// ------------- WEB PUSH -------------
+self.addEventListener('push', (event) => {
     event.waitUntil(
         fetch('/api/push/latest')
             .then(res => res.json())
             .then(data => {
-                const title = data.title || 'New Notification';
-                const options = {
-                    body: data.body || 'You have new activity on ConnectSphere.',
-                    icon: data.icon || '/logo.svg',
+                return self.registration.showNotification(data.title || 'ConnectSphere', {
+                    body: data.body || 'New activity',
+                    icon: '/logo.svg',
                     badge: '/logo.svg',
-                    data: {
-                        url: data.url || '/'
-                    }
-                };
-                return self.registration.showNotification(title, options);
+                    data: { url: data.url || '/' }
+                });
             })
-            .catch(err => {
-                console.error('[SW] Push fetch error, falling back:', err);
+            .catch(() => {
                 return self.registration.showNotification('ConnectSphere', {
                     body: 'New background activity received.',
                     icon: '/logo.svg'
@@ -121,27 +97,16 @@ self.addEventListener('push', function(event) {
     );
 });
 
-// Handle Notification Click
-self.addEventListener('notificationclick', function(event) {
-    console.log('[SW] Notification click received.');
-
+self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-
     const urlToOpen = new URL(event.notification.data.url || '/', self.location.origin).href;
-
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-            // If window already open, focus it and navigate
             for (let i = 0; i < windowClients.length; i++) {
                 const client = windowClients[i];
-                if (client.url === urlToOpen && 'focus' in client) {
-                    return client.focus();
-                }
+                if (client.url === urlToOpen && 'focus' in client) return client.focus();
             }
-            // Otherwise open a new window
-            if (clients.openWindow) {
-                return clients.openWindow(urlToOpen);
-            }
+            if (clients.openWindow) return clients.openWindow(urlToOpen);
         })
     );
 });
