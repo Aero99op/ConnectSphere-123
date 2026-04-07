@@ -39,17 +39,20 @@ function GlobalHomeButtonContent() {
 
     if (isStitchMode) return null;
 
+    // Hide completely on messages route because MessagesLayout handles its own back navigation
+    if (pathname.startsWith("/messages")) return null;
+
     let targetHref = "/";
     let Icon = Home;
     let label = "Ghar (Home)";
 
-    if (pathname.startsWith("/chat")) {
+    if (pathname.startsWith("/messages")) {
         Icon = ArrowLeft;
-        if (pathname === "/chat") {
+        if (pathname === "/messages") {
             targetHref = "/";
             label = "Back to Home";
         } else {
-            targetHref = "/chat";
+            targetHref = "/messages";
             label = "Back to Chats";
         }
     }

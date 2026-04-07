@@ -390,27 +390,42 @@ export function PostCard({ post }: PostProps) {
             musicAudioRef.current = audio;
         }
 
+        // Intersection Observer logic
         const observer = new IntersectionObserver(
             (entries) => {
                 const entry = entries[0];
-                if (!musicAudioRef.current) return;
+                const audio = musicAudioRef.current;
+                if (!audio) return;
 
                 if (entry.isIntersecting) {
-                    musicAudioRef.current.play()
+                    if (musicData.startTime) {
+                        audio.currentTime = musicData.startTime;
+                    }
+                    audio.play()
                         .then(() => setMusicPlaying(true))
-                        .catch(() => {
-                            // Safari/Chrome autoplay policy strictness
-                            setMusicPlaying(false);
-                        });
+                        .catch(() => setMusicPlaying(false));
                 } else {
-                    musicAudioRef.current.pause();
+                    audio.pause();
                     setMusicPlaying(false);
                 }
             },
-            {
-                threshold: 0.6 // 60% of the post must be visible to trigger autoplay
-            }
+            { threshold: 0.6 }
         );
+
+        // Core timeupdate logic (Add once per post mount)
+        const timeUpdateHandler = () => {
+            const audio = musicAudioRef.current;
+            if (!audio) return;
+            const start = musicData.startTime || 0;
+            const end = musicData.endTime || audio.duration;
+            if (audio.currentTime >= end - 0.1) {
+                audio.currentTime = start;
+            }
+        };
+
+        if (musicAudioRef.current) {
+            musicAudioRef.current.addEventListener('timeupdate', timeUpdateHandler);
+        }
 
         if (postRef.current) observer.observe(postRef.current);
 
@@ -419,6 +434,7 @@ export function PostCard({ post }: PostProps) {
             observer.disconnect();
             
             if (musicAudioRef.current) {
+                musicAudioRef.current.removeEventListener('timeupdate', timeUpdateHandler);
                 musicAudioRef.current.pause();
                 musicAudioRef.current.src = '';
                 musicAudioRef.current = null;

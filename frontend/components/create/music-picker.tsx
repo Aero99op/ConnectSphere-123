@@ -351,11 +351,14 @@ export function MusicPicker({ onSelect, selectedTrack }: MusicPickerProps) {
                                             e.stopPropagation();
                                             togglePlay(track);
                                         }}
-                                        className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                                        className={cn(
+                                            "absolute inset-0 bg-black/40 flex items-center justify-center transition-all duration-300",
+                                            playingId === track.id ? "opacity-100 bg-black/60" : "md:opacity-0 md:group-hover:opacity-100 opacity-100"
+                                        )}
                                     >
                                         {playingId === track.id
-                                            ? <Pause className="w-4 h-4 text-white fill-current" />
-                                            : <Play className="w-4 h-4 text-white fill-current ml-0.5" />
+                                            ? <Pause className="w-5 h-5 text-primary fill-current drop-shadow-lg" />
+                                            : <Play className="w-5 h-5 text-white fill-current ml-0.5 drop-shadow-lg" />
                                         }
                                     </button>
                                 </div>

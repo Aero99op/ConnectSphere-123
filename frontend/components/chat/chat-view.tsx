@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
-import { uploadToCatbox } from "@/lib/catbox";
+import { uploadToCatbox } from "@/lib/storage";
 import { getApinatorClient } from "@/lib/apinator";
 import { Send, ChevronLeft, Loader2, Video, Phone, MoreVertical, Image as ImageIcon, Users, LogOut, Check, CheckCheck, Smile, X, Wallpaper } from "lucide-react";
 import { toast } from "sonner";
