@@ -1053,8 +1053,10 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                 </div>
             </div >
 
-            {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 custom-scrollbar bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-zinc-900/40 via-[#0a0a0a] to-[#0a0a0a]" >
+            <div className={cn(
+                "flex-1 overflow-y-auto p-4 md:p-6 space-y-4 custom-scrollbar",
+                !chatBgUrl && "bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-zinc-900/40 via-[#0a0a0a] to-[#0a0a0a]"
+            )} >
                 {
                     loading ? (
                         <div className="flex justify-center items-center h-full" >
