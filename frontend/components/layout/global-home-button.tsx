@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Home } from "lucide-react";
+import { Home, ArrowLeft } from "lucide-react";
 import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useStitchMode } from "@/components/providers/stitch-provider";
@@ -39,13 +39,28 @@ function GlobalHomeButtonContent() {
 
     if (isStitchMode) return null;
 
+    let targetHref = "/";
+    let Icon = Home;
+    let label = "Ghar (Home)";
+
+    if (pathname.startsWith("/chat")) {
+        Icon = ArrowLeft;
+        if (pathname === "/chat") {
+            targetHref = "/";
+            label = "Back to Home";
+        } else {
+            targetHref = "/chat";
+            label = "Back to Chats";
+        }
+    }
+
     return (
         <Link
-            href="/"
+            href={targetHref}
             className="fixed top-4 left-4 z-[60] md:hidden bg-zinc-900/80 backdrop-blur-md border border-white/10 p-2.5 rounded-full text-zinc-300 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all shadow-lg active:scale-95 group"
-            title="Ghar (Home)"
+            title={label}
         >
-            <Home className="w-5 h-5 group-hover:text-orange-400 transition-colors" />
+            <Icon className="w-5 h-5 group-hover:text-primary transition-colors" />
         </Link>
     );
 }
