@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Scissors, Play, Pause, Check } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, useMotionValue, useTransform } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 interface MusicTrimmerProps {
@@ -43,7 +43,7 @@ export function MusicTrimmer({
         const audio = new Audio(audioUrl);
         audioRef.current = audio;
         audio.preload = "auto";
-        audio.loop = false; // We handle loop via timeupdate
+        audio.loop = false;
 
         const onLoaded = () => {
             audio.currentTime = startRef.current;
@@ -96,7 +96,6 @@ export function MusicTrimmer({
         }
     };
 
-    // ⚡ PRO OPTIMIZATION: Throttle seeking and defer parent updates
     const handleDrag = (type: "start" | "end", info: any) => {
         if (!containerRef.current) return;
         const rect = containerRef.current.getBoundingClientRect();
@@ -105,22 +104,25 @@ export function MusicTrimmer({
         const newTime = (x / rect.width) * duration;
 
         if (type === "start") {
+            // Prevent starting slider from overlapping or creating ghost states
             const nextStart = Math.min(newTime, end - 2);
-            setStart(nextStart);
-            
-            // 🛡️ THROTTLE: Only seek audio every 100ms during drag
-            const now = Date.now();
-            if (now - lastSeekRef.current > 100) {
-                if (audioRef.current) audioRef.current.currentTime = nextStart;
-                lastSeekRef.current = now;
+            if (Math.abs(nextStart - start) > 0.01) {
+                setStart(nextStart);
+                
+                const now = Date.now();
+                if (now - lastSeekRef.current > 100) {
+                    if (audioRef.current) audioRef.current.currentTime = nextStart;
+                    lastSeekRef.current = now;
+                }
             }
         } else {
             const nextEnd = Math.max(newTime, start + 2);
-            setEnd(nextEnd);
+            if (Math.abs(nextEnd - end) > 0.01) {
+                setEnd(nextEnd);
+            }
         }
     };
 
-    // 🛡️ SYNC FINAL STATE: Push to parent only when dragging stops
     const handleDragEnd = () => {
         onTrimChange(start, end);
         if (audioRef.current) {
@@ -134,29 +136,28 @@ export function MusicTrimmer({
         return `${m}:${s.toString().padStart(2, "0")}`;
     };
 
-    // Static bar patterns
-    const bars = useRef(Array.from({ length: 40 }).map(() => Math.random()));
+    const bars = useRef(Array.from({ length: 48 }).map(() => Math.random()));
 
     return (
-        <div className="bg-zinc-950/40 border border-white/5 rounded-2xl p-4 space-y-4 backdrop-blur-xl shrink-0">
-            {/* Minimal Header */}
+        <div className="bg-zinc-950/60 border border-white/10 rounded-2xl p-4 space-y-4 backdrop-blur-2xl shrink-0 shadow-2xl">
+            {/* Header */}
             <div className="flex items-center justify-between px-1">
                 <div className="flex items-center gap-2">
-                    <Scissors className="w-3.5 h-3.5 text-primary opacity-80" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Trim Track</span>
+                    <Scissors className="w-4 h-4 text-primary" />
+                    <span className="text-[11px] font-black uppercase tracking-widest text-white/80">Trim Audio</span>
                 </div>
-                <div className="text-[10px] font-mono text-primary font-black bg-primary/10 px-2 py-0.5 rounded-md">
-                    {formatTime(start)} - {formatTime(end)}
+                <div className="text-[11px] font-mono text-primary font-black bg-primary/20 px-2 py-1 rounded-lg border border-primary/20">
+                    {formatTime(start)} — {formatTime(end)}
                 </div>
             </div>
 
-            {/* Waveform Trimmer */}
+            {/* Premium Waveform Trimmer */}
             <div 
                 ref={containerRef}
-                className="relative h-20 bg-black/40 rounded-xl overflow-hidden px-4 flex items-center border border-white/5"
+                className="relative h-20 bg-black/60 rounded-2xl overflow-hidden px-4 flex items-center border border-white/5 group/trimmer"
             >
-                {/* Waveform Bars */}
-                <div className="absolute inset-x-4 inset-y-6 flex items-end gap-[3px] pointer-events-none opacity-30">
+                {/* Visual Waveform */}
+                <div className="absolute inset-x-4 inset-y-5 flex items-end gap-[2px] pointer-events-none transition-all duration-300">
                     {bars.current.map((h, i) => {
                         const pos = (i / bars.current.length) * duration;
                         const isActive = pos >= start && pos <= end;
@@ -164,10 +165,10 @@ export function MusicTrimmer({
                             <div
                                 key={i}
                                 className={cn(
-                                    "flex-1 rounded-full",
-                                    isActive ? "bg-primary" : "bg-zinc-800"
+                                    "flex-1 rounded-full transition-all duration-500",
+                                    isActive ? "bg-primary opacity-100 shadow-[0_0_8px_rgba(255,183,77,0.4)]" : "bg-white/10 opacity-30"
                                 )}
-                                style={{ height: `${20 + h * 70}%` }}
+                                style={{ height: `${25 + h * 65}%` }}
                             />
                         );
                     })}
@@ -175,55 +176,67 @@ export function MusicTrimmer({
 
                 {/* PLAYHEAD */}
                 <div
-                    className="absolute top-0 bottom-0 w-0.5 bg-white z-20 pointer-events-none shadow-[0_0_15px_white]"
+                    className="absolute top-0 bottom-0 w-[3px] bg-white z-20 pointer-events-none shadow-[0_0_20px_white] rounded-full"
                     style={{ left: `${(currentTime / duration) * 100}%` }}
                 />
 
-                {/* INACTIVE AREAS */}
-                <div className="absolute inset-y-0 left-0 bg-black/70 z-10" style={{ width: `${(start / duration) * 100}%` }} />
-                <div className="absolute inset-y-0 right-0 bg-black/70 z-10" style={{ width: `${100 - (end / duration) * 100}%` }} />
+                {/* OVERLAYS (Inactive areas) */}
+                <div 
+                    className="absolute inset-y-0 left-0 bg-black/80 backdrop-blur-[1px] z-10 border-r border-white/10" 
+                    style={{ width: `${(start / duration) * 100}%` }} 
+                />
+                <div 
+                    className="absolute inset-y-0 right-0 bg-black/80 backdrop-blur-[1px] z-10 border-l border-white/10" 
+                    style={{ width: `${100 - (end / duration) * 100}%` }} 
+                />
 
-                {/* HANDLERS */}
+                {/* HANDLERS (Physical Knobs) */}
                 <motion.div
-                    className="absolute inset-y-0 w-5 z-30 cursor-ew-resize flex items-center justify-center -ml-2.5"
+                    className="absolute inset-y-0 w-8 z-30 cursor-ew-resize flex items-center justify-center -ml-4 active:scale-110 transition-transform"
                     drag="x"
                     dragMomentum={false}
+                    dragElastic={0}
                     dragConstraints={containerRef}
                     onDrag={(_, info) => handleDrag("start", info)}
                     onDragEnd={handleDragEnd}
                     style={{ left: `${(start / duration) * 100}%` }}
                 >
-                    <div className="w-2 h-full bg-white rounded-full shadow-[0_0_20px_white]" />
+                    <div className="w-1.5 h-12 bg-white rounded-full shadow-[0_0_25px_white] ring-4 ring-black/50" />
                 </motion.div>
 
                 <motion.div
-                    className="absolute inset-y-0 w-5 z-30 cursor-ew-resize flex items-center justify-center -mr-2.5"
+                    className="absolute inset-y-0 w-8 z-30 cursor-ew-resize flex items-center justify-center -mr-4 active:scale-110 transition-transform"
                     drag="x"
                     dragMomentum={false}
+                    dragElastic={0}
                     dragConstraints={containerRef}
                     onDrag={(_, info) => handleDrag("end", info)}
                     onDragEnd={handleDragEnd}
                     style={{ left: `${(end / duration) * 100}%` }}
                 >
-                    <div className="w-2 h-full bg-primary rounded-full shadow-[0_0_20px_rgba(255,183,77,0.6)]" />
+                    <div className="w-1.5 h-12 bg-primary rounded-full shadow-[0_0_25px_rgba(255,183,77,0.8)] ring-4 ring-black/50" />
                 </motion.div>
             </div>
 
-            {/* Quick Controls */}
-            <div className="flex justify-center items-center gap-4">
+            {/* Action Bar */}
+            <div className="flex justify-center items-center gap-6">
                 <button
                     onClick={togglePlay}
-                    className="w-12 h-12 bg-white/5 border border-white/10 rounded-full flex items-center justify-center hover:bg-white/10 transition-all active:scale-95"
+                    className="w-14 h-14 bg-white/10 border border-white/20 rounded-2xl flex items-center justify-center hover:bg-white/20 transition-all active:scale-90 group"
                 >
-                    {isPlaying ? <Pause className="w-5 h-5 text-primary fill-primary" /> : <Play className="w-5 h-5 text-white fill-white ml-1" />}
+                    {isPlaying ? (
+                        <Pause className="w-6 h-6 text-primary fill-primary" />
+                    ) : (
+                        <Play className="w-6 h-6 text-white fill-white ml-1" />
+                    )}
                 </button>
                 
                 {onConfirm && (
                     <button
                         onClick={onConfirm}
-                        className="w-12 h-12 bg-primary/20 border border-primary/40 rounded-full flex items-center justify-center hover:bg-primary/30 transition-all active:scale-95 shadow-[0_0_20px_rgba(255,183,77,0.2)]"
+                        className="w-14 h-14 bg-primary/20 border border-primary/40 rounded-2xl flex items-center justify-center hover:bg-primary/30 transition-all active:scale-90 shadow-[0_0_30px_rgba(255,183,77,0.15)] group"
                     >
-                        <Check className="w-5 h-5 text-primary" />
+                        <Check className="w-6 h-6 text-primary" />
                     </button>
                 )}
             </div>

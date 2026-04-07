@@ -56,58 +56,62 @@ export function StitchQuixCard({ quix, isActive }: QuixCardProps) {
         const startTime = music?.startTime || 0;
         const endTime = music?.endTime || (audio?.duration ?? 999);
 
-        const handleAudioLoop = () => {
-            if (audio && audio.currentTime >= endTime) {
-                audio.currentTime = startTime;
+        const handleSync = () => {
+            if (video && audio && !isMuted) {
+                const videoDuration = video.duration || 1;
+                const musicTrimDuration = endTime - startTime;
+                
+                // 🔥 Master Sync calculation: offset music based on video progress
+                const targetAudioTime = startTime + (video.currentTime % musicTrimDuration);
+                
+                // Only seek if we drift by more than 0.2s to prevent stutter
+                if (Math.abs(audio.currentTime - targetAudioTime) > 0.2) {
+                    audio.currentTime = targetAudioTime;
+                }
+                
+                if (audio.paused && isActive && !isMuted) {
+                    audio.play().catch(() => {});
+                }
             }
         };
 
         if (isActive) {
-            // PLAYING STATE
             if (video) {
                 video.muted = isMuted;
                 video.volume = isMuted ? 0 : 1;
                 video.play().catch(e => console.log("Video play blocked", e));
+                video.addEventListener("timeupdate", handleSync);
             }
 
             if (audio) {
+                audio.muted = isMuted;
+                audio.volume = isMuted ? 0 : 0.8;
                 if (!isMuted) {
-                    // 🛡️ FIX: Only reset to start if it's the first play or if it's way out of sync.
-                    // This prevents the music from jumping back to 0:00 every time you toggle mute.
-                    if (audio.paused && audio.currentTime <= startTime + 0.1) {
-                        audio.currentTime = startTime;
-                    }
+                    handleSync(); // Initial sync on unmute
                     audio.play().catch(e => console.log("Audio play blocked", e));
-                    audio.addEventListener("timeupdate", handleAudioLoop);
                 } else {
                     audio.pause();
                 }
             }
         } else {
-            // PAUSED/INACTIVE STATE
             if (video) {
                 video.pause();
                 video.currentTime = 0;
-                video.muted = true;
-                video.volume = 0;
+                video.removeEventListener("timeupdate", handleSync);
             }
-
             if (audio) {
                 audio.pause();
                 audio.currentTime = startTime;
-                audio.removeEventListener("timeupdate", handleAudioLoop);
             }
         }
 
         return () => {
             if (video) {
                 video.pause();
-                video.muted = true;
-                video.volume = 0;
+                video.removeEventListener("timeupdate", handleSync);
             }
             if (audio) {
                 audio.pause();
-                audio.removeEventListener("timeupdate", handleAudioLoop);
             }
         };
     }, [isActive, isMuted, quix.id]); // Explicitly depend on isActive and isMuted
