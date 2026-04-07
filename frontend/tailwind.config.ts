@@ -102,6 +102,10 @@ const config: Config = {
                 "scanline": {
                     "0%": { transform: "translateY(-100%)" },
                     "100%": { transform: "translateY(100%)" },
+                },
+                "spin-slow": {
+                    from: { transform: "rotate(0deg)" },
+                    to: { transform: "rotate(360deg)" },
                 }
             },
             animation: {
@@ -110,6 +114,7 @@ const config: Config = {
                 "float": "float 3s ease-in-out infinite",
                 "glow": "glow 2s ease-in-out infinite",
                 "scanline": "scanline 8s linear infinite",
+                "spin-slow": "spin-slow 6s linear infinite",
             },
         },
     },

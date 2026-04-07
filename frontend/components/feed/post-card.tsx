@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Play, Loader2, Sparkles } from "lucide-react";
+import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Play, Pause, Loader2, Sparkles, Music2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useTheme } from "next-themes";
@@ -49,6 +49,8 @@ export function PostCard({ post }: PostProps) {
     const [showRepostsSheet, setShowRepostsSheet] = useState(false);
     const [isBookmarked, setIsBookmarked] = useState(false);
     const [isDeleted, setIsDeleted] = useState(false);
+    const [musicPlaying, setMusicPlaying] = useState(false);
+    const musicAudioRef = useRef<HTMLAudioElement | null>(null);
     const [isFollowing, setIsFollowing] = useState<boolean | null>(null);
     const [isFollowingLoading, setIsFollowingLoading] = useState(false);
 
@@ -255,9 +257,11 @@ export function PostCard({ post }: PostProps) {
                 }
 
                 // 2. Karma & Notifications (Background)
-                supabase.rpc('increment_karma', { user_id_param: post.user_id }).then(({ error }) => {
-                    if (error) console.error("Karma increment failed:", error);
-                });
+                fetch('/api/users/karma/increment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: post.user_id })
+                }).catch(console.error);
 
                 if (post.user_id !== currentUserId) {
                     const notifData = {
@@ -271,7 +275,7 @@ export function PostCard({ post }: PostProps) {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            channel: `notifications-${post.user_id}`,
+                            channel: `private-notifications-${post.user_id}`,
                             event: 'notification_ping',
                             data: notifData
                         })
@@ -355,6 +359,40 @@ export function PostCard({ post }: PostProps) {
     };
 
     const { theme } = useTheme();
+
+    // Music playback handler
+    const toggleMusic = () => {
+        const musicData = (post as any).customization?.music;
+        if (!musicData?.url) return;
+
+        if (musicPlaying && musicAudioRef.current) {
+            musicAudioRef.current.pause();
+            setMusicPlaying(false);
+            return;
+        }
+
+        if (!musicAudioRef.current) {
+            musicAudioRef.current = new Audio(musicData.url);
+            musicAudioRef.current.volume = 0.7;
+            musicAudioRef.current.onended = () => setMusicPlaying(false);
+            musicAudioRef.current.onerror = () => {
+                setMusicPlaying(false);
+                toast.error('Music load nahi hua!');
+            };
+        }
+        musicAudioRef.current.play().then(() => setMusicPlaying(true)).catch(() => setMusicPlaying(false));
+    };
+
+    // Cleanup music audio on unmount
+    useEffect(() => {
+        return () => {
+            if (musicAudioRef.current) {
+                musicAudioRef.current.pause();
+                musicAudioRef.current.src = '';
+                musicAudioRef.current = null;
+            }
+        };
+    }, []);
 
     if (isDeleted) return null;
 
@@ -527,22 +565,35 @@ export function PostCard({ post }: PostProps) {
 
                 {/* 3. Action Buttons & Metadata */}
                 <div className="p-4 px-5">
-                    {/* Music Bar if exists */}
+                    {/* Music Bar — clickable play/pause */}
                     {(post as any).customization?.music && (
-                        <div className="mb-3 flex items-center gap-2.5 px-3 py-2 rounded-xl w-fit bg-white/5 border border-white/5 text-zinc-400 group/music hover:bg-white/[0.08] transition-all cursor-default">
+                        <button 
+                            onClick={toggleMusic}
+                            className={cn(
+                                "mb-3 flex items-center gap-2.5 px-3 py-2 rounded-xl w-fit border text-zinc-400 transition-all cursor-pointer active:scale-95",
+                                musicPlaying 
+                                    ? "bg-primary/10 border-primary/30 text-primary shadow-[0_0_15px_rgba(var(--primary-rgb),0.15)]" 
+                                    : "bg-white/5 border-white/5 hover:bg-white/[0.08]"
+                            )}
+                        >
                             {(post as any).customization.music.artwork ? (
                                 <img 
                                     src={(post as any).customization.music.artwork} 
                                     alt="" 
-                                    className="w-7 h-7 rounded-lg object-cover ring-1 ring-white/10 shrink-0" 
+                                    className={cn("w-7 h-7 rounded-lg object-cover ring-1 ring-white/10 shrink-0", musicPlaying && "animate-spin-slow")} 
                                 />
                             ) : (
-                                <div className="w-1.5 h-1.5 rounded-full animate-pulse bg-primary shrink-0" />
+                                <Music2 className={cn("w-4 h-4 shrink-0", musicPlaying && "animate-pulse text-primary")} />
                             )}
                             <span className="text-[10px] font-bold uppercase tracking-widest truncate max-w-[200px]">
                                 {(post as any).customization.music.name} — {(post as any).customization.music.artist}
                             </span>
-                        </div>
+                            {musicPlaying ? (
+                                <Pause className="w-3.5 h-3.5 text-primary shrink-0" />
+                            ) : (
+                                <Play className="w-3.5 h-3.5 shrink-0" />
+                            )}
+                        </button>
                     )}
 
                     <div className="flex items-center justify-between mb-3">

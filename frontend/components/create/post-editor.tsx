@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { EmojiPicker } from "./emoji-picker";
 import { MusicPicker } from "./music-picker";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerDescription } from "@/components/ui/drawer";
 
 const GENERATED_FILTERS = (() => {
     const categories = [
@@ -469,6 +469,7 @@ export function PostEditor({ mediaUrl, mediaType, onComplete, onCancel }: PostEd
                                     <div className="p-4 max-w-md mx-auto w-full">
                                         <DrawerHeader>
                                             <DrawerTitle className="text-white text-center">Elite Tracks 🎵</DrawerTitle>
+                                            <DrawerDescription className="hidden">Select background music for your content</DrawerDescription>
                                         </DrawerHeader>
                                         <MusicPicker
                                             onSelect={(track) => { setSelectedMusic(track); }}

@@ -224,15 +224,15 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
 
                         if (!isMock) supabase.from('notifications').insert(notifData).then();
 
-                        fetch('/api/apinator/trigger', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                channel: `notifications-${currentStory.user_id}`,
-                                event: 'notification_ping',
-                                data: notifData
-                            })
-                        }).catch(console.error);
+                            fetch('/api/apinator/trigger', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    channel: `private-notifications-${currentStory.user_id}`,
+                                    event: 'notification_ping',
+                                    data: notifData
+                                })
+                            }).catch(console.error);
                     });
                 }
                 toast.success("Loved it! ❤️");
@@ -334,7 +334,7 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    channel: `notifications-${currentStory.user_id}`,
+                    channel: `private-notifications-${currentStory.user_id}`,
                     event: 'notification_ping',
                     data: notifData
                 })

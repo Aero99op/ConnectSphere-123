@@ -135,7 +135,11 @@ export function StitchPostCard({ post }: PostProps) {
                 const { error: likeError } = await supabase.from('post_likes').insert({ post_id: post.id, user_id: currentUserId });
                 if (likeError && (likeError as any).code !== '23505') throw likeError;
                 
-                supabase.rpc('increment_karma', { user_id_param: post.user_id }).then();
+                fetch('/api/users/karma/increment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: post.user_id })
+                }).catch(console.error);
 
                 if (post.user_id !== currentUserId) {
                     const notifData = { recipient_id: post.user_id, actor_id: currentUserId, type: 'like', entity_id: post.id };
@@ -144,7 +148,7 @@ export function StitchPostCard({ post }: PostProps) {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            channel: `notifications-${post.user_id}`,
+                            channel: `private-notifications-${post.user_id}`,
                             event: 'notification_ping',
                             data: notifData
                         })

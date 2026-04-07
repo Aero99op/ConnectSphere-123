@@ -116,7 +116,7 @@ export function CommentSheet({ postId, quixId, open, onOpenChange }: CommentShee
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            channel: `notifications-${entityData.user_id}`,
+                            channel: `private-notifications-${entityData.user_id}`,
                             event: 'notification_ping',
                             data: notifData
                         })
