@@ -12,6 +12,7 @@ import { getApinatorClient } from "@/lib/apinator";
 import { ChatSettingsDialog } from "./chat-settings-dialog";
 import Link from "next/link";
 import { decryptMessageAndVerify, keyStore } from "@/lib/crypto/e2ee";
+import { useSearchParams } from "next/navigation";
 
 interface ChatSidebarProps {
     onSelectChat: (chat: any) => void;
@@ -28,6 +29,8 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
     const [showCreateGroup, setShowCreateGroup] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const searchParams = useSearchParams();
+    const convIdFromUrl = searchParams.get('convId');
 
     const decryptPreview = async (msg: any, currentUserId: string) => {
         if (!msg || !msg.iv || !msg.signature) return msg;
@@ -65,6 +68,49 @@ export function ChatSidebar({ onSelectChat, activeChatId }: ChatSidebarProps) {
     useEffect(() => {
         if (authUser) fetchConversations(authUser.id);
     }, [authUser]);
+
+    useEffect(() => {
+        if (convIdFromUrl && conversations.length > 0) {
+            const existing = conversations.find(c => c.id === convIdFromUrl);
+            if (existing) {
+                onSelectChat(existing);
+            } else {
+                fetchSpecificConversation(convIdFromUrl);
+            }
+        }
+    }, [convIdFromUrl, conversations.length]);
+
+    const fetchSpecificConversation = async (cid: string) => {
+        if (!userId) return;
+        const { data, error } = await supabase
+            .from("conversations")
+            .select(`
+                id, user1_id, user2_id, is_group, group_name, group_avatar, updated_at,
+                user1:profiles!user1_id(full_name, username, avatar_url, ecdsa_public_key, ecdh_public_key),
+                user2:profiles!user2_id(full_name, username, avatar_url, ecdsa_public_key, ecdh_public_key)
+            `)
+            .eq("id", cid)
+            .single();
+
+        if (!error && data) {
+            const uid = userId;
+            const otherUserId = data.user1_id === uid ? data.user2_id : data.user1_id;
+            const otherUser = data.user1_id === uid ? data.user2 : data.user1;
+            
+            const formatted = {
+                id: data.id,
+                updated_at: data.updated_at,
+                recipient: {
+                    id: otherUserId,
+                    full_name: otherUser?.full_name || "Unknown User",
+                    username: otherUser?.username || "unknown",
+                    avatar_url: otherUser?.avatar_url || "",
+                    is_group: data.is_group
+                }
+            };
+            onSelectChat(formatted);
+        }
+    };
 
     // Apinator-based sidebar updates (BULLETPROOF — NEVER SLEEPS)
     useEffect(() => {

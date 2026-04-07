@@ -7,7 +7,7 @@ import { StoryAvatar } from "@/components/ui/story-avatar";
 import {
     Grid, Bookmark, LogOut, Loader2, ArrowLeft,
     AtSign, MapPin, Briefcase, Calendar, Info, Medal, Globe, Clapperboard, Play,
-    Settings, User, Sparkles, X
+    Settings, User, Sparkles, X, MessageCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "next-themes";
@@ -117,6 +117,10 @@ export function MainUserProfileContent() {
             if (postsResponse.data) setPosts(postsResponse.data);
             if (quixResponse.data) setQuixList(quixResponse.data);
             if (statsResponse.data) setStats(statsResponse.data);
+            if (statsResponse.data) {
+                setStats(statsResponse.data);
+                setFollowersCount(statsResponse.data.followers);
+            }
 
             setLoadingPosts(false);
             setLoading(false);
@@ -126,58 +130,64 @@ export function MainUserProfileContent() {
     }, [username, authUser, supabase]);
 
     const handleFollowToggle = async () => {
-        if (!currentUser || !userId) {
-            alert("Please login first to follow!");
+        if (!currentUser) {
+            toast.error("Please login to follow users.");
             return;
         }
 
         setFollowLoading(true);
-
-        if (isFollowing) {
-            // Unfollow
-            const { error } = await supabase
-                .from('follows')
-                .delete()
-                .match({ follower_id: currentUser.id, following_id: userId });
-
-            if (!error) {
+        try {
+            if (isFollowing) {
+                await supabase.from("follows").delete().eq("follower_id", currentUser.id).eq("following_id", userId);
                 setIsFollowing(false);
-                setStats(s => ({ ...s, followers: Math.max(0, s.followers - 1) }));
-            }
-        } else {
-            // Follow
-            const { error } = await supabase
-                .from('follows')
-                .insert({ follower_id: currentUser.id, following_id: userId });
-
-            if (!error) {
+                setFollowersCount(prev => prev - 1);
+                toast.success(`Unfollowed @${profile.username}`);
+            } else {
+                await supabase.from("follows").insert({ follower_id: currentUser.id, following_id: userId });
                 setIsFollowing(true);
-                setStats(s => ({ ...s, followers: s.followers + 1 }));
-
-                // Trigger Follow Notification + Broadcast Signal (Hyper-Scale)
-                const notifData = {
-                    recipient_id: userId,
-                    actor_id: currentUser.id,
-                    type: 'follow',
-                    entity_id: currentUser.id
-                };
-
-                // 1. DB Record
-                await supabase.from('notifications').insert(notifData);
-
-                // 🔱 2. Instant Notification via SECURE API (FIXES FINDING-003)
-                fetch('/api/apinator/trigger', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        channel: `private-notifications-${userId}`, // 🔱 Use private prefix
-                        event: 'notification_ping',
-                        data: notifData
-                    })
-                }).catch(console.error);
+                setFollowersCount(prev => prev + 1);
+                toast.success(`Following @${profile.username}`);
             }
+        } catch (error) {
+            console.error("Follow action failed:", error);
+            toast.error("Follow fail ho gaya, koshish kariye!");
+        } finally {
+            setFollowLoading(false);
         }
-        setFollowLoading(false);
+    };
+
+    const handleMessageClick = async () => {
+        if (!currentUser) {
+            toast.error("Pehle login toh kar lo bhai!");
+            return;
+        }
+        
+        setFollowLoading(true);
+        try {
+            const { data: existing } = await supabase
+                .from('conversations')
+                .select('id')
+                .or(`and(user1_id.eq.${currentUser.id},user2_id.eq.${profile.id}),and(user1_id.eq.${profile.id},user2_id.eq.${currentUser.id})`)
+                .maybeSingle();
+                
+            if (existing) {
+                router.push(`/messages?convId=${existing.id}`);
+            } else {
+                const { data: newConv, error } = await supabase
+                    .from('conversations')
+                    .insert({ user1_id: currentUser.id, user2_id: profile.id })
+                    .select('id')
+                    .single();
+                    
+                if (error) throw error;
+                if (newConv) router.push(`/messages?convId=${newConv.id}`);
+            }
+        } catch (err) {
+            console.error("Message redirect failed", err);
+            toast.error("Kuch gadbad hai, chat start nahi ho rahi.");
+        } finally {
+            setFollowLoading(false);
+        }
     };
 
     const fetchFollowList = async (type: 'followers' | 'following') => {
@@ -345,18 +355,34 @@ export function MainUserProfileContent() {
 
                             <div className="flex gap-3 w-full sm:w-auto mt-4 sm:mt-0">
                                 {currentUser?.id !== userId && (
-                                    <Button
-                                        onClick={handleFollowToggle}
-                                        disabled={followLoading}
-                                        className={cn(
-                                            "flex-1 sm:flex-none uppercase font-bold tracking-widest h-11 px-8 transition-all active:scale-95",
-                                            isFollowing
-                                                ? (theme === 'radiant-void' ? "bg-white/5 text-white border border-white/10 rounded-lg" : "bg-zinc-800 text-white hover:bg-zinc-700 border border-white/10 rounded-full")
-                                                : (theme === 'radiant-void' ? "bg-primary text-black hover:scale-105 rounded-lg shadow-[0_0_25px_rgba(255,141,135,0.4)]" : "bg-primary text-black hover:bg-primary/90 shadow-[0_0_20px_rgba(255,165,0,0.3)] rounded-full")
-                                        )}
-                                    >
-                                        {followLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : isFollowing ? 'Unfollow' : 'Follow'}
-                                    </Button>
+                                    <div className="flex gap-1.5 sm:gap-2">
+                                        <Button
+                                            onClick={handleFollowToggle}
+                                            disabled={followLoading}
+                                            className={cn(
+                                                "flex-1 sm:flex-none font-bold py-2 sm:py-3 px-6 sm:px-8 rounded-full transition-all active:scale-95 shadow-xl min-w-[120px] sm:min-w-[140px]",
+                                                isFollowing 
+                                                    ? "bg-zinc-800 text-white border border-white/10 hover:bg-zinc-900" 
+                                                    : theme === 'radiant-void' 
+                                                        ? "bg-white text-black hover:bg-zinc-200" 
+                                                        : "bg-primary text-white hover:bg-primary/90"
+                                            )}
+                                        >
+                                            {followLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : isFollowing ? "Dosti Tod" : "Dost Ban"}
+                                        </Button>
+
+                                        <Button
+                                            onClick={handleMessageClick}
+                                            disabled={followLoading}
+                                            className={cn(
+                                                "w-12 h-12 p-0 rounded-full flex items-center justify-center transition-all bg-white/5 border border-white/10 hover:bg-white/10 active:scale-90",
+                                                theme === 'radiant-void' ? "hover:border-primary/50 text-white" : "text-white"
+                                            )}
+                                            title="Bhejo ek Guptugu"
+                                        >
+                                            <MessageCircle className="w-5 h-5" />
+                                        </Button>
+                                    </div>
                                 )}
                             </div>
                         </div>
