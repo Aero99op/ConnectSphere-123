@@ -313,6 +313,7 @@ export function MainUserProfileContent() {
                                     theme === 'radiant-void' ? "rounded-xl border-black" : `rounded-[28px] sm:rounded-[36px] border-[#050507] ${profileBorderColor}`
                                 )}
                                 onClick={() => setShowEnlargedAvatar(true)}
+                                onLongPress={() => setShowEnlargedAvatar(true)}
                             />
                         </div>
 
