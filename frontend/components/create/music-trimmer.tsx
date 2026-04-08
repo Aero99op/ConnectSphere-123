@@ -13,9 +13,9 @@ interface MusicTrimmerProps {
 }
 
 /**
- * ─── Ultimate "Bawaal" Music Trimmer (v5) ───────────────────────────────
- * FIX: Reliable middle-start playback and truly unlimited flexibility.
- * Uses a robust ref-based event system to keep audio perfectly synced.
+ * ─── Ultimate "Bawaal" Music Trimmer (v6) ───────────────────────────────
+ * FIX: Removed "Trrr Trrr" stutter by pausing audio during drag.
+ * Refined the sync and loop logic for maximum stability.
  */
 export function MusicTrimmer({ 
     audioUrl, 
@@ -23,7 +23,6 @@ export function MusicTrimmer({
     onTrimChange, 
     onConfirm 
 }: MusicTrimmerProps) {
-    // We allow full-track trimming by default now
     const [start, setStart] = useState(0);
     const [end, setEnd] = useState(duration || 30);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -35,10 +34,11 @@ export function MusicTrimmer({
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Refs to avoid stale closures in event listeners
+    // Refs to avoid stale closures and track interaction state
     const startRef = useRef(0);
     const endRef = useRef(0);
     const draggingRef = useRef<'start' | 'end' | 'window' | null>(null);
+    const wasPlayingRef = useRef(false);
 
     // Sync refs with state
     useEffect(() => {
@@ -46,7 +46,6 @@ export function MusicTrimmer({
         endRef.current = end;
     }, [start, end]);
 
-    // Initial end set if duration is provided late
     useEffect(() => {
         if (duration > 0 && end === 0) {
             setEnd(duration);
@@ -82,11 +81,11 @@ export function MusicTrimmer({
                         const val = Math.abs(channelData[startSample + j] || 0);
                         if (val > max) max = val;
                     }
-                    newPeaks.push(Math.pow(max * 1.2, 0.8)); // Slightly boosted visibility
+                    newPeaks.push(Math.pow(max * 1.2, 0.8));
                 }
                 if (!discarded) { setPeaks(newPeaks); setIsLoading(false); }
             } catch (err) {
-                console.warn("Waveform Generation Fallback:", err);
+                console.warn("Waveform Fallback:", err);
                 const seed = audioUrl.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
                 const pseudoRandom = (s: number) => { const x = Math.sin(s) * 10000; return x - Math.floor(x); };
                 const fallback = Array.from({ length: 100 }).map((_, i) => 0.2 + pseudoRandom(seed + i) * 0.6);
@@ -97,24 +96,20 @@ export function MusicTrimmer({
         return () => { discarded = true; };
     }, [audioUrl, duration]);
 
-    // Direct Audio Management
+    // ─── Audio Management ───────────────────────────────────────────────
     useEffect(() => {
         const audio = new Audio(audioUrl);
         audioRef.current = audio;
         audio.preload = "auto";
         audio.crossOrigin = "anonymous";
 
-        // Handle AbortError gracefully
         const safePlay = async () => {
             if (!audio) return;
             try {
-                // Wait for a tiny tick to ensure state/currentTime is settled
                 await new Promise(resolve => setTimeout(resolve, 0));
                 await audio.play();
             } catch (err: any) {
-                if (err.name !== 'AbortError') {
-                    console.error("Playback failed:", err);
-                }
+                if (err.name !== 'AbortError') console.error("Playback failed:", err);
             }
         };
 
@@ -123,28 +118,22 @@ export function MusicTrimmer({
             // Dynamic Looping logic
             if (audio.currentTime >= endRef.current - 0.05) {
                 audio.currentTime = startRef.current;
-                if (!audio.paused) {
-                    safePlay();
-                }
+                if (!audio.paused) safePlay();
             }
-            if (audio.currentTime < startRef.current - 0.1 && !draggingRef.current) {
+            // Clamping with higher tolerance to prevent stutter during playback
+            if (audio.currentTime < startRef.current - 0.5 && !draggingRef.current) {
                 audio.currentTime = startRef.current;
             }
         };
 
         const onEnded = () => {
-            // Backup for selections that hit the absolute end of the file
             audio.currentTime = startRef.current;
-            if (!audio.paused) {
-                safePlay();
-            }
+            if (!audio.paused) safePlay();
         };
 
         const onLoadedMetadata = () => {
             setIsAudioReady(true);
-            if (audio.currentTime < startRef.current) {
-                audio.currentTime = startRef.current;
-            }
+            if (audio.currentTime < startRef.current) audio.currentTime = startRef.current;
         };
 
         const onPlay = () => setIsPlaying(true);
@@ -162,41 +151,39 @@ export function MusicTrimmer({
             audio.removeEventListener("loadedmetadata", onLoadedMetadata);
             audio.removeEventListener("play", onPlay);
             audio.removeEventListener("pause", onPause);
-            audio.pause();
-            audio.src = "";
-            audioRef.current = null;
+            audio.pause(); audio.src = ""; audioRef.current = null;
         };
-    }, [audioUrl]); // REMOVED isPlaying from here. Audio object should be stable.
+    }, [audioUrl]);
 
     const togglePlay = async () => {
         if (!audioRef.current || !isAudioReady) return;
         const audio = audioRef.current;
-        
         if (isPlaying) {
             audio.pause();
         } else {
             try {
-                // FIX: Always check if we are significantly out of bounds before playing
                 if (Math.abs(audio.currentTime - startRef.current) > 0.5 || audio.currentTime >= endRef.current) {
                     audio.currentTime = startRef.current;
                 }
-                
-                // Wait a tiny bit for the seek to settle in some browsers
-                await new Promise(resolve => setTimeout(resolve, 0));
+                await new Promise(resolve => setTimeout(resolve, 10));
                 await audio.play();
             } catch (err: any) {
-                if (err.name !== 'AbortError') {
-                    console.error("Playback failed:", err);
-                }
+                if (err.name !== 'AbortError') console.error("Playback failed:", err);
             }
         }
     };
 
-    // ─── Fluid Pointer Events (Replaced Framer Drag) ─────────────────
+    // ─── Interaction Logic (Stabilized) ──────────────────────────────
     const handlePointerDown = (type: "start" | "end" | "window", e: React.PointerEvent) => {
         e.preventDefault();
         draggingRef.current = type;
         
+        const audio = audioRef.current;
+        if (audio) {
+            wasPlayingRef.current = !audio.paused;
+            audio.pause(); // Silent dragging to avoid "trrr trrr" stuttering
+        }
+
         const rect = containerRef.current!.getBoundingClientRect();
         const startX = e.clientX;
         const initialS = start;
@@ -205,21 +192,24 @@ export function MusicTrimmer({
         const onPointerMove = (moveEvt: PointerEvent) => {
             if (!draggingRef.current) return;
             const deltaX = moveEvt.clientX - startX;
-            const deltaTime = (deltaX / rect.width) * (duration || initialE);
+            const totalDur = (duration || initialE);
+            const deltaTime = (deltaX / rect.width) * totalDur;
             
             if (draggingRef.current === "start") {
                 const newS = Math.max(0, Math.min(initialS + deltaTime, end - 0.5));
                 setStart(newS);
-                if (audioRef.current) audioRef.current.currentTime = newS;
+                // We update UI only, seeking on move is expensive.
+                // If we want scrubbing audio, we'd need to throttle it.
+                if (audio) audio.currentTime = newS; 
             } else if (draggingRef.current === "end") {
-                const newE = Math.max(start + 0.5, Math.min(initialE + deltaTime, duration || initialE));
+                const newE = Math.max(start + 0.5, Math.min(initialE + deltaTime, totalDur));
                 setEnd(newE);
             } else if (draggingRef.current === "window") {
                 const winDur = initialE - initialS;
-                const newS = Math.max(0, Math.min(initialS + deltaTime, (duration || initialE) - winDur));
+                const newS = Math.max(0, Math.min(initialS + deltaTime, totalDur - winDur));
                 setStart(newS);
                 setEnd(newS + winDur);
-                if (audioRef.current) audioRef.current.currentTime = newS;
+                if (audio) audio.currentTime = newS;
             }
         };
 
@@ -228,6 +218,11 @@ export function MusicTrimmer({
             onTrimChange(startRef.current, endRef.current);
             window.removeEventListener("pointermove", onPointerMove);
             window.removeEventListener("pointerup", onPointerUp);
+            
+            // Resume if it was playing
+            if (audio && wasPlayingRef.current) {
+                audio.play().catch(() => {});
+            }
         };
 
         window.addEventListener("pointermove", onPointerMove);
@@ -262,15 +257,15 @@ export function MusicTrimmer({
                 </div>
             </div>
 
-            {/* Main Interactive Area */}
+            {/* Interactive Waveform Container */}
             <div 
                 ref={containerRef}
-                className="relative h-28 bg-black/40 rounded-xl border border-white/5 overflow-hidden flex items-center group touch-none mx-2"
+                className="relative h-28 bg-black/40 rounded-xl border border-white/5 overflow-hidden flex items-center group touch-none mx-2 shadow-inner"
             >
                 {/* Background Waveform (Static Full) */}
-                <div className="absolute inset-x-0 inset-y-6 flex items-end gap-[1px] opacity-15 pointer-events-none px-4">
+                <div className="absolute inset-x-0 inset-y-6 flex items-end gap-[1.5px] opacity-10 pointer-events-none px-4">
                     {peaks.map((h, i) => (
-                        <div key={i} className="flex-1 rounded-full bg-white/60" style={{ height: `${20 + h * 80}%` }} />
+                        <div key={i} className="flex-1 rounded-full bg-white/40 shadow-sm" style={{ height: `${20 + h * 80}%` }} />
                     ))}
                 </div>
 
@@ -282,47 +277,53 @@ export function MusicTrimmer({
                 >
                     {/* Inner Progress Indicator */}
                     <div 
-                        className="absolute inset-y-0 left-0 bg-primary/30 border-r-2 border-primary/60 shadow-[0_0_20px_rgba(255,183,77,0.3)] z-10"
+                        className="absolute inset-y-0 left-0 bg-primary/30 border-r-2 border-primary/60 shadow-[0_0_20px_rgba(255,183,77,0.3)] z-10 pointer-events-none"
                         style={{ width: `${progress * 100}%` }}
                     />
 
-                    {/* Bright Waveform Fragment */}
+                    {/* Bright Waveform Fragment (Nested with Math for exact sync) */}
                     <div 
-                        className="absolute inset-y-6 flex items-end gap-[1px] pointer-events-none px-4 overflow-hidden"
+                        className="absolute inset-y-6 flex items-end gap-[1.5px] pointer-events-none px-4 overflow-hidden"
                         style={{
                             left: `-${(start / trimDuration) * 100}%`,
                             width: `${(duration / trimDuration) * 100}%`
                         }}
                     >
                         {peaks.map((h, i) => (
-                            <div key={i} className="flex-1 rounded-full bg-primary shadow-[0_0_8px_rgba(255,183,77,0.4)]" style={{ height: `${20 + h * 80}%` }} />
+                            <div key={i} className="flex-1 rounded-full bg-primary shadow-[0_0_10px_rgba(255,183,77,0.5)]" style={{ height: `${20 + h * 80}%` }} />
                         ))}
                     </div>
 
-                    {/* Left Handle (Adjust Start) */}
+                    {/* Left Handle */}
                     <div
                         className="absolute inset-y-0 -left-4 w-8 flex items-center justify-center cursor-ew-resize z-30 group/handle"
                         onPointerDown={(e) => { e.stopPropagation(); handlePointerDown("start", e); }}
                     >
-                        <div className="w-1.5 h-14 bg-white rounded-full shadow-[0_0_20px_white] ring-4 ring-black/50 group-active/handle:scale-110 transition-transform" />
+                        <div className="w-1.5 h-14 bg-white rounded-full shadow-[0_0_20px_white] ring-8 ring-black/20 group-active/handle:scale-125 transition-transform" />
                     </div>
 
-                    {/* Right Handle (Adjust End) */}
+                    {/* Right Handle */}
                     <div
                         className="absolute inset-y-0 -right-4 w-8 flex items-center justify-center cursor-ew-resize z-30 group/handle"
                         onPointerDown={(e) => { e.stopPropagation(); handlePointerDown("end", e); }}
                     >
-                        <div className="w-1.5 h-14 bg-primary rounded-full shadow-[0_0_20px_rgba(255,183,77,1)] ring-4 ring-black/50 group-active/handle:scale-110 transition-transform" />
+                        <div className="w-1.5 h-14 bg-primary rounded-full shadow-[0_0_20px_rgba(255,183,77,1)] ring-8 ring-black/20 group-active/handle:scale-125 transition-transform" />
                     </div>
 
+                    {/* Current Playback Marker (Vertical line inside box) */}
+                    <div 
+                        className="absolute inset-y-0 z-40 w-[2px] bg-white shadow-[0_0_10px_white]"
+                        style={{ left: `${progress * 100}%` }}
+                    />
+
                     {/* Floating Time Label */}
-                    <div className="absolute top-1 left-4 text-[9px] font-mono font-bold text-white uppercase drop-shadow-md z-30 bg-black/40 px-1 rounded">
+                    <div className="absolute top-1 left-4 text-[9px] font-mono font-bold text-white uppercase drop-shadow-lg z-30 bg-black/60 px-1.5 py-0.5 rounded backdrop-blur-sm border border-white/10">
                         {formatTime(currentTime)}
                     </div>
                 </div>
 
                 {isLoading && (
-                    <div className="absolute inset-0 z-50 bg-black/80 flex flex-col items-center justify-center gap-3">
+                    <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
                         <Loader2 className="w-8 h-8 text-primary animate-spin" />
                         <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Mastering Waveform...</span>
                     </div>
@@ -330,14 +331,14 @@ export function MusicTrimmer({
             </div>
 
             {/* Controls */}
-            <div className="flex justify-center items-center gap-12 relative z-10">
+            <div className="flex justify-center items-center gap-12 relative z-10 pt-2">
                 <button
                     onClick={togglePlay}
                     disabled={!isAudioReady}
-                    className="w-16 h-16 bg-white/5 border border-white/10 rounded-full flex items-center justify-center hover:bg-white/10 transition-all active:scale-90 shadow-2xl group disabled:opacity-50"
+                    className="w-16 h-16 bg-white/5 border border-white/10 rounded-full flex items-center justify-center hover:bg-white/10 transition-all active:scale-90 shadow-[0_0_30px_rgba(0,0,0,0.5)] group disabled:opacity-50"
                 >
                     {isPlaying ? (
-                        <Pause className="w-8 h-8 text-primary fill-primary" />
+                        <Pause className="w-8 h-8 text-primary fill-primary filter drop-shadow-[0_0_8px_rgba(255,183,77,0.5)]" />
                     ) : (
                         <Play className="w-8 h-8 text-white fill-white ml-1 group-hover:text-primary transition-colors" />
                     )}
@@ -346,7 +347,7 @@ export function MusicTrimmer({
                 {onConfirm && (
                     <button
                         onClick={onConfirm}
-                        className="w-16 h-16 bg-primary/20 border border-primary/40 rounded-full flex items-center justify-center hover:bg-primary/30 transition-all active:scale-90 shadow-xl"
+                        className="w-16 h-16 bg-primary/20 border border-primary/40 rounded-full flex items-center justify-center hover:bg-primary/30 transition-all active:scale-90 shadow-[0_0_30px_rgba(255,183,77,0.2)]"
                     >
                         <Check className="w-8 h-8 text-primary stroke-[4]" />
                     </button>
