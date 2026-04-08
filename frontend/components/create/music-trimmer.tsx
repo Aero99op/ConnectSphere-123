@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Play, Pause, Check, Loader2, Music2, Scissors, GripVertical } from "lucide-react";
+import { Play, Pause, Check, Loader2, Music2, Scissors } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MusicTrimmerProps {
@@ -12,12 +12,10 @@ interface MusicTrimmerProps {
 }
 
 /**
- * ─── ConnectSphere-Ultima Trimmer (v11) ─────────────────────────────────
- * THE SOLUTION:
- * 1. Guaranteed Waveform: Immediate pulse-visuals if decoding is slow.
- * 2. RAM-Safe: No full track Buffer (Streaming only).
- * 3. Flexible Hybrid: Instagram scroll + Pro-Editor resize.
- * 4. Super-Fast: 0ms seek during preview; throttled network hits.
+ * ─── ConnectSphere-Pro Trimmer (v12) ───────────────────────────────────
+ * DESIGN: Mirrored Pulse Frequencies (Guaranteed Visuals)
+ * LOGIC: High-Precision Flexible Trimming + Micro-Seek Engine
+ * PERF: RAM-Safe Streaming with Zero Latency Seek
  */
 export function MusicTrimmer({ 
     audioUrl, 
@@ -25,6 +23,7 @@ export function MusicTrimmer({
     onTrimChange, 
     onConfirm 
 }: MusicTrimmerProps) {
+    // ─── State ────────────────────────────────────────────────────────
     const [start, setStart] = useState(0);
     const [trimDuration, setTrimDuration] = useState(Math.min(30, duration));
     const [isPlaying, setIsPlaying] = useState(false);
@@ -32,39 +31,41 @@ export function MusicTrimmer({
     const [peaks, setPeaks] = useState<number[]>([]);
     const [isDecoding, setIsDecoding] = useState(true);
 
+    // ─── Refs for Performance ────────────────────────────────────────
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const startRef = useRef(0);
     const trimRef = useRef(30);
     const raftRef = useRef<number | null>(null);
-    const waveformLoadedRef = useRef(false);
+    const isInteractingRef = useRef(false);
 
     const PX_PER_SEC = 60;
     const totalWidth = duration * PX_PER_SEC;
 
-    // ─── Phase 1: Guaranteed Visuals (Instant) ────────────────────────
+    // Sync state to refs for use in loops
     useEffect(() => {
-        // Immediately generate fake peaks so the user DOES NOT see a black screen
-        const fakePeaks = Array.from({ length: Math.floor(duration * 2) }).map((_, i) => {
-            // Use sine/noise mix for "real" look based on index
-            const val = 0.2 + (Math.sin(i * 0.5) * 0.1) + (Math.random() * 0.3);
-            return Math.min(0.8, val);
-        });
-        setPeaks(fakePeaks);
+        startRef.current = start;
+        trimRef.current = trimDuration;
+    }, [start, trimDuration]);
+
+    // ─── Phase 1: Frequency Pulse Generation (Visuals) ───────────────
+    useEffect(() => {
+        // Guaranteed Fallback Peaks (Never show black box)
+        const fallback = Array.from({ length: Math.floor(duration * 3) }).map((_, i) => 
+            0.15 + (Math.sin(i * 0.4) * 0.1) + (Math.random() * 0.25)
+        );
+        setPeaks(fallback);
         
-        // Start background decode
         let active = true;
         const decode = async () => {
             if (!audioUrl) return;
             try {
-                // We only decode first 10MB to save RAM/Data
-                const res = await fetch(audioUrl, { 
-                    headers: { 'Range': 'bytes=0-10000000' } // First 10MB approx
-                }).catch(() => fetch(audioUrl)); // Fallback if Range not supported
-                
+                // Low RAM Scan (First 10MB)
+                const res = await fetch(audioUrl, { headers: { 'Range': 'bytes=0-10000000' } })
+                    .catch(() => fetch(audioUrl));
                 const blob = await res.arrayBuffer();
-                const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext);
-                const offlineCtx = new (window.OfflineAudioContext || (window as any).webkitOfflineAudioContext)(1, 44100, 44100);
-                const buffer = await offlineCtx.decodeAudioData(blob);
+                const AudioCtx = (window.AudioContext || (window as any).webkitAudioContext);
+                const offline = new (window.OfflineAudioContext || (window as any).webkitOfflineAudioContext)(1, 44100, 44100);
+                const buffer = await offline.decodeAudioData(blob);
                 
                 if (active) {
                     const data = buffer.getChannelData(0);
@@ -73,87 +74,97 @@ export function MusicTrimmer({
                     const p: number[] = [];
                     for (let i = 0; i < bars; i++) {
                         let m = 0;
-                        for (let j = 0; j < step; j += 40) {
+                        for (let j = 0; j < step; j += 50) {
                             const v = Math.abs(data[i * step + j] || 0);
                             if (v > m) m = v;
                         }
-                        p.push(Math.pow(m * 1.5, 0.8));
+                        p.push(Math.pow(m * 1.6, 0.8));
                     }
                     setPeaks(p);
-                    waveformLoadedRef.current = true;
                 }
             } catch (e) {
-                console.warn("Using smart fallback visuals.");
+                console.warn("Visuals using pulse-seed fallback.");
             } finally {
-                if(active) setIsDecoding(false);
+                if (active) setIsDecoding(false);
             }
         };
         decode();
         return () => { active = false; };
     }, [audioUrl, duration]);
 
-    // ─── Phase 2: Playback (Streaming) ────────────────────────────────
-    const stopAudio = useCallback(() => {
+    // ─── Phase 2: Snap-Fast Playback Engine ──────────────────────────
+    const stopPlayback = useCallback(() => {
         if (audioRef.current) audioRef.current.pause();
         if (raftRef.current) cancelAnimationFrame(raftRef.current);
         setIsPlaying(false);
     }, []);
 
-    const playSelection = useCallback(() => {
+    const startPlayback = useCallback(() => {
         if (!audioRef.current) return;
         const audio = audioRef.current;
-        audio.currentTime = startRef.current;
+        const sTime = startRef.current;
+        const eTime = sTime + trimRef.current;
+
+        audio.currentTime = sTime;
         audio.play().catch(() => {});
         setIsPlaying(true);
         
-        const loop = () => {
-            setCurrentTime(audio.currentTime);
-            if (audio.currentTime >= startRef.current + trimRef.current) {
-                audio.currentTime = startRef.current;
+        const syncLoop = () => {
+            if (isInteractingRef.current) return;
+            const now = audio.currentTime;
+            setCurrentTime(now);
+
+            // Loop within selection only
+            if (now >= eTime || now < sTime - 0.2) {
+                audio.currentTime = sTime;
             }
-            raftRef.current = requestAnimationFrame(loop);
+            raftRef.current = requestAnimationFrame(syncLoop);
         };
-        raftRef.current = requestAnimationFrame(loop);
+        raftRef.current = requestAnimationFrame(syncLoop);
     }, []);
 
-    // ─── Phase 3: Interaction (Hybrid High-Speed) ─────────────────────
+    // ─── Phase 3: Hybrid Drag Engine (Start/End Handles) ─────────────
     const handleDrag = (type: "scroll" | "start" | "end", e: React.PointerEvent) => {
         e.preventDefault();
-        stopAudio();
+        isInteractingRef.current = true;
+        stopPlayback();
+        
         const initialX = e.clientX;
-        const initialS = start;
-        const initialT = trimDuration;
+        const initialS = startRef.current;
+        const initialT = trimRef.current;
 
         const onMove = (mv: PointerEvent) => {
             const dx = mv.clientX - initialX;
             const dt = dx / PX_PER_SEC;
 
+            let news = initialS;
+            let newt = initialT;
+
             if (type === "scroll") {
-                const ns = Math.max(0, Math.min(initialS - dt, duration - initialT));
-                setStart(ns);
-                setCurrentTime(ns);
-                startRef.current = ns;
+                news = Math.max(0, Math.min(initialS - dt, duration - initialT));
             } else if (type === "start") {
-                const ns = Math.max(0, Math.min(initialS + dt, initialS + initialT - 0.5));
-                const nt = initialT - (ns - initialS);
-                setStart(ns);
-                setTrimDuration(nt);
-                setCurrentTime(ns);
-                startRef.current = ns;
-                trimRef.current = nt;
+                news = Math.max(0, Math.min(initialS + dt, initialS + initialT - 0.5));
+                newt = initialT - (news - initialS);
             } else if (type === "end") {
-                const nt = Math.max(0.5, Math.min(initialT + dt, duration - initialS));
-                setTrimDuration(nt);
-                trimRef.current = nt;
-                setCurrentTime(initialS + nt);
+                newt = Math.max(0.5, Math.min(initialT + dt, duration - initialS));
             }
+
+            setStart(news);
+            setTrimDuration(newt);
+            setCurrentTime(news);
+            startRef.current = news;
+            trimRef.current = newt;
+
+            // Micro-seek during scrub
+            if (audioRef.current) audioRef.current.currentTime = news;
         };
 
         const onUp = () => {
+            isInteractingRef.current = false;
             window.removeEventListener("pointermove", onMove);
             window.removeEventListener("pointerup", onUp);
             onTrimChange(startRef.current, startRef.current + trimRef.current);
-            playSelection();
+            startPlayback();
         };
 
         window.addEventListener("pointermove", onMove);
@@ -173,12 +184,12 @@ export function MusicTrimmer({
             {/* Header */}
             <div className="flex items-center justify-between px-2">
                 <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-gradient-to-tr from-[#FF512F] to-[#DD2476] rounded-2xl shadow-lg ring-1 ring-white/20">
+                    <div className="p-2.5 bg-gradient-to-tr from-[#FF512F] to-[#DD2476] rounded-3xl shadow-lg ring-1 ring-white/20">
                         <Music2 className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                        <h3 className="font-bold text-base text-white/90">Elite Music Trimmer</h3>
-                        <p className="text-[9px] text-zinc-600 font-black uppercase tracking-[0.2em]">{isDecoding ? "Decimating Data..." : "Streaming Active"}</p>
+                        <h3 className="font-bold text-base text-white/90 tracking-tight">Music Trimmer</h3>
+                        <p className="text-[9px] text-zinc-600 font-black uppercase tracking-[0.2em]">{isDecoding ? "Scanning..." : "Frequency Active"}</p>
                     </div>
                 </div>
                 <div className="bg-white/5 border border-white/10 px-4 py-2 rounded-2xl backdrop-blur-md">
@@ -188,123 +199,81 @@ export function MusicTrimmer({
                 </div>
             </div>
 
-            {/* Viewport - THE VIRTUAL SCROLL */}
-            <div className="relative h-44 bg-[#0a0a0a] rounded-[2rem] overflow-hidden border border-white/5 shadow-inner">
-                {/* Waveform Container */}
+            {/* Viewport */}
+            <div className="relative h-48 bg-[#0a0a0a] rounded-[2.5rem] overflow-hidden border border-white/5 shadow-inner">
+                {/* Waveform Mirrored Pulses */}
                 <div 
-                    className="absolute inset-y-0 flex items-center will-change-transform z-10 p-8 cursor-grab active:cursor-grabbing"
+                    className="absolute inset-y-0 flex items-center will-change-transform z-10 cursor-grab active:cursor-grabbing"
                     style={{ 
                         width: `${totalWidth}px`,
                         transform: `translateX(calc(50% - ${(trimDuration * PX_PER_SEC) / 2}px - ${start * PX_PER_SEC}px))`
                     }}
                     onPointerDown={(e) => handleDrag("scroll", e)}
                 >
-                    <div className="flex items-end gap-[1.5px] px-2 h-20 w-full relative">
+                    <div className="flex items-center gap-[2.5px] px-4 h-full">
                         {peaks.map((h, i) => {
                             const time = (i / peaks.length) * duration;
                             const active = time >= start && time <= start + trimDuration;
                             return (
-                                <div 
-                                    key={i} 
-                                    className={cn(
-                                        "flex-1 rounded-full transition-all duration-300",
-                                        active ? "bg-gradient-to-t from-[#FF512F] to-[#DD2476] opacity-100" : "bg-white/10 opacity-30"
-                                    )}
-                                    style={{ height: `${20 + h * 80}%` }}
-                                />
+                                <div key={i} className="flex flex-col items-center gap-[2px] h-32 w-[3px]">
+                                    <div className={cn("w-full rounded-t-full transition-all duration-300", active ? "bg-gradient-to-t from-[#FF512F] to-[#DD2476] shadow-[0_0_10px_#FF512F]" : "bg-white/10")} style={{ height: `${10 + h * 45}%` }} />
+                                    <div className={cn("w-full rounded-b-full transition-all duration-300 opacity-60", active ? "bg-gradient-to-b from-[#FF512F] to-[#DD2476]" : "bg-white/5")} style={{ height: `${10 + h * 45}%` }} />
+                                </div>
                             );
                         })}
                     </div>
                 </div>
 
-                {/* Fixed Selection Hub */}
+                {/* Fixed Selection Overlay */}
                 <div className="absolute inset-0 flex justify-center items-center pointer-events-none z-30">
                     <div 
-                        className="h-full border-x-4 border-white bg-white/5 shadow-[0_0_100px_rgba(255,255,255,0.05)] relative pointer-events-auto"
+                        className="h-full border-x-4 border-white bg-white/[0.02] shadow-[0_0_120px_rgba(255,81,47,0.15)] relative pointer-events-auto"
                         style={{ width: `${trimDuration * PX_PER_SEC}px` }}
                         onPointerDown={(e) => handleDrag("scroll", e)}
                     >
-                        {/* LEFT HANDLE */}
-                        <div 
-                            className="absolute inset-y-0 -left-1 w-2 cursor-ew-resize z-40 flex items-center justify-center group/h"
-                            onPointerDown={(e) => { e.stopPropagation(); handleDrag("start", e); }}
-                        >
-                            <div className="w-1 h-12 bg-white/20 rounded-full group-hover/h:bg-white transition-colors" />
+                        {/* Handles */}
+                        <div onPointerDown={(e) => { e.stopPropagation(); handleDrag("start", e); }} className="absolute inset-y-0 -left-1 w-2 cursor-ew-resize z-40 flex items-center justify-center group/h" >
+                             <div className="w-[4px] h-14 bg-white/30 rounded-full group-hover/h:bg-white transition-all shadow-xl" />
+                        </div>
+                        <div onPointerDown={(e) => { e.stopPropagation(); handleDrag("end", e); }} className="absolute inset-y-0 -right-1 w-2 cursor-ew-resize z-40 flex items-center justify-center group/h" >
+                             <div className="w-[4px] h-14 bg-white/30 rounded-full group-hover/h:bg-white transition-all shadow-xl" />
                         </div>
 
-                        {/* RIGHT HANDLE */}
-                        <div 
-                            className="absolute inset-y-0 -right-1 w-2 cursor-ew-resize z-40 flex items-center justify-center group/h"
-                            onPointerDown={(e) => { e.stopPropagation(); handleDrag("end", e); }}
-                        >
-                            <div className="w-1 h-12 bg-white/20 rounded-full group-hover/h:bg-white transition-colors" />
-                        </div>
-
-                        {/* PLAYHEAD */}
-                        <div 
-                            className="absolute inset-y-0 w-0.5 bg-[#DD2476] shadow-[0_0_15px_#DD2476]"
-                            style={{ left: `${((currentTime - start) / trimDuration) * 100}%` }}
-                        />
-
-                        {/* Badge */}
-                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-white text-black text-[9px] font-black px-4 py-1 rounded-full shadow-2xl whitespace-nowrap uppercase tracking-widest">
-                            DRAG TO ADJUST
+                        {/* Playhead */}
+                        <div className="absolute inset-y-0 w-1 bg-white z-50 shadow-[0_0_15px_rgba(255,255,255,0.8)]" style={{ left: `${((currentTime - start) / trimDuration) * 100}%` }} />
+                        
+                        <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-white text-black text-[8px] font-black px-4 py-1.5 rounded-full whitespace-nowrap uppercase tracking-widest ring-4 ring-black/20">
+                            TRIM AUDIO
                         </div>
                     </div>
                 </div>
 
-                {/* Blocker Overlay (Smooth Gradient) */}
-                <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-[#050505] to-transparent z-40 pointer-events-none" />
-                <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-[#050505] to-transparent z-40 pointer-events-none" />
-                
-                {isDecoding && (
-                    <div className="absolute top-4 right-4 z-50 flex items-center gap-2 bg-white/5 px-2 py-1 rounded-md border border-white/10 backdrop-blur-md">
-                        <Loader2 className="w-3 h-3 text-orange-400 animate-spin" />
-                        <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest">Scanning...</span>
-                    </div>
-                )}
+                {/* Edge Blurs */}
+                <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-[#050505] via-[#050505]/60 to-transparent z-40 pointer-events-none" />
+                <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-[#050505] via-[#050505]/60 to-transparent z-40 pointer-events-none" />
             </div>
 
-            {/* Lower Controls */}
+            {/* Controls */}
             <div className="flex flex-col gap-8">
-                <div className="flex justify-center items-center gap-12 relative z-10 px-4">
+                <div className="flex justify-center items-center gap-14 px-4">
                     <button
-                        onClick={() => {
-                            if (audioRef.current) {
-                                audioRef.current.currentTime = 0;
-                                setStart(0);
-                                startRef.current = 0;
-                                onTrimChange(0, trimDuration);
-                            }
-                        }}
-                        className="p-4 bg-white/5 rounded-full text-zinc-500 hover:text-white transition-all active:scale-95 border border-white/5 shadow-inner"
+                        onClick={isPlaying ? stopPlayback : startPlayback}
+                        className="w-24 h-24 bg-white rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-[0_25px_60px_rgba(255,255,255,0.2)]"
                     >
-                        <Scissors className="w-6 h-6" />
-                    </button>
-
-                    <button
-                        onClick={isPlaying ? stopAudio : playSelection}
-                        className="w-24 h-24 bg-white rounded-full flex items-center justify-center hover:scale-105 active:scale-90 transition-all shadow-[0_20px_60px_rgba(255,255,255,0.1)] group"
-                    >
-                        {isPlaying ? (
-                            <Pause className="w-12 h-12 text-black fill-black" />
-                        ) : (
-                            <Play className="w-12 h-12 text-black fill-black ml-1.5" />
-                        )}
+                        {isPlaying ? <Pause className="w-12 h-12 text-black fill-black" /> : <Play className="w-12 h-12 text-black fill-black ml-1.5" />}
                     </button>
 
                     {onConfirm && (
                         <button
                             onClick={onConfirm}
-                            className="p-4 bg-gradient-to-tr from-[#FF512F] to-[#DD2476] rounded-full hover:scale-105 active:scale-95 transition-all shadow-xl ring-2 ring-white/10"
+                            className="w-24 h-24 bg-gradient-to-tr from-[#FF512F] to-[#DD2476] rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-xl ring-4 ring-white/10"
                         >
-                            <Check className="w-8 h-8 text-white stroke-[4]" />
+                            <Check className="w-12 h-12 text-white stroke-[4]" />
                         </button>
                     )}
                 </div>
 
-                {/* Duration Picker snaps */}
-                <div className="flex justify-center gap-3">
+                <div className="grid grid-cols-4 gap-3 px-4">
                     {[15, 30, 60, 90].map(d => (
                         <button
                             key={d}
@@ -316,10 +285,8 @@ export function MusicTrimmer({
                                 }
                             }}
                             className={cn(
-                                "flex-1 max-w-[80px] h-12 rounded-2xl text-[10px] font-black border transition-all",
-                                trimDuration === d 
-                                    ? "bg-white text-black border-white shadow-xl translate-y-[-2px]" 
-                                    : "bg-white/5 text-zinc-500 border-white/10 hover:border-white/20 hover:text-zinc-300"
+                                "h-14 rounded-[1.25rem] text-[10px] font-black border transition-all",
+                                trimDuration === d ? "bg-white text-black border-white shadow-xl translate-y-[-4px]" : "bg-white/5 text-zinc-500 border-white/10 hover:border-white/20"
                             )}
                         >
                             {d}S
@@ -329,8 +296,8 @@ export function MusicTrimmer({
             </div>
 
             {/* Visual Flairs */}
-            <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-orange-500/5 rounded-full blur-[120px] pointer-events-none animate-pulse" />
-            <div className="absolute -top-40 -left-40 w-96 h-96 bg-pink-500/5 rounded-full blur-[120px] pointer-events-none animate-pulse" />
+            <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-orange-500/10 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute -top-40 -left-40 w-96 h-96 bg-pink-500/10 rounded-full blur-[120px] pointer-events-none" />
         </div>
     );
 }
