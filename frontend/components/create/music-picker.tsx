@@ -7,23 +7,6 @@ import { uploadToCatbox } from "@/lib/storage";
 import { toast } from "sonner";
 import { MusicTrimmer } from "./music-trimmer";
 
-// ─── Global Instance Safety ──────────────────────────────────────────
-
-const INVIDIOUS_INSTANCES = [
-    "https://invidious.projectsegfau.lt",
-    "https://yewtu.be",
-    "https://invidious.nerdvpn.de",
-    "https://inv.tux.im",
-    "https://invidious.snopyta.org"
-];
-
-let currentInstanceIndex = 0;
-
-function getNextInstance() {
-    currentInstanceIndex = (currentInstanceIndex + 1) % INVIDIOUS_INSTANCES.length;
-    return INVIDIOUS_INSTANCES[currentInstanceIndex];
-}
-
 // ─── API Providers ───────────────────────────────────────────────────
 
 interface Track {
@@ -40,20 +23,9 @@ async function searchiTunes(query: string): Promise<Track[]> {
     if (!query || query.trim().length < 2) return [];
     try {
         const encoded = encodeURIComponent(query.trim());
-        const res = await fetch(`https://itunes.apple.com/search?term=${encoded}&media=music&entity=song&limit=25`);
+        const res = await fetch(`/api/itunes/search?q=${encoded}`);
         if (!res.ok) return [];
-        const data = await res.json();
-        return (data.results || [])
-            .filter((t: any) => t.previewUrl)
-            .map((t: any) => ({
-                id: String(t.trackId),
-                name: t.trackName,
-                artist: t.artistName,
-                artwork: t.artworkUrl100?.replace("100x100", "400x400"),
-                url: t.previewUrl,
-                duration: Math.round((t.trackTimeMillis || 30000) / 1000),
-                source: "itunes",
-            }));
+        return await res.json();
     } catch { return []; }
 }
 
@@ -325,7 +297,7 @@ export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerPro
             
             <div className="flex items-center justify-between px-2 opacity-40">
                 <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">ConnectSphere Music Engine</span>
-                <span className="text-[8px] font-black text-zinc-700 uppercase tracking-tighter">Instance: {INVIDIOUS_INSTANCES[currentInstanceIndex].split('//')[1]}</span>
+                <span className="text-[8px] font-black text-zinc-700 uppercase tracking-tighter">Secure Proxy Active</span>
             </div>
         </div>
     );
