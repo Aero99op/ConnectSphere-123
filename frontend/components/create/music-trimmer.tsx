@@ -31,15 +31,20 @@ export function MusicTrimmer({
     const [isLoading, setIsLoading] = useState(true);
     const [isAudioReady, setIsAudioReady] = useState(false);
     
-    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const audioCtxRef = useRef<AudioContext | null>(null);
+    const audioBufferRef = useRef<AudioBuffer | null>(null);
+    const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
+    const startTimeRef = useRef<number>(0);
+    const offsetRef = useRef<number>(0);
+    const rafRef = useRef<number | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
-
-    // Refs to avoid stale closures and track interaction state
+    
+    // Refs to avoid stale closures
     const startRef = useRef(0);
     const endRef = useRef(0);
     const draggingRef = useRef<'start' | 'end' | 'window' | 'progress' | null>(null);
     const wasPlayingRef = useRef(false);
-    const lastSeekRef = useRef(0); // For throttling audio sync
+    const lastSeekRef = useRef(0);
 
     // Sync refs with state
     useEffect(() => {
@@ -54,24 +59,27 @@ export function MusicTrimmer({
         }
     }, [duration]);
 
-    // ─── Waveform Generation ──────────────────────────────────────────
+    // ─── Waveform & Buffer Preparation ──────────────────────────────
     useEffect(() => {
         let discarded = false;
-        const generatePeaks = async () => {
+        const prepareAudio = async () => {
             if (!audioUrl) return;
             setIsLoading(true);
             try {
                 const response = await fetch(audioUrl, { mode: 'cors' }).catch(() => null);
                 if (!response || !response.ok) throw new Error("Fetch failed");
                 const arrayBuffer = await response.arrayBuffer();
+                
                 const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext);
                 const audioCtx = new AudioContextClass();
-                const sampleRate = 44100;
-                const length = Math.max(10, Math.floor((duration || 30) * sampleRate));
-                const offlineCtx = new OfflineAudioContext(1, length, sampleRate);
-                const audioBuffer = await offlineCtx.decodeAudioData(arrayBuffer);
+                audioCtxRef.current = audioCtx;
+
+                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                audioBufferRef.current = audioBuffer;
+
+                if (discarded) return;
+
                 const channelData = audioBuffer.getChannelData(0);
-                
                 const numBars = 100;
                 const samplesPerBar = Math.floor(channelData.length / numBars);
                 const newPeaks: number[] = [];
@@ -84,129 +92,101 @@ export function MusicTrimmer({
                     }
                     newPeaks.push(Math.pow(max * 1.2, 0.8));
                 }
-                if (!discarded) { setPeaks(newPeaks); setIsLoading(false); }
+                
+                setPeaks(newPeaks);
+                setIsAudioReady(true);
+                setIsLoading(false);
+                
+                setCurrentTime(startRef.current);
+                offsetRef.current = startRef.current;
             } catch (err) {
-                console.warn("Waveform Fallback:", err);
-                const seed = audioUrl.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                const pseudoRandom = (s: number) => { const x = Math.sin(s) * 10000; return x - Math.floor(x); };
-                const fallback = Array.from({ length: 100 }).map((_, i) => 0.2 + pseudoRandom(seed + i) * 0.6);
+                console.warn("Audio Setup Fallback:", err);
+                const fallback = Array.from({ length: 100 }).map(() => 0.2 + Math.random() * 0.6);
                 if (!discarded) { setPeaks(fallback); setIsLoading(false); }
             }
         };
-        generatePeaks();
+        prepareAudio();
         return () => { discarded = true; };
-    }, [audioUrl, duration]);
-
-    // ─── Audio Management ───────────────────────────────────────────────
-    useEffect(() => {
-        const audio = new Audio(audioUrl);
-        audioRef.current = audio;
-        audio.preload = "auto";
-        audio.crossOrigin = "anonymous";
-
-        const safePlay = async () => {
-            if (!audio) return;
-            try {
-                await new Promise(resolve => setTimeout(resolve, 0));
-                await audio.play();
-            } catch (err: any) {
-                if (err.name !== 'AbortError') console.error("Playback failed:", err);
-            }
-        };
-
-        const onTimeUpdate = () => {
-            setCurrentTime(audio.currentTime);
-            // Dynamic Looping logic - only if NOT dragging
-            if (!draggingRef.current && audio.currentTime >= endRef.current - 0.05) {
-                audio.currentTime = startRef.current;
-                if (!audio.paused) safePlay();
-            }
-            // Clamping with higher tolerance to prevent stutter during playback
-            if (audio.currentTime < startRef.current - 0.5 && !draggingRef.current) {
-                audio.currentTime = startRef.current;
-            }
-        };
-
-        const onEnded = () => {
-            audio.currentTime = startRef.current;
-            if (!audio.paused) safePlay();
-        };
-
-        const onLoadedMetadata = () => {
-            setIsAudioReady(true);
-            if (audio.currentTime < startRef.current) audio.currentTime = startRef.current;
-        };
-
-        const onPlay = () => {
-            setIsPlaying(true);
-            audio.muted = false; // Ensure unmuted when playing starts
-        };
-        const onPause = () => setIsPlaying(false);
-
-        audio.addEventListener("timeupdate", onTimeUpdate);
-        audio.addEventListener("ended", onEnded);
-        audio.addEventListener("loadedmetadata", onLoadedMetadata);
-        audio.addEventListener("play", onPlay);
-        audio.addEventListener("pause", onPause);
-
-        return () => {
-            audio.removeEventListener("timeupdate", onTimeUpdate);
-            audio.removeEventListener("ended", onEnded);
-            audio.removeEventListener("loadedmetadata", onLoadedMetadata);
-            audio.removeEventListener("play", onPlay);
-            audio.removeEventListener("pause", onPause);
-            audio.pause(); audio.src = ""; audioRef.current = null;
-        };
     }, [audioUrl]);
 
-    const togglePlay = async () => {
-        if (!audioRef.current || !isAudioReady) return;
-        const audio = audioRef.current;
-
-        if (isPlaying) {
-            audio.pause();
-        } else {
+    // ─── Playback Controls (Web Audio Engine) ────────────────────────
+    const stopAudio = useCallback(() => {
+        if (sourceNodeRef.current) {
             try {
-                // Ensure we are in bounds before playing
-                if (audio.currentTime < startRef.current - 0.1 || audio.currentTime >= endRef.current - 0.1) {
-                    audio.currentTime = startRef.current;
-                }
+                const source = sourceNodeRef.current;
+                sourceNodeRef.current = null;
+                source.stop();
+                source.disconnect();
+            } catch {}
+        }
+        if (rafRef.current) {
+            cancelAnimationFrame(rafRef.current);
+            rafRef.current = null;
+        }
+        setIsPlaying(false);
+    }, []);
 
-                // WAIT for audio element to be ready to play
-                if (audio.readyState < 2) {
-                    await new Promise(resolve => {
-                        const check = () => {
-                            if (audio.readyState >= 2) resolve(true);
-                            else setTimeout(check, 10);
-                        };
-                        check();
-                    });
-                }
+    const playAudio = useCallback((startTime: number) => {
+        if (!audioBufferRef.current || !audioCtxRef.current) return;
+        stopAudio();
 
-                audio.muted = false; // Ensure sound is on
-                await audio.play();
-            } catch (err: any) {
-                if (err.name !== 'AbortError') {
-                    console.error("Playback failed:", err);
-                    // Force a reset and retry once
-                    audio.currentTime = startRef.current;
-                    audio.play().catch(() => {});
-                }
+        const ctx = audioCtxRef.current;
+        if (ctx.state === 'suspended') ctx.resume();
+
+        const source = ctx.createBufferSource();
+        source.buffer = audioBufferRef.current;
+        source.connect(ctx.destination);
+        
+        const playOffset = Math.max(0, startTime);
+        source.start(0, playOffset);
+        sourceNodeRef.current = source;
+        setIsPlaying(true);
+        
+        offsetRef.current = playOffset;
+        startTimeRef.current = ctx.currentTime;
+
+        const updateUI = () => {
+            if (!ctx) return;
+            const elapsed = ctx.currentTime - startTimeRef.current;
+            const absolutePos = offsetRef.current + elapsed;
+            
+            setCurrentTime(absolutePos);
+
+            if (absolutePos >= endRef.current) {
+                playAudio(startRef.current);
+                return;
             }
+            rafRef.current = requestAnimationFrame(updateUI);
+        };
+        rafRef.current = requestAnimationFrame(updateUI);
+        
+        source.onended = () => {
+            if (sourceNodeRef.current === source) stopAudio();
+        };
+    }, [stopAudio]);
+
+    const togglePlay = () => {
+        if (isPlaying) {
+            stopAudio();
+        } else {
+            playAudio(currentTime);
         }
     };
+
+    useEffect(() => {
+        return () => {
+            stopAudio();
+            if (audioCtxRef.current) audioCtxRef.current.close().catch(() => {});
+        };
+    }, [stopAudio]);
 
     // ─── Interaction Logic (Stabilized) ──────────────────────────────
     const handlePointerDown = (type: "start" | "end" | "window" | "progress", e: React.PointerEvent) => {
         e.preventDefault();
         draggingRef.current = type;
         
-        const audio = audioRef.current;
-        if (audio) {
-            wasPlayingRef.current = !audio.paused;
-            audio.pause(); 
-            audio.muted = true; // Force total silence to avoid "scratched record" bursts during seek
-        }
+        wasPlayingRef.current = isPlaying;
+        stopAudio();
 
         const rect = containerRef.current!.getBoundingClientRect();
         const startX = e.clientX;
@@ -223,44 +203,22 @@ export function MusicTrimmer({
             if (draggingRef.current === "start") {
                 const newS = Math.max(0, Math.min(initialS + deltaTime, end - 0.5));
                 setStart(newS);
-                
-                // 🔥 THROTTLED SEEKING: Fast enough to catch timing, but silent and stable
-                const now = Date.now();
-                if (audio && now - lastSeekRef.current > 100) {
-                    audio.currentTime = newS;
-                    lastSeekRef.current = now;
-                }
+                setCurrentTime(newS);
             } else if (draggingRef.current === "end") {
                 const newE = Math.max(start + 0.5, Math.min(initialE + deltaTime, totalDur));
                 setEnd(newE);
-
-                const now = Date.now();
-                if (audio && now - lastSeekRef.current > 100) {
-                    audio.currentTime = newE - 2; // Preview near the end
-                    lastSeekRef.current = now;
-                }
+                setCurrentTime(newE);
             } else if (draggingRef.current === "window") {
                 const winDur = initialE - initialS;
                 const newS = Math.max(0, Math.min(initialS + deltaTime, totalDur - winDur));
                 setStart(newS);
                 setEnd(newS + winDur);
-
-                const now = Date.now();
-                if (audio && now - lastSeekRef.current > 100) {
-                    audio.currentTime = newS;
-                    lastSeekRef.current = now;
-                }
+                setCurrentTime(newS);
             } else if (draggingRef.current === "progress") {
                 const totalDur = (duration || initialE);
                 const deltaTime = (deltaX / rect.width) * totalDur;
                 const newT = Math.max(start, Math.min(initialTime + deltaTime, end));
                 setCurrentTime(newT);
-
-                const now = Date.now();
-                if (audio && now - lastSeekRef.current > 50) { // Fast-throttling for scrubbing
-                    audio.currentTime = newT;
-                    lastSeekRef.current = now;
-                }
             }
         };
 
@@ -275,18 +233,11 @@ export function MusicTrimmer({
             window.removeEventListener("pointermove", onPointerMove);
             window.removeEventListener("pointerup", onPointerUp);
             
-            if (audio) {
-                if (!isProgress) {
-                    audio.currentTime = finalStart;
-                }
-                
-                // Allow a tiny bit of time for the seek to register
-                setTimeout(() => {
-                    audio.muted = false;
-                    if (wasPlayingRef.current) {
-                        audio.play().catch(() => {});
-                    }
-                }, 10);
+            if (isProgress) {
+                if (wasPlayingRef.current) playAudio(currentTime);
+            } else {
+                setCurrentTime(finalStart);
+                if (wasPlayingRef.current) playAudio(finalStart);
             }
         };
 
