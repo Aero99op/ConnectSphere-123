@@ -39,6 +39,7 @@ export function MusicTrimmer({
     const endRef = useRef(0);
     const draggingRef = useRef<'start' | 'end' | 'window' | null>(null);
     const wasPlayingRef = useRef(false);
+    const lastSeekRef = useRef(0); // For throttling audio sync
 
     // Sync refs with state
     useEffect(() => {
@@ -181,7 +182,8 @@ export function MusicTrimmer({
         const audio = audioRef.current;
         if (audio) {
             wasPlayingRef.current = !audio.paused;
-            audio.pause(); // Silent dragging to avoid "trrr trrr" stuttering
+            audio.pause(); 
+            audio.muted = true; // Force total silence to avoid "scratched record" bursts during seek
         }
 
         const rect = containerRef.current!.getBoundingClientRect();
@@ -198,18 +200,33 @@ export function MusicTrimmer({
             if (draggingRef.current === "start") {
                 const newS = Math.max(0, Math.min(initialS + deltaTime, end - 0.5));
                 setStart(newS);
-                // We update UI only, seeking on move is expensive.
-                // If we want scrubbing audio, we'd need to throttle it.
-                if (audio) audio.currentTime = newS; 
+                
+                // 🔥 THROTTLED SEEKING: Fast enough to catch timing, but silent and stable
+                const now = Date.now();
+                if (audio && now - lastSeekRef.current > 100) {
+                    audio.currentTime = newS;
+                    lastSeekRef.current = now;
+                }
             } else if (draggingRef.current === "end") {
                 const newE = Math.max(start + 0.5, Math.min(initialE + deltaTime, totalDur));
                 setEnd(newE);
+
+                const now = Date.now();
+                if (audio && now - lastSeekRef.current > 100) {
+                    audio.currentTime = newE - 2; // Preview near the end
+                    lastSeekRef.current = now;
+                }
             } else if (draggingRef.current === "window") {
                 const winDur = initialE - initialS;
                 const newS = Math.max(0, Math.min(initialS + deltaTime, totalDur - winDur));
                 setStart(newS);
                 setEnd(newS + winDur);
-                if (audio) audio.currentTime = newS;
+
+                const now = Date.now();
+                if (audio && now - lastSeekRef.current > 100) {
+                    audio.currentTime = newS;
+                    lastSeekRef.current = now;
+                }
             }
         };
 
@@ -219,9 +236,13 @@ export function MusicTrimmer({
             window.removeEventListener("pointermove", onPointerMove);
             window.removeEventListener("pointerup", onPointerUp);
             
-            // Resume if it was playing
-            if (audio && wasPlayingRef.current) {
-                audio.play().catch(() => {});
+            // Final sync and restore
+            if (audio) {
+                audio.currentTime = startRef.current;
+                audio.muted = false; // Lift the silence
+                if (wasPlayingRef.current) {
+                    audio.play().catch(() => {});
+                }
             }
         };
 
