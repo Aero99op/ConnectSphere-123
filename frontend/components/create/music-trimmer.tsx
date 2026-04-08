@@ -116,23 +116,23 @@ export function MusicTrimmer({
     }, []);
 
     // ─── Phase 2: Micro-Seek Interaction Engine (Zero Latency) ───────
-    const handleDrag = (type: "scroll" | "start" | "end", e: React.PointerEvent) => {
+    const handleDrag = (type: "scroll" | "start" | "end" | "playhead", e: React.PointerEvent) => {
         e.preventDefault();
         isInteractingRef.current = true;
         stopPlayback();
-        if (type !== "scroll") setActiveHandle(type);
+        if (type !== "playhead" && type !== "scroll") setActiveHandle(type);
         
         const initialX = e.clientX;
         const initialS = startRef.current;
         const initialT = trimRef.current;
+        const initialC = audioRef.current?.currentTime || initialS;
 
-        // Use a persistent object for drag state to avoid overhead
-        const dragState = { ns: initialS, nt: initialT };
+        const dragState = { ns: initialS, nt: initialT, nc: initialC };
 
         const updateAudio = () => {
             if (!isInteractingRef.current || !audioRef.current) return;
             // Native direct-to-pointer seek
-            audioRef.current.currentTime = dragState.ns;
+            audioRef.current.currentTime = dragState.nc;
             raftRef.current = requestAnimationFrame(updateAudio);
         };
 
@@ -142,19 +142,31 @@ export function MusicTrimmer({
 
             if (type === "scroll") {
                 dragState.ns = Math.max(0, Math.min(initialS - dt, duration - initialT));
+                dragState.nc = dragState.ns;
+                setStart(dragState.ns);
+                setCurrentTime(dragState.ns);
+                startRef.current = dragState.ns;
             } else if (type === "start") {
                 dragState.ns = Math.max(0, Math.min(initialS + dt, initialS + initialT - 0.5));
                 dragState.nt = initialT - (dragState.ns - initialS);
+                dragState.nc = dragState.ns;
+                setStart(dragState.ns);
+                setTrimDuration(dragState.nt);
+                setCurrentTime(dragState.ns);
+                startRef.current = dragState.ns;
+                trimRef.current = dragState.nt;
             } else if (type === "end") {
                 dragState.nt = Math.max(0.5, Math.min(initialT + dt, duration - initialS));
+                dragState.nc = initialS + dragState.nt;
+                setTrimDuration(dragState.nt);
+                setCurrentTime(dragState.nc);
+                trimRef.current = dragState.nt;
+            } else if (type === "playhead") {
+                // Seek within the current trim window
+                const percent = Math.max(0, Math.min(1, (mv.clientX - (window.innerWidth / 2 - (initialT * PX_PER_SEC) / 2)) / (initialT * PX_PER_SEC)));
+                dragState.nc = initialS + (percent * initialT);
+                setCurrentTime(dragState.nc);
             }
-
-            // UI Fast-Path (State Update)
-            startRef.current = dragState.ns;
-            trimRef.current = dragState.nt;
-            setStart(dragState.ns);
-            setTrimDuration(dragState.nt);
-            setCurrentTime(dragState.ns);
         };
 
         const onUp = () => {
@@ -167,7 +179,6 @@ export function MusicTrimmer({
             setActiveHandle(null);
         };
 
-        // Initialize audio sync loop
         raftRef.current = requestAnimationFrame(updateAudio);
         window.addEventListener("pointermove", onMove);
         window.addEventListener("pointerup", onUp);
@@ -272,11 +283,17 @@ export function MusicTrimmer({
                             )}
                         </div>
 
-                        {/* Playhead (Vertical Line) */}
+                        {/* Playhead (Vertical Line - DRAGGABLE) */}
                         <div 
-                            className="absolute inset-y-0 w-1 bg-white z-50 shadow-[0_0_20px_white]" 
+                            onPointerDown={(e) => { e.stopPropagation(); handleDrag("playhead", e); }}
+                            className="absolute inset-y-0 w-1.5 bg-white z-50 shadow-[0_0_20px_white] cursor-ew-resize group/p transition-transform" 
                             style={{ left: `${((currentTime - start) / trimDuration) * 100}%` }} 
-                        />
+                        >
+                            {/* Hit area expansion for easier dragging */}
+                            <div className="absolute inset-y-0 -left-2 -right-2 bg-transparent" />
+                            <div className="absolute -top-1 -left-1 w-3.5 h-3.5 bg-white rounded-full shadow-[0_0_15px_white] scale-0 group-hover/p:scale-100 transition-transform" />
+                            <div className="absolute -bottom-1 -left-1 w-3.5 h-3.5 bg-white rounded-full shadow-[0_0_15px_white] scale-0 group-hover/p:scale-100 transition-transform" />
+                        </div>
                     </div>
                 </div>
 
