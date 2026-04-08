@@ -57,33 +57,13 @@ async function searchiTunes(query: string): Promise<Track[]> {
     } catch { return []; }
 }
 
-async function searchYouTubeWithRetry(query: string, retryCount = 0): Promise<Track[]> {
+async function searchYouTubeViaProxy(query: string): Promise<Track[]> {
     if (!query || query.trim().length < 2) return [];
-    const instance = INVIDIOUS_INSTANCES[currentInstanceIndex];
-    
     try {
-        const res = await fetch(`${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=video`, {
-            signal: AbortSignal.timeout(5000) // 5s timeout for surgical speed
-        });
-        if (!res.ok) throw new Error("Instance down");
-        const data = await res.json();
-        
-        return (data || []).slice(0, 20).map((v: any) => ({
-            id: v.videoId,
-            name: v.title,
-            artist: v.author,
-            artwork: v.videoThumbnails?.find((t: any) => t.quality === "high")?.url || v.videoThumbnails?.[0]?.url,
-            url: `${instance}/latest_version?id=${v.videoId}&itag=140`,
-            duration: v.lengthSeconds || 180,
-            source: "youtube",
-        }));
-    } catch (err) {
-        if (retryCount < 3) {
-            getNextInstance();
-            return searchYouTubeWithRetry(query, retryCount + 1);
-        }
-        return [];
-    }
+        const res = await fetch(`/api/yt/search?q=${encodeURIComponent(query)}`);
+        if (!res.ok) return [];
+        return await res.json();
+    } catch { return []; }
 }
 
 // ─── Component ───────────────────────────────────────────────────────
@@ -115,7 +95,7 @@ export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerPro
             setLoadingTrending(true);
             const data = musicSource === "itunes" 
                 ? await searchiTunes("Hot Tracks") 
-                : await searchYouTubeWithRetry("Trending Songs");
+                : await searchYouTubeViaProxy("Trending Songs");
             if (!cancelled) {
                 setTrendingTracks(data);
                 setLoadingTrending(false);
@@ -137,7 +117,7 @@ export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerPro
         debounceRef.current = setTimeout(async () => {
             const data = musicSource === "itunes" 
                 ? await searchiTunes(value) 
-                : await searchYouTubeWithRetry(value);
+                : await searchYouTubeViaProxy(value);
             setResults(data);
             setSearching(false);
         }, 600);
