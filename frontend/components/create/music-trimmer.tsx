@@ -135,7 +135,7 @@ export function MusicTrimmer({
         const onEnded = () => {
             // Backup for selections that hit the absolute end of the file
             audio.currentTime = startRef.current;
-            if (isPlaying) {
+            if (!audio.paused) {
                 safePlay();
             }
         };
@@ -166,7 +166,7 @@ export function MusicTrimmer({
             audio.src = "";
             audioRef.current = null;
         };
-    }, [audioUrl, isPlaying]); // Added isPlaying to deps to ensure safePlay works with the latest flag
+    }, [audioUrl]); // REMOVED isPlaying from here. Audio object should be stable.
 
     const togglePlay = async () => {
         if (!audioRef.current || !isAudioReady) return;
