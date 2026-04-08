@@ -32,6 +32,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
+    // 🛡️ ONLY HANDLE HTTP/HTTPS
+    if (!url.protocol.startsWith('http')) {
+        return;
+    }
+
     // 🛡️ SKIP SW FOR MEDIA & DYNAMIC DATA
     // 1. Large Media Providers (Catbox, Apple, etc.)
     // 2. Local Media (mp4, mp3, webm) - Browsers handle Range requests better than SW
