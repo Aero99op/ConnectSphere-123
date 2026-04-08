@@ -97,28 +97,51 @@ export function MusicTrimmer({
         return () => { discarded = true; };
     }, [audioUrl, duration]);
 
-    // ─── Direct Audio Management (No stale closures) ───────────────────
+    // Direct Audio Management
     useEffect(() => {
         const audio = new Audio(audioUrl);
         audioRef.current = audio;
         audio.preload = "auto";
         audio.crossOrigin = "anonymous";
 
+        // Handle AbortError gracefully
+        const safePlay = async () => {
+            if (!audio) return;
+            try {
+                // Wait for a tiny tick to ensure state/currentTime is settled
+                await new Promise(resolve => setTimeout(resolve, 0));
+                await audio.play();
+            } catch (err: any) {
+                if (err.name !== 'AbortError') {
+                    console.error("Playback failed:", err);
+                }
+            }
+        };
+
         const onTimeUpdate = () => {
             setCurrentTime(audio.currentTime);
             // Dynamic Looping logic
             if (audio.currentTime >= endRef.current - 0.05) {
                 audio.currentTime = startRef.current;
-                if (!audio.paused) audio.play().catch(() => {});
+                if (!audio.paused) {
+                    safePlay();
+                }
             }
-            if (audio.currentTime < startRef.current - 0.1) {
+            if (audio.currentTime < startRef.current - 0.1 && !draggingRef.current) {
                 audio.currentTime = startRef.current;
+            }
+        };
+
+        const onEnded = () => {
+            // Backup for selections that hit the absolute end of the file
+            audio.currentTime = startRef.current;
+            if (isPlaying) {
+                safePlay();
             }
         };
 
         const onLoadedMetadata = () => {
             setIsAudioReady(true);
-            // Default position if needed
             if (audio.currentTime < startRef.current) {
                 audio.currentTime = startRef.current;
             }
@@ -128,12 +151,14 @@ export function MusicTrimmer({
         const onPause = () => setIsPlaying(false);
 
         audio.addEventListener("timeupdate", onTimeUpdate);
+        audio.addEventListener("ended", onEnded);
         audio.addEventListener("loadedmetadata", onLoadedMetadata);
         audio.addEventListener("play", onPlay);
         audio.addEventListener("pause", onPause);
 
         return () => {
             audio.removeEventListener("timeupdate", onTimeUpdate);
+            audio.removeEventListener("ended", onEnded);
             audio.removeEventListener("loadedmetadata", onLoadedMetadata);
             audio.removeEventListener("play", onPlay);
             audio.removeEventListener("pause", onPause);
@@ -141,22 +166,29 @@ export function MusicTrimmer({
             audio.src = "";
             audioRef.current = null;
         };
-    }, [audioUrl]);
+    }, [audioUrl, isPlaying]); // Added isPlaying to deps to ensure safePlay works with the latest flag
 
-    const togglePlay = () => {
-        if (!audioRef.current) return;
+    const togglePlay = async () => {
+        if (!audioRef.current || !isAudioReady) return;
         const audio = audioRef.current;
+        
         if (isPlaying) {
             audio.pause();
         } else {
-            // FIX: Always check if we are significantly out of bounds before playing
-            if (Math.abs(audio.currentTime - startRef.current) > 0.5 || audio.currentTime >= endRef.current) {
-                audio.currentTime = startRef.current;
+            try {
+                // FIX: Always check if we are significantly out of bounds before playing
+                if (Math.abs(audio.currentTime - startRef.current) > 0.5 || audio.currentTime >= endRef.current) {
+                    audio.currentTime = startRef.current;
+                }
+                
+                // Wait a tiny bit for the seek to settle in some browsers
+                await new Promise(resolve => setTimeout(resolve, 0));
+                await audio.play();
+            } catch (err: any) {
+                if (err.name !== 'AbortError') {
+                    console.error("Playback failed:", err);
+                }
             }
-            audio.play().catch(e => {
-                console.error("Playback failed:", e);
-                // Some browsers require explicit user interaction for play
-            });
         }
     };
 
