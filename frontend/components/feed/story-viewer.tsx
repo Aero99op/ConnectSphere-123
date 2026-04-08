@@ -144,10 +144,19 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
         return () => clearInterval(timer);
     }, [currentIndex, paused, stories.length]); // Added stories.length for safety
 
-    // Background Music for Stories (Preserve customization)
+    // Background Music for Stories (Strict Lifecycle for Bawaal Performance)
     const audioRef = useRef<HTMLAudioElement | null>(null);
     useEffect(() => {
         const music = currentStory.customization?.music;
+        
+        // Disposal of previous story music if URL changed or story changed
+        if (audioRef.current && audioRef.current.src !== music?.url) {
+            audioRef.current.pause();
+            audioRef.current.src = "";
+            audioRef.current.load();
+            audioRef.current = null;
+        }
+
         if (music?.url && !audioRef.current) {
             audioRef.current = new Audio(music.url);
         }
@@ -165,6 +174,7 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
         };
 
         if (!paused && mediaBlobUrl) {
+            // Force reset to startTime every time a story activates
             audio.currentTime = startTime;
             audio.play().catch((e: any) => console.log("Story audio blocked", e));
             audio.addEventListener("timeupdate", handleTimeUpdate);
@@ -174,10 +184,42 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
         }
 
         return () => {
-            audio.pause();
-            audio.removeEventListener("timeupdate", handleTimeUpdate);
+            if (audio) {
+                audio.pause();
+                audio.removeEventListener("timeupdate", handleTimeUpdate);
+                // We keep the ref but pause it. If we are closing the viewer, 
+                // the component cleanup will handle the full disposal.
+            }
         };
     }, [currentStory.id, paused, mediaBlobUrl]);
+
+    // Component Cleanup: Ensure all audio dies when viewer closes
+    useEffect(() => {
+        return () => {
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current.src = "";
+                audioRef.current.load();
+            }
+        };
+    }, []);
+
+    // 🚀 Media Preloader for Next Story (Speed Optimization)
+    useEffect(() => {
+        const nextIdx = currentIndex + 1;
+        if (nextIdx < stories.length) {
+            const nextStory = stories[nextIdx];
+            const nextUrls = nextStory.media_urls || nextStory.file_urls || (nextStory.media_url ? [nextStory.media_url] : []);
+            if (nextUrls.length > 0) {
+                const link = document.createElement('link');
+                link.rel = 'preload';
+                link.as = nextStory.media_type === 'video' ? 'video' : 'image';
+                link.href = nextUrls[0];
+                document.head.appendChild(link);
+                return () => { document.head.removeChild(link); };
+            }
+        }
+    }, [currentIndex, stories]);
 
     const nextStory = () => {
         if (currentIndex < stories.length - 1) setCurrentIndex(prev => prev + 1);
@@ -428,6 +470,7 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
                                     autoPlay
                                     loop
                                     playsInline
+                                    preload="auto"
                                     muted={false}
                                 />
                                 {currentStory.customization?.stickers?.map((sticker: any) => (

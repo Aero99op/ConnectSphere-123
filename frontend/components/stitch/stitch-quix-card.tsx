@@ -87,6 +87,8 @@ export function StitchQuixCard({ quix, isActive }: QuixCardProps) {
                 audio.muted = isMuted;
                 audio.volume = isMuted ? 0 : 0.8;
                 if (!isMuted) {
+                    // 🔥 CRITICAL: Reset to startTime immediately on activation to prevent halfway starts
+                    audio.currentTime = startTime;
                     handleSync(); // Initial sync on unmute
                     audio.play().catch(e => console.log("Audio play blocked", e));
                 } else {
@@ -102,6 +104,10 @@ export function StitchQuixCard({ quix, isActive }: QuixCardProps) {
             if (audio) {
                 audio.pause();
                 audio.currentTime = startTime;
+                // Kill buffer on deactivation for better performance
+                audio.src = "";
+                audio.load();
+                audioRef.current = null;
             }
         }
 
@@ -112,9 +118,10 @@ export function StitchQuixCard({ quix, isActive }: QuixCardProps) {
             }
             if (audio) {
                 audio.pause();
+                // We reset src on isActive change above, but ensure pause here for cleanup
             }
         };
-    }, [isActive, isMuted, quix.id]); // Explicitly depend on isActive and isMuted
+    }, [isActive, isMuted, quix.id, quix.customization?.music?.url]); // Added URL as dependency
 
     useEffect(() => {
         const checkInteractions = async () => {
