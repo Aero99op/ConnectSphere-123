@@ -89,7 +89,15 @@ export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerPro
         return () => { cancelled = true; };
     }, []);
 
-    // Cleanup audio on unmount
+    // Cleanup audio on unmount or when entering trim mode
+    useEffect(() => {
+        if (selectedTrack && audioRef) {
+            audioRef.pause();
+            audioRef.src = "";
+            setPlayingId(null);
+        }
+    }, [selectedTrack, audioRef]);
+
     useEffect(() => {
         return () => {
             if (audioRef) {

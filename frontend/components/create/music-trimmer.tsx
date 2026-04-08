@@ -37,7 +37,7 @@ export function MusicTrimmer({
     // Refs to avoid stale closures and track interaction state
     const startRef = useRef(0);
     const endRef = useRef(0);
-    const draggingRef = useRef<'start' | 'end' | 'window' | null>(null);
+    const draggingRef = useRef<'start' | 'end' | 'window' | 'progress' | null>(null);
     const wasPlayingRef = useRef(false);
     const lastSeekRef = useRef(0); // For throttling audio sync
 
@@ -116,8 +116,8 @@ export function MusicTrimmer({
 
         const onTimeUpdate = () => {
             setCurrentTime(audio.currentTime);
-            // Dynamic Looping logic
-            if (audio.currentTime >= endRef.current - 0.05) {
+            // Dynamic Looping logic - only if NOT dragging
+            if (!draggingRef.current && audio.currentTime >= endRef.current - 0.05) {
                 audio.currentTime = startRef.current;
                 if (!audio.paused) safePlay();
             }
@@ -137,7 +137,10 @@ export function MusicTrimmer({
             if (audio.currentTime < startRef.current) audio.currentTime = startRef.current;
         };
 
-        const onPlay = () => setIsPlaying(true);
+        const onPlay = () => {
+            setIsPlaying(true);
+            audio.muted = false; // Ensure unmuted when playing starts
+        };
         const onPause = () => setIsPlaying(false);
 
         audio.addEventListener("timeupdate", onTimeUpdate);
@@ -159,23 +162,42 @@ export function MusicTrimmer({
     const togglePlay = async () => {
         if (!audioRef.current || !isAudioReady) return;
         const audio = audioRef.current;
+
         if (isPlaying) {
             audio.pause();
         } else {
             try {
-                if (Math.abs(audio.currentTime - startRef.current) > 0.5 || audio.currentTime >= endRef.current) {
+                // Ensure we are in bounds before playing
+                if (audio.currentTime < startRef.current - 0.1 || audio.currentTime >= endRef.current - 0.1) {
                     audio.currentTime = startRef.current;
                 }
-                await new Promise(resolve => setTimeout(resolve, 10));
+
+                // WAIT for audio element to be ready to play
+                if (audio.readyState < 2) {
+                    await new Promise(resolve => {
+                        const check = () => {
+                            if (audio.readyState >= 2) resolve(true);
+                            else setTimeout(check, 10);
+                        };
+                        check();
+                    });
+                }
+
+                audio.muted = false; // Ensure sound is on
                 await audio.play();
             } catch (err: any) {
-                if (err.name !== 'AbortError') console.error("Playback failed:", err);
+                if (err.name !== 'AbortError') {
+                    console.error("Playback failed:", err);
+                    // Force a reset and retry once
+                    audio.currentTime = startRef.current;
+                    audio.play().catch(() => {});
+                }
             }
         }
     };
 
     // ─── Interaction Logic (Stabilized) ──────────────────────────────
-    const handlePointerDown = (type: "start" | "end" | "window", e: React.PointerEvent) => {
+    const handlePointerDown = (type: "start" | "end" | "window" | "progress", e: React.PointerEvent) => {
         e.preventDefault();
         draggingRef.current = type;
         
@@ -190,6 +212,7 @@ export function MusicTrimmer({
         const startX = e.clientX;
         const initialS = start;
         const initialE = end;
+        const initialTime = currentTime;
 
         const onPointerMove = (moveEvt: PointerEvent) => {
             if (!draggingRef.current) return;
@@ -227,22 +250,43 @@ export function MusicTrimmer({
                     audio.currentTime = newS;
                     lastSeekRef.current = now;
                 }
+            } else if (draggingRef.current === "progress") {
+                const totalDur = (duration || initialE);
+                const deltaTime = (deltaX / rect.width) * totalDur;
+                const newT = Math.max(start, Math.min(initialTime + deltaTime, end));
+                setCurrentTime(newT);
+
+                const now = Date.now();
+                if (audio && now - lastSeekRef.current > 50) { // Fast-throttling for scrubbing
+                    audio.currentTime = newT;
+                    lastSeekRef.current = now;
+                }
             }
         };
 
         const onPointerUp = () => {
+            const finalStart = startRef.current;
+            const finalEnd = endRef.current;
+            const isProgress = draggingRef.current === "progress";
+            
             draggingRef.current = null;
-            onTrimChange(startRef.current, endRef.current);
+            onTrimChange(finalStart, finalEnd);
+            
             window.removeEventListener("pointermove", onPointerMove);
             window.removeEventListener("pointerup", onPointerUp);
             
-            // Final sync and restore
             if (audio) {
-                audio.currentTime = startRef.current;
-                audio.muted = false; // Lift the silence
-                if (wasPlayingRef.current) {
-                    audio.play().catch(() => {});
+                if (!isProgress) {
+                    audio.currentTime = finalStart;
                 }
+                
+                // Allow a tiny bit of time for the seek to register
+                setTimeout(() => {
+                    audio.muted = false;
+                    if (wasPlayingRef.current) {
+                        audio.play().catch(() => {});
+                    }
+                }, 10);
             }
         };
 
@@ -296,11 +340,17 @@ export function MusicTrimmer({
                     style={{ left: `${startPct}%`, width: `${widthPct}%` }}
                     onPointerDown={(e) => handlePointerDown("window", e)}
                 >
-                    {/* Inner Progress Indicator */}
+                    {/* Inner Progress Indicator (Interactable) */}
                     <div 
-                        className="absolute inset-y-0 left-0 bg-primary/30 border-r-2 border-primary/60 shadow-[0_0_20px_rgba(255,183,77,0.3)] z-10 pointer-events-none"
+                        className="absolute inset-y-0 left-0 bg-primary/30 border-r-2 border-primary/60 shadow-[0_0_20px_rgba(255,183,77,0.3)] z-10 cursor-ew-resize group/progress"
                         style={{ width: `${progress * 100}%` }}
-                    />
+                        onPointerDown={(e) => { e.stopPropagation(); handlePointerDown("progress", e); }}
+                    >
+                        {/* Grab Handle for Progress */}
+                        <div className="absolute top-0 right-[-8px] bottom-0 w-4 flex items-center justify-center opacity-0 group-hover/progress:opacity-100 transition-opacity">
+                            <div className="w-1 h-8 bg-primary rounded-full shadow-[0_0_10px_primary]" />
+                        </div>
+                    </div>
 
                     {/* Bright Waveform Fragment (Nested with Math for exact sync) */}
                     <div 
