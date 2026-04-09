@@ -29,15 +29,6 @@ async function searchiTunes(query: string): Promise<Track[]> {
     } catch { return []; }
 }
 
-async function searchYouTubeViaProxy(query: string): Promise<Track[]> {
-    if (!query || query.trim().length < 2) return [];
-    try {
-        const res = await fetch(`/api/yt/search?q=${encodeURIComponent(query)}`);
-        if (!res.ok) return [];
-        return await res.json();
-    } catch { return []; }
-}
-
 // ─── Component ───────────────────────────────────────────────────────
 interface MusicPickerProps {
     onSelect: (track: any) => void;
@@ -47,7 +38,6 @@ interface MusicPickerProps {
 
 export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerProps) {
     const [activeTab, setActiveTab] = useState<"discover" | "uploads">("discover");
-    const [musicSource, setMusicSource] = useState<"itunes" | "youtube">("itunes");
     const [query, setQuery] = useState("");
     const [results, setResults] = useState<Track[]>([]);
     const [searching, setSearching] = useState(false);
@@ -65,16 +55,14 @@ export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerPro
         let cancelled = false;
         (async () => {
             setLoadingTrending(true);
-            const data = musicSource === "itunes"
-                ? await searchiTunes("Hot Tracks")
-                : await searchYouTubeViaProxy("Trending Songs");
+            const data = await searchiTunes("Hot Tracks");
             if (!cancelled) {
                 setTrendingTracks(data);
                 setLoadingTrending(false);
             }
         })();
         return () => { cancelled = true; };
-    }, [musicSource]);
+    }, []);
 
     const handleSearch = useCallback((value: string) => {
         setQuery(value);
@@ -87,13 +75,11 @@ export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerPro
 
         setSearching(true);
         debounceRef.current = setTimeout(async () => {
-            const data = musicSource === "itunes"
-                ? await searchiTunes(value)
-                : await searchYouTubeViaProxy(value);
+            const data = await searchiTunes(value);
             setResults(data);
             setSearching(false);
         }, 600);
-    }, [musicSource]);
+    }, []);
 
     // Cleanup audio on unmount
     useEffect(() => {
@@ -112,7 +98,6 @@ export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerPro
             setPlayingId(null);
         } else {
             audioRef.preload = "auto";
-            audioRef.crossOrigin = "anonymous";
             audioRef.src = track.url;
             audioRef.play().catch(() => { });
             setPlayingId(track.id);
@@ -157,7 +142,7 @@ export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerPro
                         activeTab === "discover" ? "bg-primary text-black shadow-lg" : "text-zinc-500 hover:text-white"
                     )}
                 >
-                    <Globe className="w-3.5 h-3.5" /> Global
+                    <Globe className="w-3.5 h-3.5" /> Music Library
                 </button>
                 <button
                     onClick={() => setActiveTab("uploads")}
@@ -166,33 +151,9 @@ export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerPro
                         activeTab === "uploads" ? "bg-primary text-black shadow-lg" : "text-zinc-500 hover:text-white"
                     )}
                 >
-                    <FolderOpen className="w-3.5 h-3.5" /> Vault
+                    <FolderOpen className="w-3.5 h-3.5" /> Uploaded
                 </button>
             </div>
-
-            {/* Source Switcher */}
-            {activeTab === "discover" && (
-                <div className="grid grid-cols-2 gap-2 p-1 bg-black/40 rounded-xl border border-white/5">
-                    <button
-                        onClick={() => { setMusicSource("youtube"); setResults([]); setQuery(""); }}
-                        className={cn(
-                            "flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
-                            musicSource === "youtube" ? "bg-zinc-800 text-white shadow-[0_0_15px_rgba(255,0,0,0.1)] border border-white/10" : "text-zinc-500 hover:text-zinc-400"
-                        )}
-                    >
-                        <Youtube className="w-4 h-4 text-red-500 fill-red-500" /> YT Music
-                    </button>
-                    <button
-                        onClick={() => { setMusicSource("itunes"); setResults([]); setQuery(""); }}
-                        className={cn(
-                            "flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
-                            musicSource === "itunes" ? "bg-zinc-800 text-white shadow-[0_0_15px_rgba(0,122,255,0.1)] border border-white/10" : "text-zinc-500 hover:text-zinc-400"
-                        )}
-                    >
-                        <Globe className="w-4 h-4 text-blue-400" /> iTunes
-                    </button>
-                </div>
-            )}
 
             {/* Global Search Bar */}
             <div className="flex gap-2">
@@ -203,7 +164,7 @@ export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerPro
                             type="text"
                             value={query}
                             onChange={(e) => handleSearch(e.target.value)}
-                            placeholder={musicSource === 'youtube' ? "Search YouTube tracks..." : "Search official iTunes..."}
+                            placeholder="Search official music..."
                             className="w-full bg-[#121214] border border-white/5 rounded-xl py-3.5 pl-12 pr-12 text-sm text-white placeholder:text-zinc-700 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:bg-black uppercase font-bold tracking-tight transition-all"
                         />
                         {searching && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-primary" />}
@@ -229,7 +190,7 @@ export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerPro
                                 <h4 className="text-xs font-black text-white truncate max-w-[200px] uppercase tracking-tighter">{selectedTrack.name}</h4>
                                 <div className="flex items-center gap-2 mt-0.5">
                                     <div className="flex items-center gap-1 bg-zinc-800/80 px-1.5 py-0.5 rounded text-[8px] font-black text-zinc-500 uppercase">
-                                        {selectedTrack.source === 'youtube' ? <Youtube className="w-2 h-2 text-red-500" /> : <Globe className="w-2 h-2 text-blue-400" />}
+                                        <Globe className="w-2 h-2 text-blue-400" />
                                         {selectedTrack.source}
                                     </div>
                                     <span className="text-[9px] font-mono text-zinc-600">{Math.floor(selectedTrack.duration / 60)}:{(selectedTrack.duration % 60).toString().padStart(2, '0')}</span>
@@ -285,7 +246,7 @@ export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerPro
                                         <p className="text-[10px] font-mono text-zinc-500 uppercase truncate max-w-[150px]">{track.artist}</p>
                                         <span className="w-1 h-1 rounded-full bg-zinc-800" />
                                         <span className="text-[9px] font-black text-zinc-700 uppercase">
-                                            {track.source === 'youtube' ? 'YT Music' : 'iTunes (Preview)'}
+                                            {track.source === 'upload' ? 'Local Upload' : 'iTunes (Preview)'}
                                         </span>
                                     </div>
                                 </div>
