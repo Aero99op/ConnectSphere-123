@@ -356,6 +356,3 @@ export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerPro
         </div>
     );
 }
-
-    );
-}
