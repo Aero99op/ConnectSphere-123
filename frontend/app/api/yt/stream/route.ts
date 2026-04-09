@@ -13,49 +13,34 @@ const INVIDIOUS_INSTANCES = [
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
-    const preferredInstance = searchParams.get("instance");
 
     if (!id) {
         return new NextResponse("Missing video id", { status: 400 });
     }
 
-    // Create a list of instances to try, starting with the preferred one
-    const instancesToTry = preferredInstance 
-        ? [preferredInstance, ...INVIDIOUS_INSTANCES.filter(i => i !== preferredInstance)]
-        : INVIDIOUS_INSTANCES;
-
-    for (const instance of instancesToTry) {
-        try {
-            const targetUrl = `${instance}/latest_version?id=${id}&itag=140`;
-            
-            const res = await fetch(targetUrl, {
-                headers: {
-                    'Range': req.headers.get('Range') || 'bytes=0-'
-                },
-                signal: AbortSignal.timeout(8000) // Give Invidious more time
-            });
-
-            if (!res.ok) {
-                console.warn(`Stream failed for ${instance}, status: ${res.status}`);
-                continue;
+    try {
+        const pipedRes = await fetch(`https://pipedapi.kavin.rocks/streams/${id}`, {
+            signal: AbortSignal.timeout(5000),
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
+        });
 
-            // Ensure proper CORS and Range headers for native HTML5 audio
-            const responseHeaders = new Headers(res.headers);
-            responseHeaders.set('Access-Control-Allow-Origin', '*');
-            responseHeaders.set('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
-            responseHeaders.set('Cache-Control', 'public, max-age=86400'); 
+        if (pipedRes.ok) {
+            const data = await pipedRes.json();
+            // Find format 140 (m4a) which is standard across all platforms and extremely fast
+            const m4aStream = data.audioStreams?.find((s: any) => s.mimeType?.includes('audio/mp4') || s.format === 'M4A') 
+                           || data.audioStreams?.[0]; // Fallback to first available
 
-            return new NextResponse(res.body, {
-                status: res.status,
-                headers: responseHeaders
-            });
-        } catch (e) {
-            console.warn(`Stream unreachable for ${instance}:`, e);
-            continue;
+            if (m4aStream && m4aStream.url) {
+                // Direct redirect to Google's CDN! Instant load, handles Range natively.
+                return NextResponse.redirect(m4aStream.url);
+            }
         }
+    } catch (e) {
+        console.warn(`Piped API failed:`, e);
     }
 
-    // Fallback to youtube directly if all proxies crash
-    return NextResponse.redirect(`https://music.youtube.com/watch?v=${id}`);
+    // Fallback: If Piped fails, try the first Invidious instance as a raw proxy redirect
+    return NextResponse.redirect(`https://inv.thepixora.com/latest_version?id=${id}&itag=140`);
 }

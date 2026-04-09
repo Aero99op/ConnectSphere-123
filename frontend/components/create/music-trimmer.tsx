@@ -90,9 +90,16 @@ export function MusicTrimmer({
 
     // ─── Phase 2: Playback Engine ──────────────────────────────
     const stopPlayback = useCallback(() => {
-        if (audioRef.current) audioRef.current.pause();
-        if (raftRef.current) cancelAnimationFrame(raftRef.current);
+        if (!audioRef.current) return;
         setIsPlaying(false);
+        if (raftRef.current) cancelAnimationFrame(raftRef.current);
+        
+        // Wait for any pending play promise to resolve before pausing to avoid AbortError
+        setTimeout(() => {
+            if (audioRef.current && !audioRef.current.paused) {
+                audioRef.current.pause();
+            }
+        }, 50);
     }, []);
 
     const startPlayback = useCallback(() => {
@@ -107,7 +114,14 @@ export function MusicTrimmer({
         }
 
         audio.currentTime = sTime;
-        audio.play().catch(e => console.warn("Playback failed", e));
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(e => {
+                console.warn("Playback failed", e);
+                // Instagram logic: don't crash, just gracefully reset state
+                setIsPlaying(false);
+            });
+        }
         setIsPlaying(true);
         
         const syncLoop = () => {
