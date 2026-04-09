@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { X, Heart, MessageCircle, Send, MoreHorizontal, ChevronLeft, ChevronRight, Eye, Loader2 } from "lucide-react";
+import { X, Heart, MessageCircle, Send, MoreHorizontal, ChevronLeft, ChevronRight, Eye, Loader2, VolumeX } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
