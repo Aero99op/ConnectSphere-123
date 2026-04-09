@@ -94,7 +94,7 @@ async function searchInnerTube(query: string) {
                 name: title || "Unknown Track",
                 artist: artist,
                 artwork: artwork,
-                url: `/api/yt/stream?id=${videoId}&instance=${encodeURIComponent(INVIDIOUS_INSTANCES[0])}`,
+                url: `/api/yt/stream?id=${videoId}`,
                 duration: durationSeconds,
                 source: "youtube",
             });

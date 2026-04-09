@@ -34,7 +34,7 @@ export async function GET(req: Request) {
                 artist: t.artistName,
                 artwork: t.artworkUrl100?.replace("100x100", "400x400"),
                 url: t.previewUrl,
-                duration: Math.round((t.trackTimeMillis || 30000) / 1000),
+                duration: 30, // iTunes provides 30s previews only
                 source: "itunes",
             }));
 
