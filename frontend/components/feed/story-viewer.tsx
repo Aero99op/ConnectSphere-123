@@ -85,24 +85,22 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
         async function loadMedia() {
             if (mediaUrls.length === 0) return;
 
-            // Optimization: Single file media shouldn't wait for downloadAndMergeChunks's loading state
+            // Optimization: Set src directly if single file to avoid blob delay
             if (mediaUrls.length === 1) {
                 setMediaBlobUrl(mediaUrls[0]);
                 return;
             }
 
+            // For chunked media, download in background
             setIsLoadingMedia(true);
-            setPaused(true);
             try {
                 const contentType = mediaType === 'video' ? 'video/mp4' : 'image/jpeg';
                 const blobUrl = await downloadAndMergeChunks(mediaUrls, contentType);
                 setMediaBlobUrl(blobUrl);
             } catch (e) {
                 console.error("Story Media Load Failed", e);
-                toast.error("Media load nahi hua!");
             } finally {
                 setIsLoadingMedia(false);
-                setPaused(false);
             }
         }
 
@@ -146,14 +144,13 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
 
     // Background Music for Stories (Strict Lifecycle for Bawaal Performance)
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    // Background Music Sync Logic (JHAKAAS Level)
     useEffect(() => {
         const music = currentStory.customization?.music;
         
-        // Disposal of previous story music if URL changed or story changed
         if (audioRef.current && audioRef.current.src !== music?.url) {
             audioRef.current.pause();
             audioRef.current.src = "";
-            audioRef.current.load();
             audioRef.current = null;
         }
 
@@ -167,28 +164,41 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
         const startTime = music?.startTime || 0;
         const endTime = music?.endTime || 999;
 
-        const handleTimeUpdate = () => {
-            if (audio.currentTime >= endTime) {
-                audio.currentTime = startTime;
+        const syncMusic = () => {
+            if (audio && !paused) {
+                const musicTrimDuration = endTime - startTime;
+                const video = document.querySelector('video') as HTMLVideoElement;
+                const offset = video ? (video.currentTime % musicTrimDuration) : 0;
+                const targetTime = startTime + offset;
+
+                if (Math.abs(audio.currentTime - targetTime) > 0.2) {
+                    audio.currentTime = targetTime;
+                }
+                audio.play().catch(() => {});
             }
         };
 
+        const handleBuffering = () => {
+            if (audio) audio.pause();
+        };
+
+        const video = document.querySelector('video') as HTMLVideoElement;
+        if (video) {
+            video.addEventListener('waiting', handleBuffering);
+            video.addEventListener('playing', syncMusic);
+        }
+
         if (!paused && mediaBlobUrl) {
-            // Force reset to startTime every time a story activates
-            audio.currentTime = startTime;
-            audio.play().catch((e: any) => console.log("Story audio blocked", e));
-            audio.addEventListener("timeupdate", handleTimeUpdate);
+            syncMusic();
         } else {
             audio.pause();
-            audio.removeEventListener("timeupdate", handleTimeUpdate);
         }
 
         return () => {
-            if (audio) {
-                audio.pause();
-                audio.removeEventListener("timeupdate", handleTimeUpdate);
-                // We keep the ref but pause it. If we are closing the viewer, 
-                // the component cleanup will handle the full disposal.
+            if (audio) audio.pause();
+            if (video) {
+                video.removeEventListener('waiting', handleBuffering);
+                video.removeEventListener('playing', syncMusic);
             }
         };
     }, [currentStory.id, paused, mediaBlobUrl]);

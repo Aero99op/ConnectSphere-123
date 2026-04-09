@@ -98,6 +98,8 @@ export async function uploadFileInChunks(
     return uploadedUrls;
 }
 
+const globalBlobCache: Record<string, string> = {};
+
 /**
  * 📥 "Tod Ke Jodo" Receiver
  * Downloads all chunks in parallel and merges them into a single blob.
@@ -108,6 +110,13 @@ export async function downloadAndMergeChunks(
     onProgress?: (progress: number) => void
 ): Promise<string> {
     if (!urls || urls.length === 0) throw new Error("No URLs to download");
+
+    // Cache Key based on joined URLs
+    const cacheKey = urls.join('|');
+    if (globalBlobCache[cacheKey]) {
+        if (onProgress) onProgress(100);
+        return globalBlobCache[cacheKey];
+    }
 
     // If only one URL, just fetch it directly (optimization)
     // NOTE: Returning early avoid CORS 'fetch' issues on mobile for single-file media
@@ -133,5 +142,9 @@ export async function downloadAndMergeChunks(
 
     // Merge all blobs into one
     const finalBlob = new Blob(chunkBlobs, { type: mimeType });
-    return URL.createObjectURL(finalBlob);
+    const resultUrl = URL.createObjectURL(finalBlob);
+    
+    // Save to cache for instant repeat views
+    globalBlobCache[cacheKey] = resultUrl;
+    return resultUrl;
 }

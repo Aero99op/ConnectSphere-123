@@ -18,9 +18,10 @@ import { notifyStoryShare } from "@/lib/utils/mentions";
 interface QuixCardProps {
     quix: any;
     isActive: boolean;
+    shouldPreload?: boolean;
 }
 
-export function QuixCard({ quix, isActive }: QuixCardProps) {
+export function QuixCard({ quix, isActive, shouldPreload }: QuixCardProps) {
     const { user, supabase } = useAuth();
     const { t } = useTranslation();
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -45,46 +46,56 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
         const video = videoRef.current;
         const music = quix.customization?.music;
 
-        // Initialize custom audio if needed
         if (music?.url && !audioRef.current) {
             audioRef.current = new Audio(music.url);
-            audioRef.current.loop = false; // We handle loop via timeupdate/video loop
+            audioRef.current.loop = false;
         }
         const audio = audioRef.current;
 
         const startTime = music?.startTime || 0;
         const endTime = music?.endTime || (audio?.duration ?? 999);
 
-        const handleSync = () => {
+        const syncAudioToVideo = () => {
             if (video && audio && !isMuted) {
                 const musicTrimDuration = endTime - startTime;
-                
-                // 🛡️ Master Sync: Sync audio to video's current time within trim window
                 const targetAudioTime = startTime + (video.currentTime % musicTrimDuration);
                 
-                if (Math.abs(audio.currentTime - targetAudioTime) > 0.2) {
+                if (Math.abs(audio.currentTime - targetAudioTime) > 0.15) {
                     audio.currentTime = targetAudioTime;
                 }
-                
-                if (audio.paused && isActive && !isMuted) {
-                    audio.play().catch(() => {});
-                }
             }
+        };
+
+        const handleWaiting = () => {
+            if (audio) audio.pause();
+        };
+
+        const handlePlaying = () => {
+            if (isActive && !isMuted && audio && !video?.paused) {
+                syncAudioToVideo();
+                audio.play().catch(() => {});
+            }
+        };
+
+        const handleSeeking = () => {
+            syncAudioToVideo();
         };
 
         if (isActive) {
             if (video) {
                 video.muted = isMuted;
                 video.volume = isMuted ? 0 : 1;
+                video.addEventListener("waiting", handleWaiting);
+                video.addEventListener("playing", handlePlaying);
+                video.addEventListener("seeking", handleSeeking);
                 video.play().catch(e => console.log("Video play blocked", e));
-                video.addEventListener("timeupdate", handleSync);
             }
 
             if (audio) {
                 audio.muted = isMuted;
                 audio.volume = isMuted ? 0 : 0.8;
-                if (!isMuted) {
-                    handleSync();
+                if (!isMuted && video && !video.paused) {
+                    syncAudioToVideo();
                     audio.play().catch(e => console.log("Audio play blocked", e));
                 } else {
                     audio.pause();
@@ -94,7 +105,9 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
             if (video) {
                 video.pause();
                 video.currentTime = 0;
-                video.removeEventListener("timeupdate", handleSync);
+                video.removeEventListener("waiting", handleWaiting);
+                video.removeEventListener("playing", handlePlaying);
+                video.removeEventListener("seeking", handleSeeking);
             }
             if (audio) {
                 audio.pause();
@@ -105,13 +118,17 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
         return () => {
             if (video) {
                 video.pause();
-                video.removeEventListener("timeupdate", handleSync);
+                video.removeEventListener("waiting", handleWaiting);
+                video.removeEventListener("playing", handlePlaying);
+                video.removeEventListener("seeking", handleSeeking);
             }
             if (audio) {
                 audio.pause();
+                audio.src = "";
+                audioRef.current = null;
             }
         };
-    }, [isActive, isMuted, quix.id]); // Explicitly depend on isActive and isMuted
+    }, [isActive, isMuted, quix.id, quix.customization?.music]);
 
     useEffect(() => {
         const checkInteractions = async () => {
@@ -248,6 +265,8 @@ export function QuixCard({ quix, isActive }: QuixCardProps) {
             <video
                 ref={videoRef}
                 src={quix.video_url}
+                poster={quix.thumbnail_url}
+                preload={isActive || shouldPreload ? "auto" : "metadata"}
                 className="h-full w-full object-cover transition-all duration-700"
                 style={{
                     filter: quix.customization?.filterStyle || 'none',

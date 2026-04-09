@@ -144,27 +144,26 @@ export function PostCard({ post }: PostProps) {
         }
     }, [post.id, authUser, supabase]);
 
-    const handlePlay = async () => {
-        if (videoBlobUrl) {
-            const video = document.getElementById(`video-${post.id}`) as HTMLVideoElement;
-            if (video) {
-                if (video.paused) {
-                    video.play();
-                    setIsPlaying(true);
-                } else {
-                    video.pause();
-                    setIsPlaying(false);
-                }
+    useEffect(() => {
+        if (!postRef.current || post.media_type !== 'video') return;
+
+        const observer = new IntersectionObserver((entries) => {
+            const entry = entries[0];
+            if (entry.isIntersecting && !videoBlobUrl && !loadingVideo) {
+                // Trigger auto-load when post enters viewport
+                loadVideoContent();
             }
-            return;
-        }
+        }, { threshold: 0.1 });
 
+        observer.observe(postRef.current);
+        return () => observer.disconnect();
+    }, [post.id, videoBlobUrl, loadingVideo]);
+
+    const loadVideoContent = async () => {
+        if (videoBlobUrl || loadingVideo) return;
+        
         setLoadingVideo(true);
-        setIsPlaying(true);
-
         try {
-            // "Tod Ke Jodo" download magic ✨
-            // Optimization: Single file media doesn't need merging locha
             if (post.media_urls.length === 1) {
                 setVideoBlobUrl(post.media_urls[0]);
                 return;
@@ -173,22 +172,30 @@ export function PostCard({ post }: PostProps) {
             const blobUrl = await downloadAndMergeChunks(
                 post.media_urls,
                 'video/mp4',
-                (progress: number) => {
-                    // Optional: Update progress
-                }
+                () => {}
             );
-
             setVideoBlobUrl(blobUrl);
-
         } catch (e) {
-            setIsPlaying(false);
-            toast.error(t('post.video_load_error'));
+            console.error("Video load error", e);
         } finally {
             setLoadingVideo(false);
         }
     };
 
-    // Background Music Logic for PostCard
+    const handlePlay = () => {
+        const video = document.getElementById(`video-${post.id}`) as HTMLVideoElement;
+        if (!video) return;
+
+        if (video.paused) {
+            video.play().catch(() => {});
+            setIsPlaying(true);
+        } else {
+            video.pause();
+            setIsPlaying(false);
+        }
+    };
+
+    // Background Music Sync Logic
     const audioRef = useRef<HTMLAudioElement | null>(null);
     useEffect(() => {
         const music = (post as any).customization?.music;
@@ -197,33 +204,52 @@ export function PostCard({ post }: PostProps) {
         }
 
         const audio = audioRef.current;
+        const video = document.getElementById(`video-${post.id}`) as HTMLVideoElement;
         if (!audio) return;
 
         const startTime = music?.startTime || 0;
         const endTime = music?.endTime || audio.duration || 999;
 
-        const handleTimeUpdate = () => {
-            if (audio.currentTime >= endTime) {
-                audio.currentTime = startTime;
+        const syncMusic = () => {
+            if (audio && !isMuted) {
+                const musicTrimDuration = endTime - startTime;
+                const offset = video ? (video.currentTime % musicTrimDuration) : 0;
+                const targetTime = startTime + offset;
+                
+                if (Math.abs(audio.currentTime - targetTime) > 0.2) {
+                    audio.currentTime = targetTime;
+                }
             }
         };
 
-        const isMediaActive = post.media_type === 'image' || isPlaying;
+        const handleMediaState = () => {
+            const isMediaActive = post.media_type === 'image' || (isPlaying && video && !video.paused);
+            
+            if (isMediaActive && !isMuted) {
+                syncMusic();
+                audio.play().catch((e: any) => console.log("Post audio blocked", e));
+            } else {
+                audio.pause();
+            }
+        };
 
-        if (isMediaActive && !isMuted) {
-            audio.currentTime = startTime;
-            audio.play().catch(e => console.log("Post audio blocked", e));
-            audio.addEventListener("timeupdate", handleTimeUpdate);
-        } else {
-            audio.pause();
-            audio.removeEventListener("timeupdate", handleTimeUpdate);
+        if (video) {
+            video.addEventListener('playing', handleMediaState);
+            video.addEventListener('waiting', () => audio.pause());
+            video.addEventListener('pause', handleMediaState);
         }
 
+        // Handle Image posts or initial state
+        handleMediaState();
+
         return () => {
+            if (video) {
+                video.removeEventListener('playing', handleMediaState);
+                video.removeEventListener('pause', handleMediaState);
+            }
             audio.pause();
-            audio.removeEventListener("timeupdate", handleTimeUpdate);
         };
-    }, [(post as any).customization?.music, isPlaying, isMuted]);
+    }, [isPlaying, isMuted, post.media_type, videoBlobUrl]);
 
     const handleLike = async () => {
         if (!currentUserId) {
@@ -545,49 +571,36 @@ export function PostCard({ post }: PostProps) {
                             />
                         ) : (
                             <div onClick={handlePlay} className="w-full h-full relative cursor-pointer group/video">
-                                {!videoBlobUrl ? (
-                                    <>
-                                        <img
-                                            src={post.thumbnail_url || post.media_urls[0]}
-                                            style={{
-                                                filter: (post as any).customization?.filterStyle || 'none',
-                                                clipPath: (post as any).customization?.crop ?
-                                                    `inset(${(post as any).customization.crop.y}% ${100 - ((post as any).customization.crop.x + (post as any).customization.crop.w)}% ${100 - ((post as any).customization.crop.y + (post as any).customization.crop.h)}% ${(post as any).customization.crop.x}%)` : 'none'
-                                            }}
-                                            className="w-full h-full object-cover transition-opacity duration-500"
-                                            alt="Video Thumbnail"
-                                        />
-                                        {!loadingVideo && (
-                                            <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover/video:bg-black/40 transition-colors">
-                                                <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-2xl">
-                                                    <Play className="w-8 h-8 fill-white text-white" />
-                                                </div>
-                                            </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <video
-                                        id={`video-${post.id}`}
-                                        src={videoBlobUrl || undefined}
-                                        style={{
-                                            filter: (post as any).customization?.filterStyle || 'none',
-                                            clipPath: (post as any).customization?.crop ?
-                                                `inset(${(post as any).customization.crop.y}% ${100 - ((post as any).customization.crop.x + (post as any).customization.crop.w)}% ${100 - ((post as any).customization.crop.y + (post as any).customization.crop.h)}% ${(post as any).customization.crop.x}%)` : 'none'
-                                        }}
-                                        autoPlay
-                                        loop
-                                        muted={isMuted}
-                                        className="w-full h-full object-cover animate-in fade-in duration-500"
-                                        playsInline
-                                    />
+                                <video
+                                    id={`video-${post.id}`}
+                                    src={videoBlobUrl || undefined}
+                                    poster={post.thumbnail_url || post.media_urls[0]}
+                                    style={{
+                                        filter: (post as any).customization?.filterStyle || 'none',
+                                        clipPath: (post as any).customization?.crop ?
+                                            `inset(${(post as any).customization.crop.y}% ${100 - ((post as any).customization.crop.x + (post as any).customization.crop.w)}% ${100 - ((post as any).customization.crop.y + (post as any).customization.crop.h)}% ${(post as any).customization.crop.x}%)` : 'none',
+                                        opacity: videoBlobUrl ? 1 : 0.8
+                                    }}
+                                    preload="metadata"
+                                    loop
+                                    muted={isMuted}
+                                    className="w-full h-full object-cover transition-opacity duration-500"
+                                    playsInline
+                                    onPlay={() => setIsPlaying(true)}
+                                    onPause={() => setIsPlaying(false)}
+                                />
+
+                                {!videoBlobUrl && !loadingVideo && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover/video:bg-black/40 transition-colors pointer-events-none">
+                                        <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-2xl">
+                                            <Play className="w-8 h-8 fill-white text-white" />
+                                        </div>
+                                    </div>
                                 )}
 
                                 {loadingVideo && (
-                                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10 backdrop-blur-sm">
-                                        <div className="flex flex-col items-center gap-3">
-                                            <Loader2 className="w-10 h-10 text-primary animate-spin" />
-                                            <p className="text-[10px] font-black text-white uppercase tracking-[0.2em] animate-pulse">Loading Video...</p>
-                                        </div>
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[2px] z-10">
+                                        <Loader2 className="w-8 h-8 text-primary animate-spin" />
                                     </div>
                                 )}
                             </div>

@@ -62,6 +62,7 @@ export function QuixViewer({ quixList, loading, initialId }: QuixViewerProps) {
                     <QuixCard
                         quix={quix}
                         isActive={index === activeIndex}
+                        shouldPreload={Math.abs(index - activeIndex) <= 1}
                     />
                 </div>
             ))}
