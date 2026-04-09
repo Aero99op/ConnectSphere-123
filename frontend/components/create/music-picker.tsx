@@ -47,7 +47,7 @@ interface MusicPickerProps {
 
 export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerProps) {
     const [activeTab, setActiveTab] = useState<"discover" | "uploads">("discover");
-    const [musicSource, setMusicSource] = useState<"itunes" | "youtube">("youtube");
+    const [musicSource, setMusicSource] = useState<"itunes" | "youtube">("itunes");
     const [query, setQuery] = useState("");
     const [results, setResults] = useState<Track[]>([]);
     const [searching, setSearching] = useState(false);
@@ -55,7 +55,6 @@ export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerPro
     const audioRef = useState(() => typeof Audio !== "undefined" ? new Audio() : null)[0];
     const [uploading, setUploading] = useState(false);
     const [userTracks, setUserTracks] = useState<Track[]>([]);
-    const [enhancing, setEnhancing] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -120,39 +119,8 @@ export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerPro
         }
     };
 
-    const enhanceTrack = async (track: Track) => {
-        if (track.source !== "itunes" || enhancing === track.id) return;
-        
-        setEnhancing(track.id);
-        try {
-            const query = `${track.artist} - ${track.name}`;
-            const res = await fetch(`/api/yt/match?q=${encodeURIComponent(query)}`);
-            if (!res.ok) throw new Error("Match failed");
-            
-            const match = await res.json();
-            const enhancedTrack = {
-                ...track,
-                url: `/api/yt/stream?id=${match.id}`,
-                duration: match.duration,
-                enhanced: true
-            };
-            
-            // Only update if the user hasn't selected another track in the meantime
-            onSelect(enhancedTrack);
-            toast.success("Full audio unlocked! 🔓", { duration: 2000 });
-        } catch (e) {
-            console.error("Enhancement failed:", e);
-            // Fallback to original preview, but maybe show a subtle warning if needed
-        } finally {
-            setEnhancing(null);
-        }
-    };
-
     const handleSelect = (track: Track) => {
         onSelect(track);
-        if (track.source === "itunes") {
-            enhanceTrack(track);
-        }
     };
 
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -276,12 +244,6 @@ export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerPro
                         onTrimChange={(start, end) => onSelect({ ...selectedTrack, startTime: start, endTime: end })}
                         onConfirm={() => onClose?.()}
                     />
-                    {enhancing === selectedTrack.id && (
-                        <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-[60] flex flex-col items-center justify-center gap-3 rounded-[2.5rem] animate-in fade-in duration-300">
-                            <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                            <span className="text-[10px] font-black text-white uppercase tracking-[0.3em] animate-pulse">Unlocking Full Track</span>
-                        </div>
-                    )}
                 </div>
             )}
 
