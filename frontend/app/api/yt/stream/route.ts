@@ -32,7 +32,7 @@ export async function GET(req: Request) {
                 headers: {
                     'Range': req.headers.get('Range') || 'bytes=0-'
                 },
-                signal: AbortSignal.timeout(5000) // Don't hang forever
+                signal: AbortSignal.timeout(8000) // Give Invidious more time
             });
 
             if (!res.ok) {
@@ -40,16 +40,11 @@ export async function GET(req: Request) {
                 continue;
             }
 
-            // Successful connected to a stream: Boost headers for Parallel Turbo Engine
+            // Ensure proper CORS and Range headers for native HTML5 audio
             const responseHeaders = new Headers(res.headers);
             responseHeaders.set('Access-Control-Allow-Origin', '*');
-            responseHeaders.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-            responseHeaders.set('Access-Control-Allow-Headers', 'Range');
             responseHeaders.set('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
-            responseHeaders.set('Accept-Ranges', 'bytes');
-            
-            // GLOBAL EDGE CACHING: If any user plays it, everyone gets it instantly from Cloudflare Edge
-            responseHeaders.set('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, stale-while-revalidate=86400, immutable'); 
+            responseHeaders.set('Cache-Control', 'public, max-age=86400'); 
 
             return new NextResponse(res.body, {
                 status: res.status,
@@ -61,5 +56,6 @@ export async function GET(req: Request) {
         }
     }
 
-    return new NextResponse("Saare audio servers ki gaand phat gayi hai!", { status: 502 });
+    // Fallback to youtube directly if all proxies crash
+    return NextResponse.redirect(`https://music.youtube.com/watch?v=${id}`);
 }
