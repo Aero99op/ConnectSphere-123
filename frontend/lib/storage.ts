@@ -56,6 +56,24 @@ async function uploadDirect(file: File | Blob): Promise<string> {
     });
 
     if (!response.ok) {
+        console.warn(`Direct Catbox Upload Failed (${response.status}). Attempting Uguu.se client-side fallback...`);
+        // JUGGAAD: If Catbox goes down for large files, use Uguu.se (up to 128MB) since proxy has 25MB Cloudflare limit
+        try {
+            const fallbackFormData = new FormData();
+            fallbackFormData.append("files[]", file, (file as any).name || "huge_upload.bin");
+            const fbResponse = await fetch("https://uguu.se/upload.php", {
+                method: "POST",
+                body: fallbackFormData
+            });
+            if (fbResponse.ok) {
+                const fbData = await fbResponse.json();
+                if (fbData.success && fbData.files && fbData.files[0]) {
+                    return fbData.files[0].url; // Uguu.se temporary direct link
+                }
+            }
+        } catch (e) {
+            console.error("Uguu.se fallback also failed:", e);
+        }
         throw new Error(`Direct Catbox Upload Failed: ${response.statusText}`);
     }
 

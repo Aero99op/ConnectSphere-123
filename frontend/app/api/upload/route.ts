@@ -57,32 +57,73 @@ export async function POST(req: NextRequest) {
         const filename = (file as any).name || 'upload.bin';
         catboxFormData.append('fileToUpload', file, filename);
 
-        const response = await fetch('https://catbox.moe/user/api.php', {
-            method: 'POST',
-            body: catboxFormData,
-            headers: {
-                // Use proxy to avoid CORS and potentially handle SSL issues at edge
-                // These headers are typically set by the browser, but for a server-side proxy,
-                // we might want to mimic a browser or use specific headers.
-                // The instruction implies updating headers, but the provided snippet only repeats existing ones.
-                // Assuming the intent is to keep the existing headers for the proxy request.
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-                'Accept': '*/*',
-                'Cache-Control': 'no-cache',
-            }
-        });
+        let resultUrl = '';
 
-        if (!response.ok) {
-            const errorBody = await response.text();
-            console.error(`Catbox Error (${response.status}):`, errorBody);
-            throw new Error(`Catbox API Error: ${response.status} ${response.statusText} - ${errorBody}`);
+        try {
+            const response = await fetch('https://catbox.moe/user/api.php', {
+                method: 'POST',
+                body: catboxFormData,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept': '*/*',
+                }
+            });
+
+            if (!response.ok) {
+                const errorBody = await response.text();
+                console.warn(`Catbox Error (${response.status}):`, errorBody);
+                throw new Error(`Catbox API Error: ${response.status} - ${errorBody}`);
+            }
+
+            resultUrl = (await response.text()).trim();
+            
+            // Catbox sometimes returns an HTML page instead of URL if there's a firewall
+            if (resultUrl.includes('<html') || !resultUrl.startsWith('http')) {
+                 throw new Error("Catbox returned invalid URL (possibly WAF/HTML)");
+            }
+
+        } catch (catboxError: any) {
+            console.warn('⚠️ Catbox upload failed, falling back to Supabase Media Bucket:', catboxError.message);
+            
+            // --- SUPABASE FALLBACK ---
+            // If primary upload fails (e.g. 412 Uploads Paused), juggad straight to Supabase!
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+            const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+            
+            if (!supabaseUrl || !supabaseKey) {
+                throw new Error(`Proxy Upload Failed: Both Catbox and Supabase Fallback failed. Catbox err: ${catboxError.message}`);
+            }
+            
+            // Import dynamically for Edge compat instead of require
+            const { createClient } = await import('@supabase/supabase-js');
+            const supabase = createClient(supabaseUrl, supabaseKey, {
+                auth: { persistSession: false, autoRefreshToken: false }
+            });
+            
+            // Generate extremely unique, safe name
+            const safeName = filename.replace(/[^a-zA-Z0-9.\-_]/g, '');
+            const uniquePath = `fallback_${Date.now()}_${Math.random().toString(36).substring(2, 9)}_${safeName}`;
+            
+            const { data, error: upError } = await supabase.storage
+                .from('media') // The 'media' public bucket you already have
+                .upload(uniquePath, file, {
+                    contentType: file.type || 'application/octet-stream',
+                    upsert: true
+                });
+                
+            if (upError || !data) {
+                console.error("Supabase fallback error:", upError);
+                return NextResponse.json({ error: `Upload Failed: Catbox down and Supabase fallback failed (${upError?.message})` }, { status: 500 });
+            }
+            
+            const { data: publicUrlData } = supabase.storage.from('media').getPublicUrl(uniquePath);
+            resultUrl = publicUrlData.publicUrl;
         }
 
-        const resultUrl = await response.text();
-        return NextResponse.json({ url: resultUrl.trim() });
+        return NextResponse.json({ url: resultUrl });
 
     } catch (error: any) {
-        console.error('Upload Proxy Error:', error);
+        console.error('Upload Proxy Critical Error:', error);
         return NextResponse.json({ error: `Proxy Upload Failed: ${error.message}` }, { status: 500 });
     }
 }
