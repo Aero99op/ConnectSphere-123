@@ -19,14 +19,15 @@ interface QuixCardProps {
     quix: any;
     isActive: boolean;
     shouldPreload?: boolean;
+    isMuted: boolean;
+    setIsMuted: (muted: boolean) => void;
 }
 
-export function QuixCard({ quix, isActive, shouldPreload }: QuixCardProps) {
+export function QuixCard({ quix, isActive, shouldPreload, isMuted, setIsMuted }: QuixCardProps) {
     const { user, supabase } = useAuth();
     const { t } = useTranslation();
     const videoRef = useRef<HTMLVideoElement>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
-    const [isMuted, setIsMuted] = useState(false);
     const [isLiked, setIsLiked] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
     const [isReposted, setIsReposted] = useState(false);
@@ -41,14 +42,20 @@ export function QuixCard({ quix, isActive, shouldPreload }: QuixCardProps) {
     const [isDragging, setIsDragging] = useState(false);
     const [isFollowing, setIsFollowing] = useState(false);
     const [followLoading, setFollowLoading] = useState(false);
+    const [isBuffering, setIsBuffering] = useState(false);
+    const [isAudioBlocked, setIsAudioBlocked] = useState(false);
 
     useEffect(() => {
         const video = videoRef.current;
         const music = quix.customization?.music;
 
         if (music?.url && !audioRef.current) {
-            audioRef.current = new Audio(music.url);
-            audioRef.current.loop = false;
+            const newAudio = new Audio();
+            newAudio.crossOrigin = "anonymous";
+            newAudio.src = music.url;
+            newAudio.preload = "auto";
+            newAudio.loop = false;
+            audioRef.current = newAudio;
         }
         const audio = audioRef.current;
 
@@ -67,13 +74,15 @@ export function QuixCard({ quix, isActive, shouldPreload }: QuixCardProps) {
         };
 
         const handleWaiting = () => {
+            setIsBuffering(true);
             if (audio) audio.pause();
         };
 
         const handlePlaying = () => {
+            setIsBuffering(false);
             if (isActive && !isMuted && audio && !video?.paused) {
                 syncAudioToVideo();
-                audio.play().catch(() => {});
+                audio.play().catch((e: any) => console.log("Audio play failed on mobile", e));
             }
         };
 
@@ -96,12 +105,18 @@ export function QuixCard({ quix, isActive, shouldPreload }: QuixCardProps) {
                 audio.volume = isMuted ? 0 : 0.8;
                 if (!isMuted && video && !video.paused) {
                     syncAudioToVideo();
-                    audio.play().catch(e => console.log("Audio play blocked", e));
+                    audio.play()
+                        .then(() => setIsAudioBlocked(false))
+                        .catch(e => {
+                            console.log("Audio play blocked", e);
+                            setIsAudioBlocked(true);
+                        });
                 } else {
                     audio.pause();
                 }
             }
         } else {
+            setIsBuffering(false);
             if (video) {
                 video.pause();
                 video.currentTime = 0;
@@ -279,7 +294,15 @@ export function QuixCard({ quix, isActive, shouldPreload }: QuixCardProps) {
                 onDoubleClick={handleLike}
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
+                onCanPlay={() => setIsBuffering(false)}
             />
+
+            {/* Buffering Indicator */}
+            {isBuffering && isActive && (
+                <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+                    <Loader2 className="w-12 h-12 text-primary animate-spin opacity-70" />
+                </div>
+            )}
 
             {/* Click Hitboxes */}
             <div className="absolute inset-0 flex z-10">
@@ -289,7 +312,9 @@ export function QuixCard({ quix, isActive, shouldPreload }: QuixCardProps) {
                     onClick={() => {
                         if (videoRef.current?.paused) {
                             videoRef.current.play();
-                            audioRef.current?.play().catch(() => { });
+                            if (audioRef.current && !isMuted) {
+                                audioRef.current.play().catch((e) => console.log("Audio unlock failed", e));
+                            }
                         } else {
                             videoRef.current?.pause();
                             audioRef.current?.pause();
@@ -300,17 +325,32 @@ export function QuixCard({ quix, isActive, shouldPreload }: QuixCardProps) {
                 {/* Right - Mute Toggle */}
                 <div
                     className="flex-1 h-full cursor-pointer"
-                    onClick={() => setIsMuted(!isMuted)}
+                    onClick={() => {
+                        const newMuted = !isMuted;
+                        setIsMuted(newMuted);
+                        if (!newMuted && audioRef.current) {
+                            audioRef.current.play().catch((e) => console.log("Manual audio unlock failed", e));
+                        }
+                    }}
                 />
             </div>
 
             {/* Overlay Gradient */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60 pointer-events-none" />
 
-            {/* Mute Indicator */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-active:opacity-100 transition-opacity">
+            {/* Mute Indicator / Unlock Overlay for Mobile */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-active:opacity-100 transition-opacity z-20">
                 {isMuted ? <VolumeX className="w-16 h-16 text-white/50" /> : <Volume2 className="w-16 h-16 text-white/50" />}
             </div>
+
+            {isAudioBlocked && isActive && (
+                <div className="absolute top-4 left-4 z-40 animate-pulse">
+                    <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
+                        <VolumeX className="w-4 h-4 text-white" />
+                        <span className="text-white text-[10px] font-bold uppercase tracking-wider">Tap to enable sound</span>
+                    </div>
+                </div>
+            )}
 
             {/* Big Heart Animation */}
             {showHeartAnimation && (

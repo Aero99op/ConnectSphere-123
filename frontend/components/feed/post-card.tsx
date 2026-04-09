@@ -43,12 +43,14 @@ export function PostCard({ post }: PostProps) {
     const [loadingVideo, setLoadingVideo] = useState(false);
     const [likes, setLikes] = useState(post.likes_count);
     const [liked, setLiked] = useState(false);
-    const [isMuted, setIsMuted] = useState(true);
+    const [isMuted, setIsMuted] = useState(false);
     const [showComments, setShowComments] = useState(false);
     const [showShareSheet, setShowShareSheet] = useState(false);
     const [showRepostsSheet, setShowRepostsSheet] = useState(false);
     const [isBookmarked, setIsBookmarked] = useState(false);
     const [isDeleted, setIsDeleted] = useState(false);
+    const [isLoadingMedia, setIsLoadingMedia] = useState(false);
+    const [isBuffering, setIsBuffering] = useState(false);
     const [musicPlaying, setMusicPlaying] = useState(false);
     const musicAudioRef = useRef<HTMLAudioElement | null>(null);
     const postRef = useRef<HTMLDivElement>(null);
@@ -188,9 +190,13 @@ export function PostCard({ post }: PostProps) {
 
         if (video.paused) {
             video.play().catch(() => {});
+            if (audioRef.current && !isMuted) {
+                audioRef.current.play().catch((e) => console.log("Post audio unlock failed", e));
+            }
             setIsPlaying(true);
         } else {
             video.pause();
+            if (audioRef.current) audioRef.current.pause();
             setIsPlaying(false);
         }
     };
@@ -200,7 +206,11 @@ export function PostCard({ post }: PostProps) {
     useEffect(() => {
         const music = (post as any).customization?.music;
         if (music?.url && !audioRef.current) {
-            audioRef.current = new Audio(music.url);
+            const newAudio = new Audio();
+            newAudio.crossOrigin = "anonymous";
+            newAudio.src = music.url;
+            newAudio.preload = "auto";
+            audioRef.current = newAudio;
         }
 
         const audio = audioRef.current;
@@ -234,9 +244,16 @@ export function PostCard({ post }: PostProps) {
         };
 
         if (video) {
-            video.addEventListener('playing', handleMediaState);
-            video.addEventListener('waiting', () => audio.pause());
+            video.addEventListener('playing', () => {
+                setIsBuffering(false);
+                handleMediaState();
+            });
+            video.addEventListener('waiting', () => {
+                setIsBuffering(true);
+                audio.pause();
+            });
             video.addEventListener('pause', handleMediaState);
+            video.addEventListener('canplay', () => setIsBuffering(false));
         }
 
         // Handle Image posts or initial state
@@ -586,9 +603,17 @@ export function PostCard({ post }: PostProps) {
                                     muted={isMuted}
                                     className="w-full h-full object-cover transition-opacity duration-500"
                                     playsInline
-                                    onPlay={() => setIsPlaying(true)}
                                     onPause={() => setIsPlaying(false)}
+                                    onCanPlay={() => setIsBuffering(false)}
+                                    onWaiting={() => setIsBuffering(true)}
+                                    onPlaying={() => setIsBuffering(false)}
                                 />
+
+                                {isBuffering && (
+                                    <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/10 backdrop-blur-[1px]">
+                                        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                                    </div>
+                                )}
 
                                 {!videoBlobUrl && !loadingVideo && (
                                     <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover/video:bg-black/40 transition-colors pointer-events-none">

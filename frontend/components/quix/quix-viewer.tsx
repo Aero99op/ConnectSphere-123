@@ -12,6 +12,7 @@ interface QuixViewerProps {
 
 export function QuixViewer({ quixList, loading, initialId }: QuixViewerProps) {
     const [activeIndex, setActiveIndex] = useState(0);
+    const [isMuted, setIsMuted] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -63,6 +64,8 @@ export function QuixViewer({ quixList, loading, initialId }: QuixViewerProps) {
                         quix={quix}
                         isActive={index === activeIndex}
                         shouldPreload={Math.abs(index - activeIndex) <= 1}
+                        isMuted={isMuted}
+                        setIsMuted={setIsMuted}
                     />
                 </div>
             ))}

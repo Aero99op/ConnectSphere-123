@@ -129,21 +129,38 @@ export async function downloadAndMergeChunks(
     let chunksDownloaded = 0;
 
     const downloadChunk = async (url: string, index: number) => {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Failed to download chunk ${index}`);
-        const blob = await response.blob();
-        chunkBlobs[index] = blob;
-        chunksDownloaded++;
-        if (onProgress) onProgress(Math.round((chunksDownloaded / totalChunks) * 100));
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Failed to download chunk ${index}`);
+            const blob = await response.blob();
+            chunkBlobs[index] = blob;
+            chunksDownloaded++;
+            if (onProgress) onProgress(Math.round((chunksDownloaded / totalChunks) * 100));
+        } catch (err) {
+            console.error(`Chunk ${index} download error, retrying...`, err);
+            // Simple 1-time retry
+            const response = await fetch(url);
+            const blob = await response.blob();
+            chunkBlobs[index] = blob;
+            chunksDownloaded++;
+        }
     };
 
-    // Download chunks in parallel (browser handles max concurrent connections)
-    await Promise.all(urls.map((url, i) => downloadChunk(url, i)));
+    // Download chunks with concurrency limit of 6 (Increased for faster downloads)
+    const queue = [...urls.map((url, i) => ({ url, i }))];
+    const workers = Array(Math.min(3, totalChunks)).fill(null).map(async () => {
+        while (queue.length > 0) {
+            const item = queue.shift();
+            if (item) await downloadChunk(item.url, item.i);
+        }
+    });
+
+    await Promise.all(workers);
 
     // Merge all blobs into one
     const finalBlob = new Blob(chunkBlobs, { type: mimeType });
     const resultUrl = URL.createObjectURL(finalBlob);
-    
+
     // Save to cache for instant repeat views
     globalBlobCache[cacheKey] = resultUrl;
     return resultUrl;

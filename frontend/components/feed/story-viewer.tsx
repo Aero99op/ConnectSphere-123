@@ -35,6 +35,7 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
     const userId = authUser?.id || null;
     const [mediaBlobUrl, setMediaBlobUrl] = useState<string | null>(null);
     const [isLoadingMedia, setIsLoadingMedia] = useState(false);
+    const [isAudioBlocked, setIsAudioBlocked] = useState(false);
 
     // Use currentStory data with deep safety ✨
     const user = {
@@ -155,7 +156,11 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
         }
 
         if (music?.url && !audioRef.current) {
-            audioRef.current = new Audio(music.url);
+            const newAudio = new Audio();
+            newAudio.crossOrigin = "anonymous";
+            newAudio.src = music.url;
+            newAudio.preload = "auto";
+            audioRef.current = newAudio;
         }
 
         const audio = audioRef.current;
@@ -190,6 +195,12 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
 
         if (!paused && mediaBlobUrl) {
             syncMusic();
+            audio.play()
+                .then(() => setIsAudioBlocked(false))
+                .catch((e: any) => {
+                    console.log("Story audio blocked", e);
+                    setIsAudioBlocked(true);
+                });
         } else {
             audio.pause();
         }
@@ -453,6 +464,15 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
                         </button>
                     </div>
                 </div>
+
+                {isAudioBlocked && !paused && (
+                    <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 animate-pulse">
+                        <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 shadow-lg">
+                            <VolumeX className="w-5 h-5 text-white" />
+                            <span className="text-white text-xs font-bold uppercase tracking-widest">Tap to enable audio</span>
+                        </div>
+                    </div>
+                )}
 
                 {/* 3. Media Content */}
                 <div
