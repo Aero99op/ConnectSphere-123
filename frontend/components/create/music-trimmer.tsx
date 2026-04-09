@@ -54,35 +54,10 @@ export function MusicTrimmer({
         setPeaks(seed);
 
         const decode = async () => {
-            if (!audioUrl) return;
-            try {
-                // Fetch first 2MB to extract waveform fast without blowing data
-                const res = await fetch(audioUrl, { headers: { 'Range': 'bytes=0-2000000' } });
-                if (!res.ok) throw new Error("Fetch failed");
-                const blob = await res.arrayBuffer();
-                const offline = new (window.OfflineAudioContext || (window as any).webkitOfflineAudioContext)(1, 44100, 44100);
-                const buffer = await offline.decodeAudioData(blob);
-                
-                if (active) {
-                    const data = buffer.getChannelData(0);
-                    const bars = 150; // Fixed number of bars for the whole track
-                    const step = Math.floor(data.length / bars);
-                    const p: number[] = [];
-                    for (let i = 0; i < bars; i++) {
-                        let m = 0;
-                        for (let j = 0; j < step; j += 40) {
-                            const v = Math.abs(data[i * step + j] || 0);
-                            if (v > m) m = v;
-                        }
-                        p.push(Math.pow(m * 2.5, 0.7)); // Enhance peaks
-                    }
-                    setPeaks(p);
-                }
-            } catch (e) {
-                console.warn("Using fallback visuals.");
-            } finally {
-                if (active) setIsDecoding(false);
-            }
+            if (!active) return;
+            // Removed audio buffer fetching due to strict CORS rules on CDNs.
+            // Generates completely hardware-accelerated cosmetic peaks instantly.
+            setIsDecoding(false);
         };
         decode();
         return () => { active = false; };

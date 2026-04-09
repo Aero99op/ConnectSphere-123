@@ -112,7 +112,6 @@ export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerPro
             setPlayingId(null);
         } else {
             audioRef.preload = "auto";
-            audioRef.crossOrigin = "anonymous";
             audioRef.src = track.url;
             audioRef.play().catch(() => { });
             setPlayingId(track.id);
