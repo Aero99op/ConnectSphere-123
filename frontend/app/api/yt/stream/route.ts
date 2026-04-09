@@ -40,16 +40,20 @@ export async function GET(req: Request) {
                 continue;
             }
 
-            // Successfully connected to a stream
+            // Successful connected to a stream: Boost headers for Parallel Turbo Engine
+            const responseHeaders = new Headers(res.headers);
+            responseHeaders.set('Access-Control-Allow-Origin', '*');
+            responseHeaders.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+            responseHeaders.set('Access-Control-Allow-Headers', 'Range');
+            responseHeaders.set('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
+            responseHeaders.set('Accept-Ranges', 'bytes');
+            
+            // GLOBAL EDGE CACHING: If any user plays it, everyone gets it instantly from Cloudflare Edge
+            responseHeaders.set('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, stale-while-revalidate=86400, immutable'); 
+
             return new NextResponse(res.body, {
                 status: res.status,
-                headers: {
-                    'Content-Type': res.headers.get('Content-Type') || 'audio/mpeg',
-                    'Content-Length': res.headers.get('Content-Length') || '',
-                    'Accept-Ranges': 'bytes',
-                    'Access-Control-Allow-Origin': '*',
-                    'Cache-Control': 'public, max-age=86400'
-                }
+                headers: responseHeaders
             });
         } catch (e) {
             console.warn(`Stream unreachable for ${instance}:`, e);

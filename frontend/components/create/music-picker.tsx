@@ -94,17 +94,16 @@ export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerPro
             setResults(data);
             setSearching(false);
             
-            // ELITE PREFETCH v2: Fetch headers for ALL results instantly (tiny 16KB hit)
-            data.forEach(track => {
-                fetch(track.url, { headers: { 'Range': 'bytes=0-16384' }, priority: 'low' }).catch(() => {});
+            // ELITE PREFETCH v3: Trigger FULL background caching for top results (Macrosecond + Zero-Internet)
+            data.slice(0, 5).forEach(track => {
+                fetch(track.url, { priority: 'low' }).catch(() => {});
             });
         }, 600);
     }, [musicSource]);
 
-    // PREDICTIVE ENGINE: Fetch more buffer when a track is "in view" or "hovered"
+    // PREDICTIVE ENGINE: Warm up the browser handshake
     const predictivePrefetch = useCallback((url: string, intensity: 'low' | 'high' = 'low') => {
-        const range = intensity === 'high' ? '0-1000000' : '0-256000';
-        fetch(url, { headers: { 'Range': `bytes=${range}` }, priority: 'low' }).catch(() => {});
+        fetch(url, { priority: 'low', mode: 'no-cors' }).catch(() => {});
     }, []);
 
     // SYNC PREFETCH: When a track is selected, pre-cache the ENTIRE file in background
@@ -121,6 +120,8 @@ export function MusicPicker({ onSelect, selectedTrack, onClose }: MusicPickerPro
             audioRef.pause();
             setPlayingId(null);
         } else {
+            audioRef.preload = "auto";
+            audioRef.crossOrigin = "anonymous";
             audioRef.src = track.url;
             audioRef.play().catch(() => { });
             setPlayingId(track.id);
