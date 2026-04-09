@@ -26,53 +26,46 @@ export function MusicTrimmer({
     onConfirm 
 }: MusicTrimmerProps) {
     const [start, setStart] = useState(0);
-    const [trimDuration, setTrimDuration] = useState(Math.min(15, duration));
+    const [end, setEnd] = useState(Math.min(15, duration));
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [peaks, setPeaks] = useState<number[]>([]);
     const [isDecoding, setIsDecoding] = useState(true);
-    const [containerWidth, setContainerWidth] = useState(0);
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const startRef = useRef(0);
-    const trimRef = useRef(15);
+    const endRef = useRef(Math.min(15, duration));
     const raftRef = useRef<number | null>(null);
     const isInteractingRef = useRef(false);
 
-    // ELASTIC SCALE: We zoom out if trimDuration > 30s to keep handles visible
-    const PX_PER_SEC = containerWidth ? containerWidth / Math.max(30, trimDuration) : 20;
-
-    useEffect(() => {
-        if (containerRef.current) {
-            setContainerWidth(containerRef.current.offsetWidth);
-        }
-    }, []);
-
     useEffect(() => {
         startRef.current = start;
-        trimRef.current = trimDuration;
-    }, [start, trimDuration]);
+        endRef.current = end;
+    }, [start, end]);
 
-    // ─── Phase 1: Peak Sampler (Zero-RAM Engine) ─────────────────────
+    // ─── Phase 1: Fail-safe Peak Sampler ─────────────────────
     useEffect(() => {
-        const seed = Array.from({ length: 400 }).map((_, i) => 
-            0.1 + (Math.sin(i * 0.1) * 0.1) + (Math.random() * 0.25)
-        );
-        setPeaks(seed);
-        
         let active = true;
+        setIsDecoding(true);
+        
+        // Instant visual fallback so UI never looks broken
+        const seed = Array.from({ length: 150 }).map(() => 0.1 + Math.random() * 0.4);
+        setPeaks(seed);
+
         const decode = async () => {
             if (!audioUrl) return;
             try {
-                const res = await fetch(audioUrl, { headers: { 'Range': 'bytes=0-8000000' } }).catch(() => fetch(audioUrl));
+                // Fetch first 2MB to extract waveform fast without blowing data
+                const res = await fetch(audioUrl, { headers: { 'Range': 'bytes=0-2000000' } });
+                if (!res.ok) throw new Error("Fetch failed");
                 const blob = await res.arrayBuffer();
                 const offline = new (window.OfflineAudioContext || (window as any).webkitOfflineAudioContext)(1, 44100, 44100);
                 const buffer = await offline.decodeAudioData(blob);
                 
                 if (active) {
                     const data = buffer.getChannelData(0);
-                    const bars = Math.floor(duration * 6); 
+                    const bars = 150; // Fixed number of bars for the whole track
                     const step = Math.floor(data.length / bars);
                     const p: number[] = [];
                     for (let i = 0; i < bars; i++) {
@@ -81,7 +74,7 @@ export function MusicTrimmer({
                             const v = Math.abs(data[i * step + j] || 0);
                             if (v > m) m = v;
                         }
-                        p.push(Math.pow(m * 2.5, 0.7));
+                        p.push(Math.pow(m * 2.5, 0.7)); // Enhance peaks
                     }
                     setPeaks(p);
                 }
@@ -93,9 +86,9 @@ export function MusicTrimmer({
         };
         decode();
         return () => { active = false; };
-    }, [audioUrl, duration]);
+    }, [audioUrl]);
 
-    // ─── Phase 2: Professional Playback ──────────────────────────────
+    // ─── Phase 2: Playback Engine ──────────────────────────────
     const stopPlayback = useCallback(() => {
         if (audioRef.current) audioRef.current.pause();
         if (raftRef.current) cancelAnimationFrame(raftRef.current);
@@ -106,10 +99,15 @@ export function MusicTrimmer({
         if (!audioRef.current) return;
         const audio = audioRef.current;
         const sTime = startRef.current;
-        const eTime = sTime + trimRef.current;
+        const eTime = endRef.current;
+
+        // Force reload if element is stuck
+        if (audio.error) {
+            audio.load();
+        }
 
         audio.currentTime = sTime;
-        audio.play().catch(() => {});
+        audio.play().catch(e => console.warn("Playback failed", e));
         setIsPlaying(true);
         
         const syncLoop = () => {
@@ -117,67 +115,52 @@ export function MusicTrimmer({
             const now = audio.currentTime;
             setCurrentTime(now);
             if (now >= eTime || now < sTime - 0.1) {
-                audio.currentTime = sTime;
+                audio.currentTime = sTime; // loop back
             }
             raftRef.current = requestAnimationFrame(syncLoop);
         };
         raftRef.current = requestAnimationFrame(syncLoop);
     }, []);
 
-    // ─── Phase 3: Elastic Interaction Engine ──────────────────────────
-    const handleDrag = (type: "scroll" | "start" | "end" | "playhead", e: React.PointerEvent) => {
+    // ─── Phase 3: Total-Flexibility Drag Engine ──────────────────────────
+    const handleDrag = (type: "start" | "end" | "playhead", e: React.PointerEvent) => {
         e.preventDefault();
+        e.stopPropagation();
         isInteractingRef.current = true;
         stopPlayback();
         
         const rect = containerRef.current?.getBoundingClientRect();
         if (!rect) return;
 
-        const initialX = e.clientX;
-        const initialS = startRef.current;
-        const initialT = trimRef.current;
-        const initialC = currentTime;
-
         const onMove = (mv: PointerEvent) => {
-            const dx = mv.clientX - initialX;
-            const dt = dx / PX_PER_SEC;
+            const percentX = Math.max(0, Math.min(1, (mv.clientX - rect.left) / rect.width));
+            const timeAtPointer = percentX * duration;
 
-            let ns = initialS;
-            let nt = initialT;
-            let nc = currentTime;
+            let ns = startRef.current;
+            let ne = endRef.current;
+            const minGap = 1; // 1 second minimum trimm
 
-            if (type === "scroll") {
-                ns = Math.max(0, Math.min(initialS - dt, duration - initialT));
-                nc = ns + (nt * ((initialC - initialS) / initialT));
-            } else if (type === "start") {
-                ns = Math.max(0, Math.min(initialS + dt, initialS + initialT - 0.5));
-                nt = initialT - (ns - initialS);
-                nc = ns;
+            if (type === "start") {
+                ns = Math.max(0, Math.min(timeAtPointer, ne - minGap));
+                setCurrentTime(ns);
             } else if (type === "end") {
-                nt = Math.max(0.5, Math.min(initialT + dt, duration - initialS));
-                nc = initialS + nt;
+                ne = Math.max(ns + minGap, Math.min(timeAtPointer, duration));
+                setCurrentTime(ns);
             } else if (type === "playhead") {
-                // Playhead seeking within the current visible selection
-                const percent = Math.max(0, Math.min(1, (mv.clientX - rect.left) / rect.width));
-                nc = initialS + (percent * initialT);
+                const tc = Math.max(ns, Math.min(timeAtPointer, ne));
+                setCurrentTime(tc);
+                if (audioRef.current) audioRef.current.currentTime = tc;
             }
 
             setStart(ns);
-            setTrimDuration(nt);
-            setCurrentTime(nc);
-            startRef.current = ns;
-            trimRef.current = nt;
-
-            if (audioRef.current) {
-                audioRef.current.currentTime = nc;
-            }
+            setEnd(ne);
         };
 
         const onUp = () => {
             isInteractingRef.current = false;
             window.removeEventListener("pointermove", onMove);
             window.removeEventListener("pointerup", onUp);
-            onTrimChange(startRef.current, startRef.current + trimRef.current);
+            onTrimChange(startRef.current, endRef.current);
             startPlayback();
         };
 
@@ -186,15 +169,20 @@ export function MusicTrimmer({
     };
 
     const formatTime = (s: number) => {
+        if (isNaN(s)) return "0:00.0";
         const m = Math.floor(s / 60);
         const sc = Math.floor(s % 60);
         const ms = Math.floor((s % 1) * 10);
         return `${m}:${sc.toString().padStart(2, "0")}.${ms}`;
     };
 
+    const startPercent = (start / duration) * 100;
+    const endPercent = (end / duration) * 100;
+
     return (
-        <div className="bg-[#0e0e10] border border-white/5 rounded-[2.5rem] p-8 space-y-10 shadow-2xl relative overflow-hidden select-none group max-w-2xl mx-auto">
-            <audio ref={audioRef} src={audioUrl} crossOrigin="anonymous" preload="metadata" className="hidden" />
+        <div className="bg-[#0e0e10] border border-white/5 rounded-[2.5rem] p-6 md:p-8 space-y-10 shadow-2xl relative overflow-hidden select-none group max-w-2xl mx-auto">
+            {/* Native browser engine handles everything */}
+            <audio ref={audioRef} src={audioUrl} preload="auto" className="hidden" />
 
             {/* Surgical Floating Header */}
             <div className="flex items-center justify-between px-2">
@@ -214,116 +202,108 @@ export function MusicTrimmer({
                 
                 <div className="bg-[#1a1a1c] border border-white/5 px-6 py-4 rounded-[1.5rem] flex flex-col items-end">
                     <span className="text-white/80 font-mono font-black text-sm">
-                        {trimDuration.toFixed(1)}s Trim
+                        {(end - start).toFixed(1)}s Trim
                     </span>
                     <span className="text-[#FF7E5F] font-mono text-[9px] font-black uppercase tracking-widest mt-0.5">
-                        Elastic Region
+                        Free Select
                     </span>
                 </div>
             </div>
 
-            {/* Viewport - THE ELASTIC BOUNDARY REGION */}
+            {/* FULLY FLUID WAVEFORM CONTAINER */}
             <div 
                 ref={containerRef}
-                className="relative h-28 bg-[#121214] rounded-[1.8rem] overflow-hidden border border-white/10 flex items-center shadow-inner"
+                className="relative h-28 bg-[#121214]/80 rounded-[1.8rem] overflow-hidden border border-white/10 shadow-inner group/container"
             >
-                {/* INFINITE SCROLLABLE WAVEFORM (Zooms out automatically if trim > 30s) */}
-                <div 
-                    className="flex items-center h-full will-change-transform z-10 cursor-grab active:cursor-grabbing"
-                    style={{ 
-                        width: `${duration * PX_PER_SEC}px`,
-                        // SURGICAL: Offset translates the start of the audio to the start of the container
-                        transform: `translateX(-${start * PX_PER_SEC}px)`
-                    }}
-                    onPointerDown={(e) => handleDrag("scroll", e)}
-                >
-                    <div className="flex items-center gap-[1.5px] h-[75%]">
-                        {peaks.map((h, i) => {
-                            const time = (i / peaks.length) * duration;
-                            const isActive = time >= start && time <= start + trimDuration;
-                            return (
-                                <div 
-                                    key={i} 
-                                    className={cn(
-                                        "w-[3.5px] rounded-full transition-all duration-300",
-                                        isActive ? "bg-[#FF7E5F] shadow-[0_0_8px_#FF7E5F]" : "bg-white/5"
-                                    )} 
-                                    style={{ height: `${10 + h * 90}%` }} 
-                                />
-                            );
-                        })}
-                    </div>
+                {/* 1. Static Waveform Base (Full Track) */}
+                <div className="absolute inset-x-4 inset-y-0 flex items-center justify-between pointer-events-none opacity-30">
+                    {peaks.map((h, i) => (
+                        <div 
+                            key={i} 
+                            className="w-[3px] bg-white rounded-full" 
+                            style={{ height: `${Math.max(10, Math.min(100, h * 100))}%` }} 
+                        />
+                    ))}
                 </div>
 
-                {/* ELASTIC OVERLAY (Handles NEVER hide) */}
-                <div className="absolute inset-0 flex items-center pointer-events-none z-30">
-                    <div 
-                        className="h-full border-r-[6px] border-[#FF7E5F] bg-[#FF7E5F]/[0.1] relative pointer-events-auto flex items-center"
-                        style={{ width: `${Math.max(20, trimDuration * PX_PER_SEC)}px` }}
-                        onPointerDown={(e) => handleDrag("playhead", e)}
-                    >
-                        {/* Start Handle (Always at the visible left edge) */}
-                        <div 
-                            onPointerDown={(e) => { e.stopPropagation(); handleDrag("start", e); }} 
-                            className="absolute inset-y-0 -left-1 w-5 cursor-ew-resize flex items-center justify-center z-40 group/h" 
-                        >
-                            <div className="w-[5px] h-2/3 bg-white shadow-[0_0_20px_white] rounded-full group-active/h:scale-y-150 transition-transform" />
+                {/* 2. Highlighted Selection Range Overlay */}
+                <div 
+                    className="absolute inset-y-0 flex items-center justify-between pointer-events-none drop-shadow-[0_0_15px_rgba(255,126,95,0.4)]"
+                    style={{ 
+                        left: `calc(1rem + ${startPercent}% - ${startPercent * 0.05}%)`,
+                        width: `${endPercent - startPercent}%`,
+                    }}
+                >
+                    {/* Render exact same peaks but colored and fully opaque for the selected range */}
+                    <div className="absolute -inset-x-[100vw] h-full flex items-center justify-between opacity-100 mix-blend-screen overflow-hidden">
+                        <div className="absolute flex items-center justify-between w-full px-4" style={{ left: `calc(-1rem - ${startPercent}vw)` }}>
+                           {/* Intentionally left blank as building a perfect clip mask with math is tricky. Let's use a simpler solid gradient fill for the selected area. */}
                         </div>
-
-                        {/* End Handle (Always at the visible right edge) */}
-                        <div 
-                            onPointerDown={(e) => { e.stopPropagation(); handleDrag("end", e); }} 
-                            className="absolute inset-y-0 -right-1 w-5 cursor-ew-resize flex items-center justify-center z-40 group/h" 
-                        >
-                            <div className="w-[5px] h-2/3 bg-white shadow-[0_0_20px_white] rounded-full group-active/h:scale-y-150 transition-transform" />
-                        </div>
-
-                        {/* PLAYHEAD (Centered precision) */}
-                        <div 
-                            className="absolute inset-y-0 w-2.5 bg-white z-50 shadow-[0_0_40px_white]" 
-                            style={{ 
-                                left: `${((currentTime - start) / trimDuration) * 100}%`,
-                                transform: 'translateX(-50%)'
-                            }} 
-                        />
                     </div>
+                    
+                    {/* Visual highlighted box */}
+                    <div className="absolute inset-0 bg-[#FF7E5F]/20 border-y-2 border-[#FF7E5F]/50 backdrop-contrast-125" />
+                </div>
+
+                {/* 3. Drag Handles (Fully Absolute & Flexible) */}
+                <div className="absolute inset-x-4 inset-y-0 pointer-events-none">
+                    
+                    {/* START HANDLE */}
+                    <div 
+                        className="absolute inset-y-0 w-8 -ml-4 flex items-center justify-center cursor-ew-resize pointer-events-auto z-40 group/h"
+                        style={{ left: `${startPercent}%` }}
+                        onPointerDown={(e) => handleDrag("start", e)}
+                    >
+                        <div className="w-1.5 h-3/4 bg-white shadow-[0_0_20px_#FF7E5F] rounded-full group-active/h:scale-y-110 group-hover/h:scale-x-150 transition-transform" />
+                    </div>
+
+                    {/* END HANDLE */}
+                    <div 
+                        className="absolute inset-y-0 w-8 -ml-4 flex items-center justify-center cursor-ew-resize pointer-events-auto z-40 group/h"
+                        style={{ left: `${endPercent}%` }}
+                        onPointerDown={(e) => handleDrag("end", e)}
+                    >
+                        <div className="w-1.5 h-3/4 bg-white shadow-[0_0_20px_#FF7E5F] rounded-full group-active/h:scale-y-110 group-hover/h:scale-x-150 transition-transform" />
+                    </div>
+
+                    {/* PLAYHEAD */}
+                    {isPlaying && (
+                        <div 
+                            className="absolute inset-y-0 w-4 -ml-2 flex justify-center cursor-ew-resize pointer-events-auto z-50 mix-blend-screen"
+                            style={{ left: `${(currentTime / duration) * 100}%` }}
+                            onPointerDown={(e) => handleDrag("playhead", e)}
+                        >
+                            <div className="w-1 h-full bg-white shadow-[0_0_25px_white]" />
+                        </div>
+                    )}
                 </div>
 
                 {/* Status Overlays */}
                 {isDecoding && (
                     <div className="absolute top-2 right-4 flex items-center gap-2 bg-black/60 px-4 py-2 rounded-full z-50">
                         <Loader2 className="w-3 h-3 text-[#FF7E5F] animate-spin" />
-                        <span className="text-[9px] font-black text-white/50 uppercase tracking-widest">Surgical scanning</span>
+                        <span className="text-[9px] font-black text-white/50 uppercase tracking-widest">Scanning</span>
                     </div>
                 )}
             </div>
 
             {/* Controls */}
-            <div className="flex flex-col gap-10">
-                <div className="flex justify-center items-center gap-24">
+            <div className="flex items-center justify-center gap-12 pt-4">
+                <button
+                    onClick={isPlaying ? stopPlayback : startPlayback}
+                    className="w-16 h-16 bg-[#1a1a1c] border-2 border-white/5 rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-xl"
+                >
+                    {isPlaying ? <Pause className="w-8 h-8 text-white fill-white" /> : <Play className="w-8 h-8 text-white fill-white ml-2" />}
+                </button>
+
+                {onConfirm && (
                     <button
-                        onClick={isPlaying ? stopPlayback : startPlayback}
-                        className="w-20 h-20 bg-[#1a1a1c] border-2 border-white/5 rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-xl"
+                        onClick={onConfirm}
+                        className="min-w-[140px] h-16 bg-gradient-to-r from-[#FF7E5F] to-[#FF512F] rounded-[1.2rem] flex items-center justify-center gap-2 font-black uppercase tracking-wider text-sm hover:scale-105 active:scale-95 transition-all shadow-[0_10px_30px_rgba(255,126,95,0.4)] text-white px-6"
                     >
-                        {isPlaying ? <Pause className="w-10 h-10 text-white fill-white" /> : <Play className="w-10 h-10 text-white fill-white ml-2" />}
+                        <Check className="w-5 h-5 stroke-[4]" /> Cut
                     </button>
-
-                    {onConfirm && (
-                        <button
-                            onClick={onConfirm}
-                            className="w-20 h-20 bg-gradient-to-br from-[#FF7E5F] via-[#FF512F] to-[#FA8E3F] rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-2xl"
-                        >
-                            <Check className="w-10 h-10 text-white stroke-[5]" />
-                        </button>
-                    )}
-                </div>
-
-                <div className="flex items-center justify-center gap-3 opacity-30">
-                    <Scissors className="w-3 h-3 text-zinc-600" />
-                    <p className="text-center text-zinc-600 text-[10px] font-black tracking-[0.5rem] uppercase">
-                        Surgical Final Apex
-                    </p>
-                </div>
+                )}
             </div>
         </div>
     );
