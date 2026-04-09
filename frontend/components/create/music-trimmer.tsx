@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 interface MusicTrimmerProps {
     audioUrl: string;
-    duration: number; 
+    duration: number;
     onTrimChange: (start: number, end: number) => void;
     onConfirm?: () => void;
 }
@@ -19,11 +19,11 @@ interface MusicTrimmerProps {
  * 3. Constant Visibility: Handles never "hide"; they stick to viewport edges.
  * 4. Microsecond Absolute Tracker: Top header is a surgical clock.
  */
-export function MusicTrimmer({ 
-    audioUrl, 
-    duration = 30, 
-    onTrimChange, 
-    onConfirm 
+export function MusicTrimmer({
+    audioUrl,
+    duration = 30,
+    onTrimChange,
+    onConfirm
 }: MusicTrimmerProps) {
     const [start, setStart] = useState(0);
     const [end, setEnd] = useState(Math.min(15, duration));
@@ -48,16 +48,41 @@ export function MusicTrimmer({
     useEffect(() => {
         let active = true;
         setIsDecoding(true);
-        
+
         // Instant visual fallback so UI never looks broken
         const seed = Array.from({ length: 150 }).map(() => 0.1 + Math.random() * 0.4);
         setPeaks(seed);
 
         const decode = async () => {
-            if (!active) return;
-            // Removed audio buffer fetching due to strict CORS rules on CDNs.
-            // Generates completely hardware-accelerated cosmetic peaks instantly.
-            setIsDecoding(false);
+            if (!audioUrl) return;
+            try {
+                // Fetch first 2MB to extract waveform fast without blowing data
+                const res = await fetch(audioUrl, { headers: { 'Range': 'bytes=0-2000000' } });
+                if (!res.ok) throw new Error("Fetch failed");
+                const blob = await res.arrayBuffer();
+                const offline = new (window.OfflineAudioContext || (window as any).webkitOfflineAudioContext)(1, 44100, 44100);
+                const buffer = await offline.decodeAudioData(blob);
+
+                if (active) {
+                    const data = buffer.getChannelData(0);
+                    const bars = 150; // Fixed number of bars for the whole track
+                    const step = Math.floor(data.length / bars);
+                    const p: number[] = [];
+                    for (let i = 0; i < bars; i++) {
+                        let m = 0;
+                        for (let j = 0; j < step; j += 40) {
+                            const v = Math.abs(data[i * step + j] || 0);
+                            if (v > m) m = v;
+                        }
+                        p.push(Math.pow(m * 2.5, 0.7)); // Enhance peaks
+                    }
+                    setPeaks(p);
+                }
+            } catch (e) {
+                console.warn("Using fallback visuals.");
+            } finally {
+                if (active) setIsDecoding(false);
+            }
         };
         decode();
         return () => { active = false; };
@@ -68,7 +93,7 @@ export function MusicTrimmer({
         if (!audioRef.current) return;
         setIsPlaying(false);
         if (raftRef.current) cancelAnimationFrame(raftRef.current);
-        
+
         // Wait for any pending play promise to resolve before pausing to avoid AbortError
         setTimeout(() => {
             if (audioRef.current && !audioRef.current.paused) {
@@ -98,7 +123,7 @@ export function MusicTrimmer({
             });
         }
         setIsPlaying(true);
-        
+
         const syncLoop = () => {
             if (isInteractingRef.current) return;
             const now = audio.currentTime;
@@ -117,7 +142,7 @@ export function MusicTrimmer({
         e.stopPropagation();
         isInteractingRef.current = true;
         stopPlayback();
-        
+
         const rect = containerRef.current?.getBoundingClientRect();
         if (!rect) return;
 
@@ -188,7 +213,7 @@ export function MusicTrimmer({
                         </span>
                     </div>
                 </div>
-                
+
                 <div className="bg-[#1a1a1c] border border-white/5 px-6 py-4 rounded-[1.5rem] flex flex-col items-end">
                     <span className="text-white/80 font-mono font-black text-sm">
                         {(end - start).toFixed(1)}s Trim
@@ -200,25 +225,25 @@ export function MusicTrimmer({
             </div>
 
             {/* FULLY FLUID WAVEFORM CONTAINER */}
-            <div 
+            <div
                 ref={containerRef}
                 className="relative h-28 bg-[#121214]/80 rounded-[1.8rem] overflow-hidden border border-white/10 shadow-inner group/container"
             >
                 {/* 1. Static Waveform Base (Full Track) */}
                 <div className="absolute inset-x-4 inset-y-0 flex items-center justify-between pointer-events-none opacity-30">
                     {peaks.map((h, i) => (
-                        <div 
-                            key={i} 
-                            className="w-[3px] bg-white rounded-full" 
-                            style={{ height: `${Math.max(10, Math.min(100, h * 100))}%` }} 
+                        <div
+                            key={i}
+                            className="w-[3px] bg-white rounded-full"
+                            style={{ height: `${Math.max(10, Math.min(100, h * 100))}%` }}
                         />
                     ))}
                 </div>
 
                 {/* 2. Highlighted Selection Range Overlay */}
-                <div 
+                <div
                     className="absolute inset-y-0 flex items-center justify-between pointer-events-none drop-shadow-[0_0_15px_rgba(255,126,95,0.4)]"
-                    style={{ 
+                    style={{
                         left: `calc(1rem + ${startPercent}% - ${startPercent * 0.05}%)`,
                         width: `${endPercent - startPercent}%`,
                     }}
@@ -226,19 +251,19 @@ export function MusicTrimmer({
                     {/* Render exact same peaks but colored and fully opaque for the selected range */}
                     <div className="absolute -inset-x-[100vw] h-full flex items-center justify-between opacity-100 mix-blend-screen overflow-hidden">
                         <div className="absolute flex items-center justify-between w-full px-4" style={{ left: `calc(-1rem - ${startPercent}vw)` }}>
-                           {/* Intentionally left blank as building a perfect clip mask with math is tricky. Let's use a simpler solid gradient fill for the selected area. */}
+                            {/* Intentionally left blank as building a perfect clip mask with math is tricky. Let's use a simpler solid gradient fill for the selected area. */}
                         </div>
                     </div>
-                    
+
                     {/* Visual highlighted box */}
                     <div className="absolute inset-0 bg-[#FF7E5F]/20 border-y-2 border-[#FF7E5F]/50 backdrop-contrast-125" />
                 </div>
 
                 {/* 3. Drag Handles (Fully Absolute & Flexible) */}
                 <div className="absolute inset-x-4 inset-y-0 pointer-events-none">
-                    
+
                     {/* START HANDLE */}
-                    <div 
+                    <div
                         className="absolute inset-y-0 w-8 -ml-4 flex items-center justify-center cursor-ew-resize pointer-events-auto z-40 group/h"
                         style={{ left: `${startPercent}%` }}
                         onPointerDown={(e) => handleDrag("start", e)}
@@ -247,7 +272,7 @@ export function MusicTrimmer({
                     </div>
 
                     {/* END HANDLE */}
-                    <div 
+                    <div
                         className="absolute inset-y-0 w-8 -ml-4 flex items-center justify-center cursor-ew-resize pointer-events-auto z-40 group/h"
                         style={{ left: `${endPercent}%` }}
                         onPointerDown={(e) => handleDrag("end", e)}
@@ -257,7 +282,7 @@ export function MusicTrimmer({
 
                     {/* PLAYHEAD */}
                     {isPlaying && (
-                        <div 
+                        <div
                             className="absolute inset-y-0 w-4 -ml-2 flex justify-center cursor-ew-resize pointer-events-auto z-50 mix-blend-screen"
                             style={{ left: `${(currentTime / duration) * 100}%` }}
                             onPointerDown={(e) => handleDrag("playhead", e)}
