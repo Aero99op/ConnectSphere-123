@@ -19,6 +19,7 @@ import {
     keyStore 
 } from "@/lib/crypto/e2ee";
 import { EncryptedMedia } from "./encrypted-media";
+import Link from "next/link";
 
 
 interface PresenceUser {
@@ -974,15 +975,28 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                     <button onClick={onBack} className="p-2 -ml-2 rounded-full hover:bg-white/10 text-white transition-all active:scale-90">
                         <ChevronLeft className="w-6 h-6" />
                     </button>
-                    <div className="relative group cursor-pointer">
-                        <Avatar className="h-9 w-9 border border-white/10 ring-2 ring-transparent group-hover:ring-orange-500/30 transition-all">
-                            <AvatarImage src={recipientAvatar} />
-                            <AvatarFallback className="bg-zinc-800 text-zinc-400">{recipientName?.[0]}</AvatarFallback>
-                        </Avatar>
-                        {!isGroup && isUserOnline(recipientId) && !recipientHideStatus && (!recipientGhostUntil || new Date(recipientGhostUntil) < new Date()) && <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-black rounded-full" />}
-                    </div>
+                    {!isGroup ? (
+                        <Link href={`/profile/${recipientId}`} className="relative group cursor-pointer active:scale-95 transition-transform">
+                            <Avatar className="h-9 w-9 border border-white/10 ring-2 ring-transparent group-hover:ring-orange-500/30 transition-all">
+                                <AvatarImage src={recipientAvatar} />
+                                <AvatarFallback className="bg-zinc-800 text-zinc-400">{recipientName?.[0]}</AvatarFallback>
+                            </Avatar>
+                            {isUserOnline(recipientId) && !recipientHideStatus && (!recipientGhostUntil || new Date(recipientGhostUntil) < new Date()) && <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-black rounded-full" />}
+                        </Link>
+                    ) : (
+                        <div className="relative group">
+                            <Avatar className="h-9 w-9 border border-white/10 transition-all">
+                                <AvatarImage src={recipientAvatar} />
+                                <AvatarFallback className="bg-zinc-800 text-zinc-400">{recipientName?.[0]}</AvatarFallback>
+                            </Avatar>
+                        </div>
+                    )}
                     <div className="flex flex-col justify-center -space-y-0.5">
-                        <span className="font-bold text-[15px] text-white tracking-tight">{recipientName}</span>
+                        {!isGroup ? (
+                            <Link href={`/profile/${recipientId}`} className="font-bold text-[15px] text-white tracking-tight hover:text-orange-500 transition-colors uppercase">{recipientName}</Link>
+                        ) : (
+                            <span className="font-bold text-[15px] text-white tracking-tight">{recipientName}</span>
+                        )}
                         {isGroup ? (
                             <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Mandli</span>
                         ) : (
@@ -1090,20 +1104,20 @@ export function ChatView({ conversationId, recipientName, recipientAvatar, recip
                                         className={cn("flex flex-col gap-1 w-full", isMe ? "items-end" : "items-start")}
                                     >
                                         {showAvatar && (
-                                            <span className="text-[11px] text-zinc-500 ml-10 mb-0.5">
+                                            <Link href={`/profile/${msg.sender_id}`} className="text-[11px] text-zinc-500 ml-10 mb-0.5 hover:text-orange-400 transition-colors">
                                                 {msg.sender?.full_name || msg.sender?.username || "Unknown"}
-                                            </span>
+                                            </Link>
                                         )}
                                         <div className={cn("flex gap-2 max-w-[85%] md:max-w-[70%]", isMe ? "flex-row-reverse" : "flex-row text-left")}>
                                             {showSender ? (
-                                                <div className="w-8 shrink-0">
+                                                <Link href={`/profile/${msg.sender_id}`} className="w-8 shrink-0 active:scale-95 transition-transform">
                                                     {showAvatar && (
-                                                        <Avatar className="w-8 h-8 border border-white/10">
+                                                        <Avatar className="w-8 h-8 border border-white/10 hover:border-orange-500/50 transition-colors">
                                                             <AvatarImage src={msg.sender?.avatar_url} />
                                                             <AvatarFallback>{msg.sender?.username?.[0]}</AvatarFallback>
                                                         </Avatar>
                                                     )}
-                                                </div>
+                                                </Link>
                                             ) : null}
 
                                             <div className={cn(

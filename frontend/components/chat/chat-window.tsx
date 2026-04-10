@@ -567,26 +567,45 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                 )}
 
                 <div className="flex items-center gap-2 relative z-10">
-                    <div className="relative">
-                        <Avatar className={cn(
-                            "h-8 w-8",
-                            theme === 'radiant-void' ? "rounded-lg border-white/10" : "border border-white/50"
-                        )}>
-                            <AvatarImage src={recipientAvatar} />
-                            <AvatarFallback>{recipientName?.[0]}</AvatarFallback>
-                        </Avatar>
-                        {!isGroup && isUserOnline(recipientId) && !recipientHideStatus && (!recipientGhostUntil || new Date(recipientGhostUntil) < new Date()) && (
-                            <div className={cn(
-                                "absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-black rounded-full",
-                                theme === 'radiant-void' ? "bg-accent" : "bg-green-500"
-                            )} />
-                        )}
-                    </div>
+                    {!isGroup ? (
+                        <Link href={`/profile/${recipientId}`} className="relative group cursor-pointer active:scale-95 transition-transform shrink-0">
+                            <Avatar className={cn(
+                                "h-8 w-8",
+                                theme === 'radiant-void' ? "rounded-lg border-white/10" : "border border-white/50"
+                            )}>
+                                <AvatarImage src={recipientAvatar} />
+                                <AvatarFallback>{recipientName?.[0]}</AvatarFallback>
+                            </Avatar>
+                            {isUserOnline(recipientId) && !recipientHideStatus && (!recipientGhostUntil || new Date(recipientGhostUntil) < new Date()) && (
+                                <div className={cn(
+                                    "absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-black rounded-full",
+                                    theme === 'radiant-void' ? "bg-accent" : "bg-green-500"
+                                )} />
+                            )}
+                        </Link>
+                    ) : (
+                        <div className="relative">
+                            <Avatar className={cn(
+                                "h-8 w-8",
+                                theme === 'radiant-void' ? "rounded-lg border-white/10" : "border border-white/50"
+                            )}>
+                                <AvatarImage src={recipientAvatar} />
+                                <AvatarFallback>{recipientName?.[0]}</AvatarFallback>
+                            </Avatar>
+                        </div>
+                    )}
                     <div className="flex flex-col">
-                        <span className={cn(
-                            "font-semibold text-sm truncate max-w-[120px]",
-                            theme === 'radiant-void' ? "text-white uppercase tracking-tight" : "text-white"
-                        )}>{recipientName}</span>
+                        {!isGroup ? (
+                            <Link href={`/profile/${recipientId}`} className={cn(
+                                "font-semibold text-sm truncate max-w-[120px] hover:text-primary transition-colors",
+                                theme === 'radiant-void' ? "text-white uppercase tracking-tight" : "text-white"
+                            )}>{recipientName}</Link>
+                        ) : (
+                            <span className={cn(
+                                "font-semibold text-sm truncate max-w-[120px]",
+                                theme === 'radiant-void' ? "text-white uppercase tracking-tight" : "text-white"
+                            )}>{recipientName}</span>
+                        )}
                         <span className={cn(
                             "text-[10px]",
                             theme === 'radiant-void' ? "text-primary italic font-medium" : "text-white/70"
@@ -627,16 +646,18 @@ export function ChatWindow({ conversationId, recipientName, recipientAvatar, rec
                         return (
                             <div key={msg.id} className={cn("flex flex-col gap-1.5", isMe ? "items-end" : "items-start")}>
                                 {showSender && (
-                                    <span className="text-[10px] text-zinc-500 ml-2 font-mono uppercase tracking-widest">
+                                    <Link href={`/profile/${msg.sender_id}`} className="text-[10px] text-zinc-500 ml-2 font-mono uppercase tracking-widest hover:text-primary transition-colors">
                                         {msg.sender?.full_name || msg.sender?.username || "Unknown"}
-                                    </span>
+                                    </Link>
                                 )}
                                 <div className={cn("flex items-end gap-2 max-w-[85%]", isMe ? "flex-row-reverse" : "flex-row")}>
                                     {showSender && (
-                                        <Avatar className="w-6 h-6 mb-1 rounded-sm overflow-hidden">
-                                            <AvatarImage src={msg.sender?.avatar_url} />
-                                            <AvatarFallback className="text-[8px]">{msg.sender?.username?.[0]}</AvatarFallback>
-                                        </Avatar>
+                                        <Link href={`/profile/${msg.sender_id}`} className="active:scale-95 transition-transform">
+                                            <Avatar className="w-6 h-6 mb-1 rounded-sm overflow-hidden">
+                                                <AvatarImage src={msg.sender?.avatar_url} />
+                                                <AvatarFallback className="text-[8px]">{msg.sender?.username?.[0]}</AvatarFallback>
+                                            </Avatar>
+                                        </Link>
                                     )}
 
                                     <div className={cn(
