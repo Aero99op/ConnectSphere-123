@@ -20,6 +20,7 @@ import {
 } from "@/lib/crypto/e2ee";
 import { uploadToCatbox } from "@/lib/catbox";
 import { EncryptedMedia } from "./encrypted-media";
+import Link from "next/link";
 
 interface ChatWindowProps {
     conversationId: string;
