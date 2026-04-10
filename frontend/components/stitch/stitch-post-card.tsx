@@ -206,11 +206,11 @@ export function StitchPostCard({ post }: PostProps) {
 
             {/* Media */}
             {post.media_type !== 'text' && post.media_urls && post.media_urls.length > 0 && post.media_urls[0] && (
-                <div className="relative aspect-square md:aspect-video w-full overflow-hidden bg-black/40 group-media">
+                <div className="relative min-h-[300px] flex items-center justify-center w-full overflow-hidden bg-black/40 group-media">
                     {post.media_type === 'image' ? (
                         <img 
                             src={post.media_urls[0]} 
-                            className="w-full h-full object-cover transition-transform duration-1000 group-hover/media:scale-105" 
+                            className="w-full h-auto max-h-[85vh] object-contain transition-transform duration-1000 group-hover/media:scale-105" 
                             onDoubleClick={handleLike}
                         />
                     ) : (
@@ -231,7 +231,7 @@ export function StitchPostCard({ post }: PostProps) {
                                     id={`stitch-video-${post.id}`}
                                     src={videoBlobUrl}
                                     autoPlay loop muted={isMuted} playsInline
-                                    className="w-full h-full object-cover animate-in fade-in duration-500"
+                                    className="w-full h-auto max-h-[85vh] object-contain animate-in fade-in duration-500"
                                 />
                             )}
                             {loadingVideo && (

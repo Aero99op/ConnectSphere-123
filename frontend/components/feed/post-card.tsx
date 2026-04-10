@@ -547,7 +547,7 @@ export function PostCard({ post }: PostProps) {
 
                 {/* 2. Media Content */}
                 {post.media_type !== 'text' && post.media_urls && post.media_urls.length > 0 && post.media_urls[0] && (
-                    <div className="relative w-full aspect-square md:aspect-[4/5] bg-black/40 overflow-hidden group-media border-b border-white/5">
+                    <div className="relative w-full min-h-[300px] flex items-center justify-center bg-black/40 overflow-hidden group-media border-b border-white/5">
                         {post.media_type === 'image' ? (
                             <img
                                 src={post.media_urls[0]}
@@ -557,7 +557,7 @@ export function PostCard({ post }: PostProps) {
                                     clipPath: (post as any).customization?.crop ?
                                         `inset(${(post as any).customization.crop.y}% ${100 - ((post as any).customization.crop.x + (post as any).customization.crop.w)}% ${100 - ((post as any).customization.crop.y + (post as any).customization.crop.h)}% ${(post as any).customization.crop.x}%)` : 'none'
                                 }}
-                                className="w-full h-full object-cover select-none transition-transform duration-700 group-hover/card:scale-105"
+                                className="w-full h-auto max-h-[85vh] object-contain select-none transition-transform duration-700 group-hover/card:scale-105"
                                 loading="eager"
                                 onDoubleClick={handleLike}
                             />
@@ -576,7 +576,7 @@ export function PostCard({ post }: PostProps) {
                                     preload="metadata"
                                     loop
                                     muted={isMuted}
-                                    className="w-full h-full object-cover transition-opacity duration-500"
+                                    className="w-full h-auto max-h-[85vh] object-contain transition-opacity duration-500"
                                     playsInline
                                     onPause={() => setIsPlaying(false)}
                                     onCanPlay={() => setIsBuffering(false)}
