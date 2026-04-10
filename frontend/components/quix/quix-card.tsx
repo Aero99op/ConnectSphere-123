@@ -140,6 +140,7 @@ export function QuixCard({ quix, isActive, shouldPreload, isMuted, setIsMuted }:
             if (audio) {
                 audio.pause();
                 audio.src = "";
+                audio.load();
                 audioRef.current = null;
             }
         };

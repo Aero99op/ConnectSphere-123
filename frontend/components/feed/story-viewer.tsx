@@ -206,7 +206,11 @@ export function StoryViewer({ initialStoryIndex, stories, onClose }: StoryViewer
         }
 
         return () => {
-            if (audio) audio.pause();
+            if (audio) {
+                audio.pause();
+                audio.src = "";
+                audio.load();
+            }
             if (video) {
                 video.removeEventListener('waiting', handleBuffering);
                 video.removeEventListener('playing', syncMusic);

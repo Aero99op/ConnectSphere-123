@@ -52,7 +52,7 @@ export function PostCard({ post }: PostProps) {
     const [isLoadingMedia, setIsLoadingMedia] = useState(false);
     const [isBuffering, setIsBuffering] = useState(false);
     const [musicPlaying, setMusicPlaying] = useState(false);
-    const musicAudioRef = useRef<HTMLAudioElement | null>(null);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
     const postRef = useRef<HTMLDivElement>(null);
     const [isFollowing, setIsFollowing] = useState<boolean | null>(null);
     const [isFollowingLoading, setIsFollowingLoading] = useState(false);
@@ -190,33 +190,36 @@ export function PostCard({ post }: PostProps) {
 
         if (video.paused) {
             video.play().catch(() => {});
-            if (audioRef.current && !isMuted) {
-                audioRef.current.play().catch((e) => console.log("Post audio unlock failed", e));
-            }
             setIsPlaying(true);
+            // Audio will be handled by the useEffect watching isPlaying
         } else {
             video.pause();
-            if (audioRef.current) audioRef.current.pause();
             setIsPlaying(false);
+            if (audioRef.current) {
+                audioRef.current.pause();
+                setMusicPlaying(false);
+            }
         }
     };
 
-    // Background Music Sync Logic
-    const audioRef = useRef<HTMLAudioElement | null>(null);
+    // 🎵 Unified In-App Library Music Engine (Pure Bawaal Level)
     useEffect(() => {
         const music = (post as any).customization?.music;
-        if (music?.url && !audioRef.current) {
+        if (!music?.url) return;
+
+        // 1. Creation logic: Create once per post/music URL
+        if (!audioRef.current) {
             const newAudio = new Audio();
             newAudio.crossOrigin = "anonymous";
             newAudio.src = music.url;
             newAudio.preload = "auto";
+            newAudio.loop = true;
+            newAudio.volume = 0.5;
             audioRef.current = newAudio;
         }
 
         const audio = audioRef.current;
         const video = document.getElementById(`video-${post.id}`) as HTMLVideoElement;
-        if (!audio) return;
-
         const startTime = music?.startTime || 0;
         const endTime = music?.endTime || audio.duration || 999;
 
@@ -237,36 +240,74 @@ export function PostCard({ post }: PostProps) {
             
             if (isMediaActive && !isMuted) {
                 syncMusic();
-                audio.play().catch((e: any) => console.log("Post audio blocked", e));
+                audio.play()
+                    .then(() => setMusicPlaying(true))
+                    .catch((e: any) => {
+                        console.log("Post audio blocked", e);
+                        setMusicPlaying(false);
+                    });
             } else {
                 audio.pause();
+                setMusicPlaying(false);
             }
         };
 
+        const timeUpdateHandler = () => {
+            if (audio.currentTime >= endTime - 0.1) {
+                audio.currentTime = startTime;
+            }
+        };
+
+        // 2. Event Listeners
+        audio.addEventListener('timeupdate', timeUpdateHandler);
+        
+        const videoPlayingHandler = () => { setIsBuffering(false); handleMediaState(); };
+        const videoWaitingHandler = () => { setIsBuffering(true); audio.pause(); setMusicPlaying(false); };
+        const videoPauseHandler = () => handleMediaState();
+
         if (video) {
-            video.addEventListener('playing', () => {
-                setIsBuffering(false);
-                handleMediaState();
-            });
-            video.addEventListener('waiting', () => {
-                setIsBuffering(true);
-                audio.pause();
-            });
-            video.addEventListener('pause', handleMediaState);
+            video.addEventListener('playing', videoPlayingHandler);
+            video.addEventListener('waiting', videoWaitingHandler);
+            video.addEventListener('pause', videoPauseHandler);
             video.addEventListener('canplay', () => setIsBuffering(false));
         }
 
-        // Handle Image posts or initial state
+        // 3. Intersection Observer (Autoplay/Pause based on visibility)
+        const observer = new IntersectionObserver((entries) => {
+            const entry = entries[0];
+            if (!entry.isIntersecting) {
+                audio.pause();
+                setMusicPlaying(false);
+                if (video && !video.paused) {
+                    video.pause();
+                    setIsPlaying(false);
+                }
+            } else {
+                handleMediaState();
+            }
+        }, { threshold: 0.6 });
+
+        if (postRef.current) observer.observe(postRef.current);
+
+        // Initial run
         handleMediaState();
 
+        // 4. Cleanup Logic (Force release resources on unmount)
         return () => {
+            observer.disconnect();
+            audio.removeEventListener('timeupdate', timeUpdateHandler);
             if (video) {
-                video.removeEventListener('playing', handleMediaState);
-                video.removeEventListener('pause', handleMediaState);
+                video.removeEventListener('playing', videoPlayingHandler);
+                video.removeEventListener('waiting', videoWaitingHandler);
+                video.removeEventListener('pause', videoPauseHandler);
             }
             audio.pause();
+            // Critical fix for persistence: Wipe src and load to tell browser to kill the socket
+            audio.src = "";
+            audio.load();
+            audioRef.current = null; 
         };
-    }, [isPlaying, isMuted, post.media_type, videoBlobUrl]);
+    }, [isPlaying, isMuted, post.media_type, videoBlobUrl, post.id, (post as any).customization?.music?.url]);
 
     const handleLike = async () => {
         if (!currentUserId) {
@@ -406,84 +447,18 @@ export function PostCard({ post }: PostProps) {
 
     // Music playback handler (Manual Override)
     const toggleMusic = () => {
-        if (!musicAudioRef.current) return;
+        if (!audioRef.current) return;
+        const audio = audioRef.current;
         if (musicPlaying) {
-            musicAudioRef.current.pause();
+            audio.pause();
             setMusicPlaying(false);
         } else {
-            musicAudioRef.current.play().then(() => setMusicPlaying(true)).catch((e) => {
+            audio.play().then(() => setMusicPlaying(true)).catch((e) => {
                 setMusicPlaying(false);
                 toast.error('Browser blocked autoplay! Tap again.');
             });
         }
     };
-
-    // Autoplay Music via Intersection Observer
-    useEffect(() => {
-        const musicData = (post as any).customization?.music;
-        if (!musicData?.url) return;
-
-        // Initialize audio engine
-        if (!musicAudioRef.current) {
-            const audio = new Audio(musicData.url);
-            audio.volume = 0.5;
-            audio.loop = true;
-            audio.onended = () => setMusicPlaying(false);
-            audio.onerror = () => setMusicPlaying(false);
-            musicAudioRef.current = audio;
-        }
-
-        // Intersection Observer logic
-        const observer = new IntersectionObserver(
-            (entries) => {
-                const entry = entries[0];
-                const audio = musicAudioRef.current;
-                if (!audio) return;
-
-                if (entry.isIntersecting) {
-                    if (musicData.startTime) {
-                        audio.currentTime = musicData.startTime;
-                    }
-                    audio.play()
-                        .then(() => setMusicPlaying(true))
-                        .catch(() => setMusicPlaying(false));
-                } else {
-                    audio.pause();
-                    setMusicPlaying(false);
-                }
-            },
-            { threshold: 0.6 }
-        );
-
-        // Core timeupdate logic (Add once per post mount)
-        const timeUpdateHandler = () => {
-            const audio = musicAudioRef.current;
-            if (!audio) return;
-            const start = musicData.startTime || 0;
-            const end = musicData.endTime || audio.duration;
-            if (audio.currentTime >= end - 0.1) {
-                audio.currentTime = start;
-            }
-        };
-
-        if (musicAudioRef.current) {
-            musicAudioRef.current.addEventListener('timeupdate', timeUpdateHandler);
-        }
-
-        if (postRef.current) observer.observe(postRef.current);
-
-        return () => {
-            if (postRef.current) observer.unobserve(postRef.current);
-            observer.disconnect();
-            
-            if (musicAudioRef.current) {
-                musicAudioRef.current.removeEventListener('timeupdate', timeUpdateHandler);
-                musicAudioRef.current.pause();
-                musicAudioRef.current.src = '';
-                musicAudioRef.current = null;
-            }
-        };
-    }, []);
 
     if (isDeleted) return null;
 
